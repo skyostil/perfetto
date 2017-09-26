@@ -22,10 +22,10 @@ config("extra_warnings") {
       "-Wno-c++98-compat-pedantic",
       "-Wno-c++98-compat",
       "-Wno-gnu-include-next",
+      "-Wno-gnu-statement-expression",
       "-Wno-padded",
       "-Wno-reserved-id-macro",
       "-Wno-unused-parameter",
-      "-Wno-gnu-statement-expression",
     ]
   }
 }
@@ -47,7 +47,7 @@ config("default") {
     "-fno-exceptions",
     "-fno-rtti",
     "-fstrict-aliasing",
-    "-fstack-protector-strong",
+    "-fstack-protector",
     "-fPIC",
     "-Wa,--noexecstack",
     "-Wformat",

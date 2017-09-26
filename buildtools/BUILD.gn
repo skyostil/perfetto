@@ -82,7 +82,10 @@ config("protobuf_config") {
     "-Wno-ignored-qualifiers",
   ]
   if (!is_clang) {
-    cflags += [ "-Wno-misleading-indentation" ]
+    cflags += [
+      "-Wno-misleading-indentation",
+      "-Wno-return-type",
+    ]
   } else {
     cflags += [
       "-Wno-used-but-marked-unused",

@@ -13,13 +13,19 @@
 # limitations under the License.
 
 set -e
+
+if [[ -n "$BASH_VERSION" && "${BASH_SOURCE:-$0}" == "$0" ]]; then
+  echo "ERROR: ${BASH_SOURCE:-$0} must be sourced"
+  exit 1
+fi
+
 readonly PROJECT_ROOT="$(cd -P ${BASH_SOURCE[0]%/*}/..; pwd)"
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
   darwin)
     readonly OS="mac";;
   linux)
-    readonly OS="linux";;
+    readonly OS="linux64";;
   *)
     echo "Unsupported platform"
     exit 1

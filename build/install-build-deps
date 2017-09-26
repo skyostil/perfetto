@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import hashlib
 import logging
 import os
@@ -101,15 +102,22 @@ def HashLocalFile(path):
 
 
 def ExtractZipfilePreservePermissions(zf, info, path):
-    zf.extract(info.filename, path=path)
-    target_path = os.path.join(path, info.filename)
-    min_acls = 0o755 if info.filename.endswith('/') else 0o644
-    os.chmod(target_path, (info.external_attr >> 16L) | min_acls)
+  zf.extract(info.filename, path=path)
+  target_path = os.path.join(path, info.filename)
+  min_acls = 0o755 if info.filename.endswith('/') else 0o644
+  os.chmod(target_path, (info.external_attr >> 16L) | min_acls)
 
 
 def Main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--skip', action='append', default=[])
+  args = parser.parse_args()
+  skip_set = set(args.skip)
   for rel_path, url, expected_sha1, platform in PREBUILTS:
     if platform != 'all' and platform != sys.platform:
+      continue
+    if os.path.basename(rel_path) in skip_set:
+      logging.info('Skipping %s because of --skip cmdline arg', rel_path)
       continue
     local_path = os.path.join(ROOT_DIR, rel_path)
     is_zip = local_path.lower().endswith('.zip')

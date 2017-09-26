@@ -14,4 +14,4 @@
 # limitations under the License.
 
 CMD="ninja"
-source "$(dirname "${BASH_SOURCE[0]}")/run-builtools-binary.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/run-buildtools-binary.sh"
