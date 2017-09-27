@@ -17,7 +17,7 @@ the `build/` prefix below and just use gn/ninja from depot_tools.
   target_cpu = "arm"  # or "arm64"
   is_debug = true  # or false for release
   ```
-- Run `ninja -C build/ninja all`
+- Run `build/ninja -C out/android all`
 
 
 Building from the Android tree
