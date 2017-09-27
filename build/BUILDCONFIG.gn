@@ -15,10 +15,17 @@
 declare_args() {
   is_debug = true
   is_clang = true
+}
 
+declare_args() {
   ar = "ar"
-  cc = "gcc"
-  cxx = "g++"
+  if (is_clang) {
+    cc = "clang"
+    cxx = "clang++"
+  } else {
+    cc = "gcc"
+    cxx = "g++"
+  }
 }
 
 # Platform detection
@@ -47,6 +54,7 @@ default_configs = [
   "//build:default",
   "//build:debug_symbols",
   "//build:extra_warnings",
+  "//build/sanitizers:sanitizers_cflags",
 ]
 
 if (!is_debug) {
@@ -55,19 +63,28 @@ if (!is_debug) {
 
 set_defaults("source_set") {
   configs = default_configs
+  deps = []
 }
 
 set_defaults("static_library") {
   configs = default_configs
+  deps = []
 }
 
 set_defaults("shared_library") {
   configs = default_configs
+  configs += [ "//build:shared_library" ]
+  deps = [
+    "//build:exe_and_shlib_deps",
+  ]
 }
 
 set_defaults("executable") {
   configs = default_configs
   configs += [ "//build:executable" ]
+  deps = [
+    "//build:exe_and_shlib_deps",
+  ]
 }
 
 set_default_toolchain("//build/toolchain:gcc_like")

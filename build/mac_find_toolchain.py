@@ -12,19 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-group("all") {
-  testonly = true  # allow to build also test targets
-  deps = [
-    ":tests",
-    "//buildtools:protobuf_lite",
-  ]
-  deps += [ "//buildtools:protoc($host_toolchain)" ]
-}
+import os
+import subprocess
+import sys
 
-group("tests") {
-  testonly = true
-  deps = [
-    "//libtracing:libtracing_unittests",
-    "//libtracing:sanitizers_unittests",
-  ]
-}
+def main():
+  job = subprocess.Popen(['xcrun', '-f', 'clang++'],
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+  out, err = job.communicate()
+  if job.returncode != 0:
+    print >> sys.stderr, out
+    print >> sys.stderr, err
+    return job.returncode
+  sdk_dir = os.path.dirname(os.path.dirname(out.rstrip()))
+  print sdk_dir
+
+if __name__ == '__main__':
+  sys.exit(main())
