@@ -12,15 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+source_set("libtracing") {
+  sources = [
+    "unix_socket.cc",
+  ]
+}
+
 executable("libtracing_unittests") {
   testonly = true
   deps += [
+    ":libtracing",
     "../buildtools:gmock",
     "../buildtools:gtest",
     "../buildtools:gtest_main",
   ]
   sources = [
-    "hello_world_unittest.cc",
+    "unix_socket_unittest.cc",
   ]
 }
 
