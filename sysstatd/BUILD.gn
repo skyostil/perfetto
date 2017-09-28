@@ -12,19 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-group("all") {
-  testonly = true  # allow to build also test targets
-  deps = [
-    ":tests",
-    "//buildtools:protobuf_lite",
+source_set("libsysstatd") {
+  sources = [
+    "raw_trace_reader.cc",
   ]
-  deps += [ "//buildtools:protoc($host_toolchain)" ]
 }
 
-group("tests") {
+executable("sysstatd_unittests") {
   testonly = true
   deps = [
-    "//libtracing:libtracing_unittests",
-    "//sysstatd:sysstatd_unittests",
+    "../buildtools:gmock",
+    "../buildtools:gtest",
+    "../buildtools:gtest_main",
+    ":libsysstatd",
+  ]
+  sources = [
+    "raw_trace_reader_unittest.cc",
   ]
 }
