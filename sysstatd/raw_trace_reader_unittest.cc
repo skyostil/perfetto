@@ -27,24 +27,9 @@ struct PipeEnds {
   int write_fd;
 };
 
-PipeEnds CreatePipe() {
-  int fds[2] = {-1, -1};
-  int status = pipe(fds);
-  int read_fd = fds[0];
-  int write_fd = fds[1];
-  EXPECT_NE(status, -1);
-  return PipeEnds{read_fd, write_fd};
-}
-
 TEST(RawTraceReader, InvalidFd) {
   ssize_t number_of_events = ReadRawPipe(-1);
   ASSERT_EQ(number_of_events, -1);
-}
-
-TEST(RawTraceReader, ReadEmpty) {
-  PipeEnds ends = CreatePipe();
-  ssize_t number_of_events = ReadRawPipe(ends.read_fd);
-  ASSERT_EQ(number_of_events, 0);
 }
 
 }  // namespace
