@@ -22,7 +22,6 @@
 #include <memory>
 
 #include "gtest/gtest.h"
-#include "libtracing/base.h"
 
 namespace perfetto {
 namespace {
@@ -51,12 +50,21 @@ TEST(SanitizerTests, TSAN_ThreadDataRace) {
     return nullptr;
   };
   void* arg = const_cast<void*>(reinterpret_cast<volatile void*>(&race_var));
-  CHECK(pthread_create(&thread, nullptr, thread_main, arg) == 0);
+  ASSERT_EQ(0, pthread_create(&thread, nullptr, thread_main, arg));
   for (int i = 0; i < kNumRuns; i++)
     race_var--;
-  CHECK(pthread_join(thread, nullptr) == 0);
+  ASSERT_EQ(0, pthread_join(thread, nullptr));
 }
 #endif  // THREAD_SANITIZER
+
+#if defined(MEMORY_SANITIZER)
+TEST(SanitizerTests, MSAN_UninitializedMemory) {
+  std::unique_ptr<int> mem(new int[10]);
+  volatile int* x = reinterpret_cast<volatile int*>(mem.get());
+  if(x[rand() % 10] == 42)
+    printf("\n");
+}
+#endif
 
 #if defined(LEAK_SANITIZER)
 TEST(SanitizerTests, LSAN_LeakMalloc) {
@@ -80,14 +88,14 @@ TEST(SanitizerTests, LSAN_LeakCppNew) {
 TEST(SanitizerTests, UBSAN_DivisionByZero) {
   volatile float div = 1;
   float res = 3 / (div - 1);
-  CHECK(res > -1);  // Whatever, just use |res| to make the compiler happy.
+  ASSERT_GT(res, -1.0f);  // just use |res| to make the compiler happy.
 }
 
 TEST(SanitizerTests, UBSAN_ShiftExponent) {
   volatile uint32_t n = 32;
   volatile uint32_t shift = 31;
   uint64_t res = n << (shift + 3);
-  CHECK(res != 3);  // Whatever, just use |res| to make the compiler happy.
+  ASSERT_NE(1u, res);  // just use |res| to make the compiler happy.
 }
 #endif  // UNDEFINED_SANITIZER
 

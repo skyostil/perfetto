@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import("//build/sanitizers/sanitizers.gni")
+
 declare_args() {
-  mac_clangrt_dir = ""
+  use_custom_libcxx = is_msan && is_linux && is_clang
 }
 
-if (mac_clangrt_dir == "" && is_mac) {
-  mac_toolchain_dirs_ = exec_script("mac_find_toolchain.py", [], "list lines")
-  mac_toolchain_dir = mac_toolchain_dirs_[0]
-  mac_clangrt_dir = mac_toolchain_dirs_[1]
-}
+libcxx_prefix = "//buildtools/libcxx"
+libcxxabi_prefix = "//buildtools/libcxxabi"

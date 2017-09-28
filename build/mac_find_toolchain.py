@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import os
 import subprocess
 import sys
@@ -27,6 +28,9 @@ def main():
     return job.returncode
   sdk_dir = os.path.dirname(os.path.dirname(out.rstrip()))
   print sdk_dir
+  clang_dir = glob.glob(os.path.join(sdk_dir, 'lib', 'clang', '*', 'lib', 'darwin'))
+  print clang_dir[0] if clang_dir else 'CLANG_DIR_NOT_FOUND'
+
 
 if __name__ == '__main__':
   sys.exit(main())

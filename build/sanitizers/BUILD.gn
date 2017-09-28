@@ -53,7 +53,7 @@ config("sanitizers_cflags") {
   if (is_msan) {
     cflags += [
       "-fsanitize=memory",
-      "-fsanitize-memory-track-origins=1",
+      "-fsanitize-memory-track-origins=2",
     ]
     defines += [ "MEMORY_SANITIZER" ]
   }
@@ -72,6 +72,12 @@ config("sanitizers_cflags") {
       "-fsanitize=vla-bound",
     ]
     defines += [ "UNDEFINED_SANITIZER" ]
+  }
+}
+
+config("sanitizer_options_link_helper") {
+  if (is_mac) {
+    ldflags = [ "-Wl,-U,_sanitizer_options_link_helper" ]
   }
 }
 
@@ -122,7 +128,7 @@ config("sanitizers_ldflags") {
     if (is_mac) {
       lib_dirs = [ mac_clangrt_dir ]
       libs = [ "${_sanitizer_lib}_osx_dynamic" ]
-      ldflags += [ "-Wl,-U,_sanitizer_options_link_helper" ]
+      configs = [ ":sanitizer_options_link_helper" ]
     }
     if (is_linux) {
       lib_dirs = [ linux_clangrt_dir ]
