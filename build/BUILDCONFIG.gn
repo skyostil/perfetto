@@ -51,9 +51,12 @@ if (current_cpu == "") {
 }
 
 default_configs = [
-  "//build:default",
   "//build:debug_symbols",
+  "//build:default",
   "//build:extra_warnings",
+  "//build:no_exceptions",
+  "//build:no_rtti",
+  "//build:runtime_library",
   "//build/sanitizers:sanitizers_cflags",
 ]
 

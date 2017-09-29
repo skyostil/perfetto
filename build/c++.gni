@@ -12,25 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-executable("libtracing_unittests") {
-  testonly = true
-  deps += [
-    "../buildtools:gmock",
-    "../buildtools:gtest",
-    "../buildtools:gtest_main",
-  ]
-  sources = [
-    "hello_world_unittest.cc",
-  ]
+import("//build/sanitizers/sanitizers.gni")
+
+declare_args() {
+  use_custom_libcxx = is_msan && is_linux && is_clang
 }
 
-executable("sanitizers_unittests") {
-  testonly = true
-  deps += [
-    "../buildtools:gtest",
-    "../buildtools:gtest_main",
-  ]
-  sources = [
-    "sanitizers_unittest.cc",
-  ]
-}
+libcxx_prefix = "//buildtools/libcxx"
+libcxxabi_prefix = "//buildtools/libcxxabi"

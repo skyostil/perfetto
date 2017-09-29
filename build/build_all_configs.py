@@ -85,7 +85,7 @@ def main():
     subprocess.check_call(gn_cmd, cwd=ROOT_DIR, env={'EDITOR':'true'})
     if args.build:
       ninja = os.path.join(ROOT_DIR, 'build', 'ninja')
-      ninja_cmd = [ninja, '-C', '.', '-j', '10', args.build]
+      ninja_cmd = [ninja, '-C', '.', args.build]
       subprocess.check_call(ninja_cmd, cwd=out_dir)
 
 

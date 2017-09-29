@@ -17,7 +17,7 @@ declare_args() {
 }
 
 if (mac_clangrt_dir == "" && is_mac) {
-  mac_toolchain_dir = exec_script("mac_find_toolchain.py", [], "list lines")
-  mac_toolchain_dir = mac_toolchain_dir[0]
-  mac_clangrt_dir = "$mac_toolchain_dir/lib/clang/8.1.0/lib/darwin"
+  mac_toolchain_dirs_ = exec_script("mac_find_toolchain.py", [], "list lines")
+  mac_toolchain_dir = mac_toolchain_dirs_[0]
+  mac_clangrt_dir = mac_toolchain_dirs_[1]
 }

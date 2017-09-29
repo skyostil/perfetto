@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-language: cpp
-
 branches:
   only:
   - master
+
+language: cpp
 
 matrix:
   include:
@@ -100,16 +100,52 @@ matrix:
       sudo: false
       compiler: clang
       env: CFG=android-clang-arm64-release GN_ARGS="is_debug=false target_os=\"android\" target_cpu=\"arm64\""
+    - os: linux
+      dist: trusty
+      sudo: false
+      compiler: clang
+      env: CFG=android-clang-arm-asan GN_ARGS="is_debug=false target_os=\"android\" target_cpu=\"arm\" is_asan=true"
+    - os: linux
+      dist: trusty
+      sudo: false
+      compiler: clang
+      env: CFG=android-clang-arm-lsan GN_ARGS="is_debug=false target_os=\"android\" target_cpu=\"arm\" is_lsan=true"
+    - os: linux
+      dist: trusty
+      sudo: false
+      compiler: clang
+      env: CFG=android-clang-arm64-asan GN_ARGS="is_debug=false target_os=\"android\" target_cpu=\"arm64\" is_asan=true"
+    - os: linux
+      dist: trusty
+      sudo: false
+      compiler: clang
+      env: CFG=android-clang-arm64-lsan GN_ARGS="is_debug=false target_os=\"android\" target_cpu=\"arm64\" is_lsan=true"
+
 
 before_install:
   - set -e
   - echo "$CFG" && echo "$GN_ARGS"
+  - ASAN_SYMBOLIZER_PATH="$(which llvm-symbolizer || echo /usr/bin/llvm-symbolizer-*)"
 
 install:
-  - if [[ "$CFG" != android-* ]]; then SKIP="--skip=ndk.zip"; fi
-  - build/install-build-deps $SKIP
+  - |
+    if [[ "$CFG" != android-* ]]; then
+      build/install-build-deps --no-android
+    else
+      build/install-build-deps
+    fi
 
 script:
   - build/gn gen out/dist --args="${GN_ARGS}" --check
   - build/ninja -C out/dist -j8 all
-  - if [[ "$CFG" != android-* ]]; then out/dist/libtracing_unittests; fi
+  - |
+    if [[ "$CFG" != android-* ]]; then
+      out/dist/libtracing_unittests
+    else
+      TARGET_ARCH=$(echo $CFG | cut -d- -f3)
+      build/run_android_emulator $TARGET_ARCH --pid /tmp/emulator.pid -v &
+      build/run_android_test out/dist libtracing_unittests
+    fi
+
+after_script:
+  - test -f /tmp/emulator.pid && kill -9 $(cat /tmp/emulator.pid); true
