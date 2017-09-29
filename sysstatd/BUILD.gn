@@ -20,7 +20,7 @@ source_set("libsysstatd") {
 
 executable("sysstatd_unittests") {
   testonly = true
-  deps = [
+  deps += [
     "../buildtools:gmock",
     "../buildtools:gtest",
     "../buildtools:gtest_main",
