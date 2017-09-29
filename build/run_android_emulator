@@ -55,7 +55,7 @@ def Main():
   emulator_bin = os.path.join(sdk_dir, 'tools', 'emulator')
   emulator_args = ['-no-window', '-no-snapshot',  '-gpu', 'off', '-wipe-data',
                    '-avd', args.image]
-  print('\n'.join('='.join(x) for x in env.items()))
+  print '\n'.join('='.join(x) for x in env.items())
   print ' '.join([emulator_bin] + emulator_args)
   if args.pid:
     with open(args.pid, 'w') as f:
