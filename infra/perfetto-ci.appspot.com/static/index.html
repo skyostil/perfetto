@@ -32,9 +32,10 @@
       thead td { padding: 2px 5px; text-align: center; }
       a { color: black; text-decoration: none; }
       a:hover { text-decoration: underline; }
-      #cls td { border-bottom: 1px solid #eee; padding: 0 5px; }
+      #cls td { border-bottom: 1px solid #eee; padding: 5px; font-size: 12px; overflow: hidden; }
       #cls tr:hover { background: #eef; }
-      #cls td:nth-child(1) { min-width: 35vw; }
+      #cls td:nth-child(1) { min-width: 20vw; }
+      #cls td:nth-child(n+5) { text-align: center; }
       #cls td .job { margin-right: 20px; }
       #cls td .job.finished a { color: rgb(57, 170, 86); }
     </style>
@@ -52,7 +53,7 @@
           <td>Status</td>
           <td>Owner</td>
           <td>Updated</td>
-          <td colspan="19">Bots</td>
+          <td colspan="22">Bots</td>
         </tr>
         <tr>
           <td></td>
@@ -60,7 +61,7 @@
           <td></td>
           <td></td>
           <td colspan="5">Mac</td>
-          <td colspan="8">Linux</td>
+          <td colspan="10">Linux</td>
           <td colspan="6">Android</td>
         </tr>
         <tr>
@@ -71,7 +72,7 @@
           <td colspan="5">clang</td>
           <td>gcc</td>
           <td>gcc7</td>
-          <td colspan="7">clang</td>
+          <td colspan="6">clang</td>
           <td colspan="3">clang-arm</td>
           <td colspan="3">clang-arm64</td>
         </tr>

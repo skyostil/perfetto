@@ -43,19 +43,18 @@ function GetTravisStatusForJob(jobId, div) {
       jobName = jobName.substring(4);
     var link = document.createElement('a');
     link.href = 'https://travis-ci.org/' + TRAVIS_REPO + '/jobs/' + jobId;
-    link.title = resp.state + '[' + jobName + ']';
+    link.title = resp.state + ' [' + jobName + ']';
     if (resp.state == 'finished')
       link.innerHTML = '&#x2705;';
     else if (resp.state == 'errored')
       link.innerHTML = '&#x274C;';
     else
-      link.innerText = resp.state;
-    var jobSpan = document.createElement('span');
-    jobSpan.appendChild(link);
-    jobSpan.classList.add('job');
-    jobSpan.classList.add(resp.state);
-    div.children[botIndex[jobName]].innerHTML = '';
-    div.children[botIndex[jobName]].appendChild(jobSpan);
+      link.innerHTML = '&#x27B2;';
+    var td = div.children[botIndex[jobName]];
+    td.innerHTML = '';
+    td.appendChild(link);
+    td.classList.add('job');
+    td.classList.add(resp.state);
   };
   xhr.open('GET', TRAVIS_URL + '/jobs/' + jobId, true);
   xhr.send();
