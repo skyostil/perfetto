@@ -13,13 +13,24 @@
  * implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
- 
+
 'use strict';
 
 const GERRIT_REVIEW_URL = 'https://android-review.googlesource.com/c/platform/external/perfetto';
 const GERRIT_URL = '/changes/?q=project:platform/external/perfetto+-age:7days&o=DETAILED_ACCOUNTS';
 const TRAVIS_URL = 'https://api.travis-ci.org';
 const TRAVIS_REPO = 'primiano/perfetto-ci';
+
+var botIndex = {};
+
+function GetColumnIndexes() {
+  const cols = document.getElementById('cls_header').children;
+  for (var i = 0; i < cols.length; i++) {
+    const id = cols[i].id;
+    if (id)
+      botIndex[id] = i;
+  }
+}
 
 function GetTravisStatusForJob(jobId, div) {
   var xhr = new XMLHttpRequest();
@@ -32,13 +43,19 @@ function GetTravisStatusForJob(jobId, div) {
       jobName = jobName.substring(4);
     var link = document.createElement('a');
     link.href = 'https://travis-ci.org/' + TRAVIS_REPO + '/jobs/' + jobId;
-    link.innerText = jobName;
+    link.title = resp.state + '[' + jobName + ']';
+    if (resp.state == 'finished')
+      link.innerHTML = '&#x2705;';
+    else if (resp.state == 'errored')
+      link.innerHTML = '&#x274C;';
+    else
+      link.innerText = resp.state;
     var jobSpan = document.createElement('span');
     jobSpan.appendChild(link);
     jobSpan.classList.add('job');
     jobSpan.classList.add(resp.state);
-    div.appendChild(jobSpan);
-    console.log(resp);
+    div.children[botIndex[jobName]].innerHTML = '';
+    div.children[botIndex[jobName]].appendChild(jobSpan);
   };
   xhr.open('GET', TRAVIS_URL + '/jobs/' + jobId, true);
   xhr.send();
@@ -48,7 +65,6 @@ function GetTravisStatusForCL(clNum, div) {
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 404) {
-      div.innerText = 'Not found';
       return;
     }
     if (this.readyState != 4 || this.status != 200)
@@ -94,9 +110,10 @@ function LoadGerritCLs() {
       td.innerText = (new Date(cl.updated)).toDateString();
       tr.appendChild(td);
 
-      td = document.createElement('td');
-      tr.appendChild(td);
-      GetTravisStatusForCL(cl._number, td);
+      for (var _ in botIndex)
+        tr.appendChild(document.createElement('td'));
+
+      GetTravisStatusForCL(cl._number, tr);
 
       table.appendChild(tr);
       // console.log(cl);
@@ -106,4 +123,5 @@ function LoadGerritCLs() {
   xhr.send();
 }
 
+GetColumnIndexes();
 LoadGerritCLs();

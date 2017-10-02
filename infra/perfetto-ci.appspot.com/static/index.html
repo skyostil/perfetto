@@ -27,8 +27,9 @@
       table { width: 100%; }
       table td:first-child { padding-left: 20px !important; }
       table td:last-child { padding-right: 20px !important; }
+      #cls_header td { font-size: 10px; }
       thead { background: #eee; color: #111; font-weight: bold; }
-      thead td { padding: 2px 5px; }
+      thead td { padding: 2px 5px; text-align: center; }
       a { color: black; text-decoration: none; }
       a:hover { text-decoration: underline; }
       #cls td { border-bottom: 1px solid #eee; padding: 0 5px; }
@@ -51,7 +52,53 @@
           <td>Status</td>
           <td>Owner</td>
           <td>Updated</td>
-          <td>Bots</td>
+          <td colspan="19">Bots</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td colspan="5">Mac</td>
+          <td colspan="8">Linux</td>
+          <td colspan="6">Android</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td colspan="5">clang</td>
+          <td>gcc</td>
+          <td>gcc7</td>
+          <td colspan="7">clang</td>
+          <td colspan="3">clang-arm</td>
+          <td colspan="3">clang-arm64</td>
+        </tr>
+        <tr id="cls_header">
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td id="mac-clang-x86_64-debug">dbg</td>
+          <td id="mac-clang-x86_64-release">rel</td>
+          <td id="mac-clang-x86_64-asan">asan</td>
+          <td id="mac-clang-x86_64-tsan">tsan</td>
+          <td id="mac-clang-x86_64-ubsan">ubsan</td>
+          <td id="linux_trusty-gcc-x86_64-release">rel</td>
+          <td id="linux_trusty-gcc7-x86_64-release">rel</td>
+          <td id="linux_trusty-clang-x86_64-debug">dbg</td>
+          <td id="linux_trusty-clang-x86_64-asan">asan</td>
+          <td id="linux_trusty-clang-x86_64-lsan">lsan</td>
+          <td id="linux_trusty-clang-x86_64-tsan">tsan</td>
+          <td id="linux_trusty-clang-x86_64-msan">msan</td>
+          <td id="linux_trusty-clang-x86_64-ubsan">ubsan</td>
+          <td id="android-clang-arm-release">rel</td>
+          <td id="android-clang-arm-asan">asan</td>
+          <td id="android-clang-arm-lsan">lsan</td>
+          <td id="android-clang-arm64-release">rel</td>
+          <td id="android-clang-arm64-asan">asan</td>
+          <td id="android-clang-arm64-lsan">lsan</td>
         </tr>
       </thead>
       <tbody id="cls">
