@@ -16,118 +16,132 @@
 
 'use strict';
 
+const REPO_URL = 'https://android.googlesource.com/platform/external/perfetto/';
 const GERRIT_REVIEW_URL = 'https://android-review.googlesource.com/c/platform/external/perfetto';
-const GERRIT_URL = '/changes/?q=project:platform/external/perfetto+-age:7days&o=DETAILED_ACCOUNTS';
-const TRAVIS_URL = 'https://api.travis-ci.org';
-const TRAVIS_REPO = 'primiano/perfetto-ci';
+const CHANGES_URL = '/changes/?q=project:platform/external/perfetto+-age:7days&o=DETAILED_ACCOUNTS';
+const REPO = 'primiano/perfetto-ci';
 
-var botIndex = {};
+let botIndex = {};
 
+// Builds a map of bot name -> column index, e.g.:
+// {'linux-clang-x86_64-relese' -> 1, 'android-clang-arm-debug' -> 2}.
 function GetColumnIndexes() {
   const cols = document.getElementById('cls_header').children;
-  for (var i = 0; i < cols.length; i++) {
+  for (let i = 0; i < cols.length; i++) {
     const id = cols[i].id;
     if (id)
-      botIndex[id] = i;
+      botIndex[id] = i + 4 /* 4 = subject...updated columns */;
   }
 }
 
 function GetTravisStatusForJob(jobId, div) {
-  var xhr = new XMLHttpRequest();
+  let xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState != 4 || this.status != 200)
       return;
-    var resp = JSON.parse(this.responseText);
-    var jobName = resp.config.env.split(' ')[0];
+    let resp = JSON.parse(this.responseText);
+    let jobName = resp.config.env.split(' ')[0];
     if (jobName.startsWith('CFG='))
       jobName = jobName.substring(4);
-    var link = document.createElement('a');
-    link.href = 'https://travis-ci.org/' + TRAVIS_REPO + '/jobs/' + jobId;
+    let link = document.createElement('a');
+    link.href = 'https://travis-ci.org/' + REPO + '/jobs/' + jobId;
     link.title = resp.state + ' [' + jobName + ']';
+    link.classList.add(resp.state);
     if (resp.state == 'finished')
-      link.innerHTML = '&#x2705;';
-    else if (resp.state == 'errored')
-      link.innerHTML = '&#x274C;';
+      link.innerHTML = '<i class="material-icons">check_circle</i>';
+    else if (resp.state == 'created')
+      link.innerHTML = '<i class="material-icons">autorenew</i>';
+    else if (resp.state == 'errored' || resp.state == 'cancelled')
+      link.innerHTML = '<i class="material-icons">bug_report</i>';
     else
-      link.innerHTML = '&#x27B2;';
-    var td = div.children[botIndex[jobName]];
+      link.innerHTML = '<i class="material-icons">hourglass_full</i>';
+    let td = div.children[botIndex[jobName]];
     td.innerHTML = '';
     td.appendChild(link);
-    td.classList.add('job');
-    td.classList.add(resp.state);
   };
-  xhr.open('GET', TRAVIS_URL + '/jobs/' + jobId, true);
+  xhr.open('GET', 'https://api.travis-ci.org/jobs/' + jobId, true);
   xhr.send();
 }
 
-function GetTravisStatusForCL(clNum, div) {
-  var xhr = new XMLHttpRequest();
+function GetTravisStatusForBranch(branch, div) {
+  let xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 404) {
       return;
     }
     if (this.readyState != 4 || this.status != 200)
       return;
-    var resp = JSON.parse(this.responseText);
+    let resp = JSON.parse(this.responseText);
     for (const jobId of resp.branch.job_ids)
       GetTravisStatusForJob(jobId, div);
   };
-  var url = TRAVIS_URL + '/repos/' + TRAVIS_REPO + '/branches/changes/' + clNum;
+  let url = ('https://api.travis-ci.org/repos/' + REPO + '/branches/' + branch);
   xhr.open('GET', url, true);
   xhr.send();
 }
 
+
+function CreateRowForBranch(branch, href, subject, status, author, updated) {
+    let table = document.getElementById('cls');
+    let tr = document.createElement('tr');
+
+    let link = document.createElement('a');
+    link.href = href;
+    link.innerText = subject;
+    let td = document.createElement('td');
+    td.appendChild(link);
+    tr.appendChild(td);
+
+    td = document.createElement('td');
+    td.innerText = status;
+    tr.appendChild(td);
+
+    td = document.createElement('td');
+    td.innerText = author;
+    tr.appendChild(td);
+
+    td = document.createElement('td');
+    td.innerText = updated;
+    tr.appendChild(td);
+
+    for (let _ in botIndex) {
+      td = document.createElement('td');
+      td.classList.add('job');
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+    GetTravisStatusForBranch(branch, tr);
+}
+
 function LoadGerritCLs() {
-  var xhr = new XMLHttpRequest();
+  let xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState != 4 || this.status != 200)
       return;
-    var resp = this.responseText;
-    if (resp.startsWith(')]}\''))
-      resp = resp.substring(4);
-    var resp = JSON.parse(resp);
-    var table = document.getElementById('cls');
+    let json = this.responseText;
+    if (json.startsWith(')]}\''))
+      json = json.substring(4);
+    let resp = JSON.parse(json);
     for (const cl of resp) {
-      var tr = document.createElement('tr');
-
-      var link = document.createElement('a');
-      link.href = GERRIT_REVIEW_URL + '/+/' + cl._number;
-      link.innerText = cl.subject;
-      var td = document.createElement('td');
-      td.appendChild(link);
-      tr.appendChild(td);
-
-      td = document.createElement('td');
-      td.innerText = cl.status;
-      tr.appendChild(td);
-
-      td = document.createElement('td');
-      td.innerText = cl.owner.email.replace('@google.com', '@');
-      tr.appendChild(td);
-
-      td = document.createElement('td');
+      const branch = 'changes/' + cl._number;
+      const href = GERRIT_REVIEW_URL + '/+/' + cl._number;;
       const lastUpdate = new Date(cl.updated);
       const lastUpdateMins = Math.ceil((Date.now() - lastUpdate) / 60000);
+      let lastUpdateText = '';
       if (lastUpdateMins < 60)
-        td.innerText = lastUpdateMins + ' mins ago';
+        lastUpdateText = lastUpdateMins + ' mins ago';
       else if (lastUpdateMins < 60 * 24)
-        td.innerText = Math.ceil(lastUpdateMins/60) + ' hours ago';
+        lastUpdateText = Math.ceil(lastUpdateMins / 60) + ' hours ago';
       else
-        td.innerText = (new Date(cl.updated)).toLocaleDateString();
-      tr.appendChild(td);
-
-      for (var _ in botIndex)
-        tr.appendChild(document.createElement('td'));
-
-      GetTravisStatusForCL(cl._number, tr);
-
-      table.appendChild(tr);
-      // console.log(cl);
+        lastUpdateText = lastUpdate.toLocaleDateString();
+      CreateRowForBranch(branch, href, cl.subject, cl.status,
+          cl.owner.email.replace('@google.com', '@'), lastUpdateText);
     }
   };
-  xhr.open('GET', GERRIT_URL, true);
+  xhr.open('GET', CHANGES_URL, true);
   xhr.send();
 }
 
 GetColumnIndexes();
+CreateRowForBranch('master', REPO_URL, '*** master branch ***', 'MASTER', '', '');
 LoadGerritCLs();

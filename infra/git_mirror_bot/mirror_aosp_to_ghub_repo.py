@@ -177,15 +177,13 @@ def Sync():
   # Update objects and push.
   GitCmd('update-ref', '--stdin', stdin=updte_ref_cmd)
   GitCmd('push', 'mirror', '--all', '--prune', '--force')
+  GitCmd('gc', '--prune=all', '--aggressive', '--quiet')
 
 
 def Main():
   Setup()
   while True:
-    try:
-      Sync()
-    except:
-      traceback.print_exc()
+    Sync()
     time.sleep(60)
 
 

@@ -18,30 +18,39 @@
   <head>
     <meta charset="utf-8">
     <title>Perfetto CI</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400" rel="stylesheet">
     <style type="text/css">
-      html { font-family: 'Roboto Medium', sans-serif; font-size: 13px; padding: 0; margin: 0; }
+      html { font-family: 'Source Sans Pro', sans-serif; font-size: 13px; font-weight: 300; padding: 0; margin: 0; }
       body { padding: 0; margin: 0; }
-      header { background: rgb(212, 233, 169); width: 100%; padding: 0 20px; overflow: hidden; }
-      h1 { font-family: 'Roboto'; font-size: 20px; font-weight: 400; padding-left: 60px; line-height: 50px; background-image: url('static/icon.png'); background-repeat: no-repeat; background-size: contain; }
-      h2 { margin: 20px; font-family: 'Roboto'; font-size: 20px; font-weight: 400; }
+      header { background: rgb(212, 233, 169); width: 100%; padding: 0 20px; box-sizing: border-box; overflow: hidden; }
+      #travis-badge { float: right; line-height: 80px; }
+      h1 { font-size: 32px; font-weight: 300; padding-left: 60px; line-height: 50px; background-image: url('static/icon.png'); background-repeat: no-repeat; background-size: contain; }
+      h2 { margin: 20px; font-size: 20px; font-weight: 400; color: #333; }
       table { width: 100%; }
-      table td:first-child { padding-left: 20px !important; }
-      table td:last-child { padding-right: 20px !important; }
-      #cls_header td { font-size: 10px; }
-      thead { background: #eee; color: #111; font-weight: bold; }
-      thead td { padding: 2px 5px; text-align: center; }
+      table tbody td:first-child { padding-left: 20px !important; }
+      thead { background: #fafafa; color: #111; font-size: 14px; font-weight: 400; }
+      thead tr:nth-child(n+3) td { font-size: 10px; }
+      thead tr:nth-child(4) td { width: 20px; }
+      thead td { padding: 2px 5px; text-align: center; border: 1px solid #ddd; }
       a { color: black; text-decoration: none; }
       a:hover { text-decoration: underline; }
-      #cls td { border-bottom: 1px solid #eee; padding: 5px; font-size: 12px; overflow: hidden; }
+      #cls td { border-bottom: 1px solid #eee; font-size: 13px; font-weight: 300; line-height: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       #cls tr:hover { background: #eef; }
-      #cls td:nth-child(1) { min-width: 20vw; }
       #cls td:nth-child(n+5) { text-align: center; }
-      #cls td .job { margin-right: 20px; }
-      #cls td .job.finished a { color: rgb(57, 170, 86); }
+      #cls td.job i { font-size: 16px; }
+      #cls td.job { color: #edde3f; }
+      #cls td.job .finished { color: #39aa56; }
+      #cls td.job .errored { color: #db4545; }
     </style>
   </head>
   <body>
     <header>
+      <div id="travis-badge">
+        <a href="https://travis-ci.org/primiano/perfetto-ci/builds">
+          <img src="https://travis-ci.org/primiano/perfetto-ci.svg?branch=master">
+        </a>
+      </div>
       <h1>Perfetto Continuous Integration</h1>
     </header>
 
@@ -49,26 +58,18 @@
     <table>
       <thead>
         <tr>
-          <td>Subject</td>
-          <td>Status</td>
-          <td>Owner</td>
-          <td>Updated</td>
+          <td rowspan="4">Subject</td>
+          <td rowspan="4">Status</td>
+          <td rowspan="4">Owner</td>
+          <td rowspan="4">Updated</td>
           <td colspan="19">Bots</td>
         </tr>
         <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td colspan="5">Mac</td>
-          <td colspan="8">Linux</td>
-          <td colspan="6">Android</td>
+          <td colspan="5">mac</td>
+          <td colspan="8">linux</td>
+          <td colspan="6">android</td>
         </tr>
         <tr>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
           <td colspan="5">clang</td>
           <td>gcc</td>
           <td>gcc7</td>
@@ -77,10 +78,6 @@
           <td colspan="3">clang-arm64</td>
         </tr>
         <tr id="cls_header">
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
           <td id="mac-clang-x86_64-debug">dbg</td>
           <td id="mac-clang-x86_64-release">rel</td>
           <td id="mac-clang-x86_64-asan">asan</td>
