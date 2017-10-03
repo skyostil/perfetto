@@ -125,7 +125,7 @@ function LoadGerritCLs() {
     for (const cl of resp) {
       const branch = 'changes/' + cl._number;
       const href = GERRIT_REVIEW_URL + '/+/' + cl._number;;
-      const lastUpdate = new Date(cl.updated);
+      const lastUpdate = new Date(cl.updated + ' UTC');
       const lastUpdateMins = Math.ceil((Date.now() - lastUpdate) / 60000);
       let lastUpdateText = '';
       if (lastUpdateMins < 60)
