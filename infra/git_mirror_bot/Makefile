@@ -25,7 +25,11 @@ stop:
 		instances delete $(VM_NAME) \
 		--zone $(ZONE)
 
-start:
+deploy_key:
+	@echo "Download the deploy_key from the teams drive (go/perfetto_deploy_key)"
+	@exit 1
+
+start: deploy_key
 	gcloud compute \
 		--project $(PROJECT) \
 		instances create $(VM_NAME) \
