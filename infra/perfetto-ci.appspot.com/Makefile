@@ -17,3 +17,5 @@ deploy:
 
 test:
 	dev_appserver.py .
+
+.PHONY: deploy test

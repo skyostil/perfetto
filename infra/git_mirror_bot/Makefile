@@ -43,3 +43,5 @@ start: deploy_key
 		--boot-disk-type "pd-standard" \
 		--boot-disk-device-name "perfetto-ci-git-mirror-bot" \
 		--metadata-from-file=startup-script=startup-script.sh,deploy_key=deploy_key,main=mirror_aosp_to_ghub_repo.py
+
+.PHONY: ssh stop start
