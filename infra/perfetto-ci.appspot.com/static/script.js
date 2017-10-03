@@ -102,11 +102,18 @@ function LoadGerritCLs() {
       tr.appendChild(td);
 
       td = document.createElement('td');
-      td.innerText = cl.owner.email;
+      td.innerText = cl.owner.email.replace('@google.com', '@');
       tr.appendChild(td);
 
       td = document.createElement('td');
-      td.innerText = (new Date(cl.updated)).toDateString();
+      const lastUpdate = new Date(cl.updated);
+      const lastUpdateMins = Math.ceil((Date.now() - lastUpdate) / 60000);
+      if (lastUpdateMins < 60)
+        td.innerText = lastUpdateMins + ' mins ago';
+      else if (lastUpdateMins < 60 * 24)
+        td.innerText = Math.ceil(lastUpdateMins/60) + ' hours ago';
+      else
+        td.innerText = (new Date(cl.updated)).toLocaleDateString();
       tr.appendChild(td);
 
       for (var _ in botIndex)
