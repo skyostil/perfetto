@@ -12,15 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+config("libtracing_config") {
+  include_dirs = [ "include" ]
+}
+
+source_set("libtracing") {
+  # configs += [ ":libtracing_config" ]
+  all_dependent_configs = [ ":libtracing_config" ]
+  sources = [
+    "src/core/service_impl.cc",
+    "src/unix_rpc/unix_service_connection.cc",
+    "src/unix_rpc/unix_service_impl.cc",
+    "src/unix_rpc/unix_shared_memory.cc",
+    "src/unix_rpc/unix_socket.cc",
+  ]
+}
+
+executable("unix_test") {
+  sources = [
+    "src/unix_rpc/unix_test.cc",
+  ]
+  deps += [ ":libtracing" ]
+}
+
 executable("libtracing_unittests") {
   testonly = true
   deps += [
+    ":libtracing",
     "../buildtools:gmock",
     "../buildtools:gtest",
     "../buildtools:gtest_main",
   ]
   sources = [
-    "hello_world_unittest.cc",
+    "src/unix_rpc/unix_socket_unittest.cc",
   ]
 }
 
