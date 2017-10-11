@@ -16,7 +16,6 @@
 
 #include "format_parser/format_parser.h"
 
-
 namespace {
 
 bool EatPrefix(const char** s, const char* end, const char* prefix) {
@@ -205,7 +204,7 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
     return false;
   if (!EatFormatLine(&s, end))
     return false;
-  
+
   // Common fields:
   for (int i=0; i<4; i++) {
     if (!EatFieldPreamble(&s, end))
@@ -217,6 +216,7 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
   if (!EatNewline(&s, end))
     return false;
 
+  // Intresting fields:
   for (;;) {
     Field field;
     if (!EatFieldPreamble(&s, end))
