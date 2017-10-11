@@ -21,6 +21,8 @@
 
 namespace perfetto {
 
+// The embedder is expected to subclass this and attach platform-specific
+// fields such as a file descriptor (see unix_shared_memory.cc as an example).
 class SharedMemory {
  public:
   // The embedder is expected to tear down the resource associated to this

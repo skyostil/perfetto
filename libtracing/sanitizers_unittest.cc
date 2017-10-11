@@ -61,7 +61,7 @@ TEST(SanitizerTests, TSAN_ThreadDataRace) {
 TEST(SanitizerTests, MSAN_UninitializedMemory) {
   std::unique_ptr<int> mem(new int[10]);
   volatile int* x = reinterpret_cast<volatile int*>(mem.get());
-  if (x[rand() % 10] == 42)
+  if(x[rand() % 10] == 42)
     printf("\n");
 }
 #endif

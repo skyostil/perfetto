@@ -34,7 +34,8 @@ namespace perfetto {
 
 ////////////////////////////////////////////////////////////////////////////////
 // This implements the core Service interface and proxies requests and replies
-// to a UnixServiceImpl instance via a home-brewed poor man's RPC.
+// to a UnixServiceImpl instance via a home-brewed poor man's RPC (brutal
+// printf/scanf over a UNIX socket).
 ////////////////////////////////////////////////////////////////////////////////
 
 class ServiceRPC : public Service {
@@ -85,7 +86,6 @@ void ServiceRPC::OnDataAvailable() {
     DCHECK(pending_register_data_source_callback_);
     task_runner_->PostTask(
         std::bind(std::move(pending_register_data_source_callback_), dsid));
-    // pending_register_data_source_callback_(dsid);  // TODO PostTask?
     return;
   }
 

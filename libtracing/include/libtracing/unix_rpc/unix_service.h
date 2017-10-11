@@ -27,11 +27,12 @@ class DataSourceConfig;
 class TaskRunnerProxy;
 
 // At first might be a little contra-intuitive that this class does not inherit
-// from Service (from /include/core/service.h).
+// from Service (/include/core/service.h).
 // The instance we return here doesn't need to expose any method other than the
 // factory method. Clients are just suposed to create and teardown the service
 // to host it in their process. They are not supposed to poke with the Service
-// methods, that are meant to be accessed only via RPC.
+// methods, that are meant to be accessed only through RPC from the embedder
+// (e.g., UnixServiceImpl in src/unix_rpc/unix_service_impl.cc).
 
 class UnixService {
  public:
@@ -51,7 +52,7 @@ class UnixService {
 
   // Temporary, just for testing, because the Consumer+Config port is not yet
   // implemented. This method essentially simulates a configuration change
-  // from the Consumer, as if we had one connected.
+  // from an hypotetical Consumer.
   virtual void CreateDataSourceInstanceForTesting(const DataSourceConfig&,
                                                   DataSourceInstanceID) = 0;
 

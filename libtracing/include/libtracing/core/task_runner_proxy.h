@@ -25,12 +25,13 @@ namespace perfetto {
 // libtracing on its own message loop.
 
 // TODO we should provide a reference implementation that just spins a dedicated
-// thread.
+// thread. For the moment the only implementation is the PoorManTaskRunner in
+// unix_test.cc .
 class TaskRunnerProxy {
  public:
   virtual ~TaskRunnerProxy() {}
 
-  virtual void PostTask(std::function<void()> closure) = 0;
+  virtual void PostTask(std::function<void()>) = 0;
   virtual void AddFileDescriptorWatch(int fd, std::function<void()>) = 0;
   virtual void RemoveFileDescriptorWatch(int fd) = 0;
 };

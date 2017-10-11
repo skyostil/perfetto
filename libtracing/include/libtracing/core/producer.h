@@ -26,7 +26,8 @@ class DataSourceConfig;
 // This is just an interface. There are two classes deriving this:
 //  1. The unix rpc implementation in src/unix_rpc/unix_service_impl.cc
 //     to create a proxy that forwards requests via the unix socket.
-//  2. The actual producer code, defined by the libtracing client.
+//  2. The actual producer code, defined by the libtracing client
+//     (see TestProducer in src/uinx_rpc/unix_test.cc as an example).
 class Producer {
  public:
   virtual ~Producer() {}

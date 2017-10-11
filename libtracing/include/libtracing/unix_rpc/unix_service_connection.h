@@ -25,6 +25,9 @@ class Producer;
 class Service;
 class TaskRunnerProxy;
 
+// The client-side of UnixService. Allows to connect to an existing service
+// instance over a UNIX socket and exposes the Producer/Service API proxying
+// them over RPC.
 class UnixServiceConnection {
  public:
   // Connects to the producer port of the Service listening on the given

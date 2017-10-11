@@ -17,7 +17,7 @@
 #ifndef LIBTRACING_SRC_CORE_BASE_H_
 #define LIBTRACING_SRC_CORE_BASE_H_
 
-// DO NOT include this file in public headers (include/) to avoid redifinitions.
+// DO NOT include this file in public headers (include/) to avoid collisions.
 
 #include <errno.h>
 #include <stdlib.h>

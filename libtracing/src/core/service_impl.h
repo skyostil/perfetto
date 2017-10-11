@@ -32,12 +32,14 @@ class Producer;
 class TaskRunnerProxy;
 
 // The tracing service business logic. Embedders of this library are supposed to
-// either encapsulate this, to wrap it with their own custom RPC mechanism, or
-// to use the UnixService wrapper (see unix_rpc/unix_service.h).
+// either encapsulate this, to wrap it with their own custom RPC mechanism
+// (e.g., Chrome Mojo) or to use the UnixService wrapper.
 class ServiceImpl : public Service {
  public:
   // The embedder (e.g., unix_rpc/unix_service_impl.h) is supposed to subclass
-  // this Delegate interface.
+  // this Delegate interface to get platform abstractions.
+  // TODO maybe this sholud be called PlatformDelegate, or Platform, just to
+  // avoid calling everything just Delegate?
   class Delegate {
    public:
     virtual ~Delegate() {}

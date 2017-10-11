@@ -16,6 +16,7 @@
 
 #include "libtracing/src/unix_rpc/unix_shared_memory.h"
 
+#include <fcntl.h>
 #include <stdint.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -23,19 +24,23 @@
 #include <memory>
 #include <utility>
 
-extern "C" {
-const unsigned int MFD_CLOEXEC = 0;
-const unsigned int MFD_ALLOW_SEALING = 0;
-int memfd_create(const char* name, unsigned int flags);
-int memfd_create(const char* name, unsigned int flags) {
-  return -1;
-}
-}
-
 namespace perfetto {
 
 std::unique_ptr<UnixSharedMemory> UnixSharedMemory::Create(size_t size) {
-  int fd = memfd_create("blah", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+  // TODO: use memfd_create on Linux/Android if the kernel supports is (needs
+  // syscall.h, there is no glibc wrtapper). If not, on Android fallback on
+  // ashmem and on Linux fallback on /dev/shm/perfetto-whatever.
+  char path[64];
+  sprintf(path, "/tmp/perfetto-shm-%d", getpid());
+
+  // TODO use ScopedFd (have to introduce it in base.h). Right now this leaks
+  // a fd if mmap fails.
+  int fd = open(path, O_CREAT | O_RDWR | O_TRUNC);
+  if (fd < 0)
+    return nullptr;
+  unlink(path);
+  if (ftruncate(fd, static_cast<off_t>(size)) < 0)
+    return nullptr;
   void* start = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (start == MAP_FAILED)
     return nullptr;

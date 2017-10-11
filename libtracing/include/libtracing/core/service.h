@@ -29,8 +29,8 @@ class DataSourceDescriptor;
 class SharedMemory;
 
 // This is just an interface. There are two classes deriving this:
-//  1. The RPC-agnostic machinery implementation in src/core/service_impl.cc
-//  2. The RPC stub for the client in src/unix_rpc/unix_producer.cc .
+//  1. The RPC-agnostic business logic in src/core/service_impl.cc
+//  2. The RPC stub for the Producer in src/unix_rpc/unix_producer.cc
 class Service {
  public:
   virtual ~Service() {}
