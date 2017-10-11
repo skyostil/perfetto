@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-executable("format_parser_unittests") {
+executable("ftrace_proto_gen_unittests") {
   testonly = true
   deps += [
-    "../buildtools:gmock",
-    "../buildtools:gtest",
-    "../buildtools:gtest_main",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
   ]
   sources = [
     "format_parser_unittest.cc",
@@ -26,11 +26,11 @@ executable("format_parser_unittests") {
   ]
 }
 
-executable("format_parser") {
+executable("ftrace_proto_gen") {
   sources = [
     "format_parser.cc",
     "format_parser.h",
-    "demo.cc",
+    "main.cc",
   ]
 }
 

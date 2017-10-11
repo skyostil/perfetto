@@ -17,7 +17,7 @@ group("all") {
   deps = [
     ":tests",
     "//buildtools:protobuf_lite",
-    "//format_parser:format_parser",
+    "//tools/ftrace_proto_gen:ftrace_proto_gen",
   ]
   deps += [ "//buildtools:protoc($host_toolchain)" ]
 }
@@ -27,6 +27,6 @@ group("tests") {
   deps = [
     "//libtracing:libtracing_unittests",
     "//libtracing:sanitizers_unittests",
-    "//format_parser:format_parser_unittests",
+    "//tools/ftrace_proto_gen:ftrace_proto_gen_unittests",
   ]
 }

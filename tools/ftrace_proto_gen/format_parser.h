@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FORMAT_PARSER_FORMAT_PARSER_H_
-#define FORMAT_PARSER_FORMAT_PARSER_H_
+#ifndef TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
+#define TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
 
 #include <stddef.h>
 #include <string>
@@ -35,6 +35,7 @@ struct Format {
   std::vector<Field> fields;
 };
 
+bool ParseFormat(const std::string& input, Format* output = nullptr);
 bool ParseFormat(const char* s, size_t len, Format* output = nullptr);
 
-#endif // FORMAT_PARSER_FORMAT_PARSER_H_
+#endif // TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_

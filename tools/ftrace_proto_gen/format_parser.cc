@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "format_parser/format_parser.h"
+#include "tools/ftrace_proto_gen/format_parser.h"
 
 namespace {
 
@@ -190,6 +190,10 @@ bool EatFieldContents(const char** s, const char* end, Field* output = nullptr) 
 }
 
 } // namespace
+
+bool ParseFormat(const std::string& input, Format* output) {
+  return ParseFormat(input.c_str(), input.length(), output);
+}
 
 bool ParseFormat(const char* s, size_t len, Format* output) {
   const char* const end = s + len;

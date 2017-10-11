@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "format_parser/format_parser.h"
+#include "tools/ftrace_proto_gen/format_parser.h"
+
 #include <stdio.h>
 #define MAXBUFLEN 1000000
 
 int main(int argc, const char** argv) {
   if (argc != 2) {
-    printf("Usage: ./format_parser format.txt.\n");
+    printf("Usage: ./ftrace_proto_gen format.txt.\n");
     exit(1);
   }
 
