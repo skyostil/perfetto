@@ -24,6 +24,19 @@ executable("libtracing_unittests") {
   ]
 }
 
+executable("libtracing_benchmarks") {
+  testonly = true
+  deps += [
+    "../buildtools:benchmark",
+  ]
+  configs -= [
+    "//build:extra_warnings",
+  ]
+  sources = [
+    "hello_world_benchmark.cc",
+  ]
+}
+
 executable("sanitizers_unittests") {
   testonly = true
   deps += [

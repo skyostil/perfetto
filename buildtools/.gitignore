@@ -8,3 +8,4 @@ linux64/
 mac/
 ndk/
 protobuf/
+benchmark/

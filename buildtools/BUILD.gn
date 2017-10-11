@@ -388,3 +388,50 @@ if (use_custom_libcxx) {
     ]
   }
 }  # if (use_custom_libcxx)
+
+source_set("benchmark") {
+  testonly = true
+  include_dirs = [
+    "benchmark/include",
+  ]
+  sources = [
+    "benchmark/src/benchmark_register.cc",
+    "benchmark/src/stat.h",
+    "benchmark/src/csv_reporter.cc",
+    "benchmark/src/check.h",
+    "benchmark/src/string_util.cc",
+    "benchmark/src/mutex.h",
+    "benchmark/src/commandlineflags.h",
+    "benchmark/src/console_reporter.cc",
+    "benchmark/src/complexity.cc",
+    "benchmark/src/counter.cc",
+    "benchmark/src/commandlineflags.cc",
+    "benchmark/src/log.h",
+    "benchmark/src/sleep.cc",
+    "benchmark/src/sysinfo.cc",
+    "benchmark/src/colorprint.cc",
+    "benchmark/src/benchmark_api_internal.h",
+    "benchmark/src/arraysize.h",
+    "benchmark/src/reporter.cc",
+    "benchmark/src/complexity.h",
+    "benchmark/src/cycleclock.h",
+    "benchmark/src/timers.h",
+    "benchmark/src/sysinfo.h",
+    "benchmark/src/re.h",
+    "benchmark/src/json_reporter.cc",
+    "benchmark/src/internal_macros.h",
+    "benchmark/src/counter.h",
+    "benchmark/src/string_util.h",
+    "benchmark/src/sleep.h",
+    "benchmark/src/colorprint.h",
+    "benchmark/src/timers.cc",
+    "benchmark/src/benchmark.cc",
+    "benchmark/include/benchmark/benchmark_api.h",
+    "benchmark/include/benchmark/reporter.h",
+    "benchmark/include/benchmark/benchmark.h",
+  ]
+  defines = [ "HAVE_STD_REGEX" ]
+  configs -= [
+    "//build:extra_warnings",
+  ]
+}
