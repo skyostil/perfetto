@@ -20,6 +20,7 @@
 
 #include "libtracing/core/data_source_config.h"
 #include "libtracing/core/producer.h"
+#include "libtracing/core/shared_memory.h"
 #include "libtracing/core/task_runner_proxy.h"
 #include "libtracing/src/core/base.h"
 
@@ -38,6 +39,8 @@ void ServiceImpl::ConnectProducer(std::unique_ptr<Producer> producer,
                                   ConnectProducerCallback cb) {
   ProducerID id = ++last_producer_id_;
   Producer* ptr = producer.get();
+  producer_shm_[id] = delegate_->CreateSharedMemoryWithPeer(ptr, 4096);
+  DCHECK(producer_shm_[id]);
   producers_[id] = std::move(producer);
   delegate_->task_runner()->PostTask(std::bind(cb, ptr, id));
   // TODO what guarantees that the producers_[id] isn't deleted between here and
@@ -67,7 +70,17 @@ void ServiceImpl::NotifyPageTaken(ProducerID prid, uint32_t page_index) {
 void ServiceImpl::NotifyPageReleased(ProducerID prid, uint32_t page_index) {
   CHECK(prid);
   DLOG("[ServiceImpl] NotifyPageReleased from producer id=%" PRIu64 "\n", prid);
+  DCHECK(producer_shm_.count(prid) == 1);
+  DLOG("[ServiceImpl] Reading Shared memory: \"%s\"\n",
+    reinterpret_cast<const char*>(producer_shm_[prid]->start()));
   return;
+}
+
+SharedMemory* ServiceImpl::GetSharedMemoryForProducer(ProducerID prid) {
+  auto producerid_and_shmem = producer_shm_.find(prid);
+  if (producerid_and_shmem == producer_shm_.end())
+    return nullptr;
+  return producerid_and_shmem->second.get();
 }
 
 void ServiceImpl::CreateDataSourceInstanceForTesting(

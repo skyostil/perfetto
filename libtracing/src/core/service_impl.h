@@ -29,6 +29,7 @@ namespace perfetto {
 
 class DataSourceConfig;
 class Producer;
+class SharedMemory;
 class TaskRunnerProxy;
 
 // The tracing service business logic. Embedders of this library are supposed to
@@ -45,7 +46,7 @@ class ServiceImpl : public Service {
     virtual ~Delegate() {}
     virtual TaskRunnerProxy* task_runner() const = 0;
     virtual std::unique_ptr<SharedMemory> CreateSharedMemoryWithPeer(
-        Producer* peer,
+        Producer* producer,
         size_t shm_size) = 0;
   };
 
@@ -63,6 +64,7 @@ class ServiceImpl : public Service {
 
   void NotifyPageTaken(ProducerID, uint32_t page_index) override;
   void NotifyPageReleased(ProducerID, uint32_t page_index) override;
+  SharedMemory* GetSharedMemoryForProducer(ProducerID) override;
 
   // Temporary, for testing.
   void CreateDataSourceInstanceForTesting(const DataSourceConfig&,
@@ -72,6 +74,7 @@ class ServiceImpl : public Service {
   Delegate* const delegate_;
   ProducerID last_producer_id_ = 0;
   std::map<ProducerID, std::unique_ptr<Producer>> producers_;
+  std::map<ProducerID, std::unique_ptr<SharedMemory>> producer_shm_;
 };
 
 }  // namespace perfetto

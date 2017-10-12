@@ -39,6 +39,8 @@ class Producer {
                                         DataSourceInstanceID) = 0;
 
   virtual void TearDownDataSourceInstance(DataSourceInstanceID) = 0;
+
+  virtual void OnConnect() = 0;
 };
 
 }  // namespace perfetto

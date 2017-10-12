@@ -27,14 +27,23 @@ namespace perfetto {
 
 class UnixSharedMemory : public SharedMemory {
  public:
+  // Create a brand new SHM region (the service uses this).
   static std::unique_ptr<UnixSharedMemory> Create(size_t size);
+
+  // Mmaps a file descriptor to an existing SHM region (the producer uses this).
+  static std::unique_ptr<UnixSharedMemory> CreateFromFD(int fd);
 
   ~UnixSharedMemory() override;
 
+  int fd() const { return fd_; }
+
+  // SharedMemory implementation.
   void* start() const override { return start_; }
   size_t size() const override { return size_; }
 
  private:
+  static std::unique_ptr<UnixSharedMemory> MapFD(int fd, size_t size);
+
   UnixSharedMemory(void* start, size_t size, int fd);
   UnixSharedMemory(const UnixSharedMemory&) = delete;
   UnixSharedMemory& operator=(const UnixSharedMemory&) = delete;

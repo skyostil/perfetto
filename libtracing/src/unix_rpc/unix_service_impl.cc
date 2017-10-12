@@ -40,6 +40,7 @@ class ProducerRPC : public Producer {
   ProducerRPC(ServiceImpl*, UnixSocket, UnixService::Delegate*);
   ~ProducerRPC() override;
 
+  void SendSharedMemory(const UnixSharedMemory&);
   void OnDataAvailable();
 
   void set_id(ProducerID id) {
@@ -53,6 +54,7 @@ class ProducerRPC : public Producer {
   void CreateDataSourceInstance(const DataSourceConfig& config,
                                 DataSourceInstanceID instance_id) override;
   void TearDownDataSourceInstance(DataSourceInstanceID) override;
+  void OnConnect() override;
 
  private:
   ProducerID id_ = 0;
@@ -124,13 +126,23 @@ void ProducerRPC::OnDataAvailable() {
   uint32_t page_index;
   if (sscanf(cmd, "NotifyPageTaken %" PRIu32, &page_index) == 1) {
     svc_->NotifyPageTaken(id_, page_index);
+    return;
   }
 
   if (sscanf(cmd, "NotifyPageReleased %" PRIu32, &page_index) == 1) {
     svc_->NotifyPageReleased(id_, page_index);
+    return;
   }
 
   DLOG("Received unknown RPC from producer: \"%s\"\n", cmd);
+  DCHECK(false);
+}
+
+void ProducerRPC::SendSharedMemory(const UnixSharedMemory& shm) {
+  static const char kMsg[] = "SendSharedMemory";
+  int fd = shm.fd();
+  bool res = conn_.Send(kMsg, sizeof(kMsg), &fd, 1);
+  DCHECK(res);
 }
 
 void ProducerRPC::CreateDataSourceInstance(const DataSourceConfig& config,
@@ -141,6 +153,13 @@ void ProducerRPC::CreateDataSourceInstance(const DataSourceConfig& config,
 
 void ProducerRPC::TearDownDataSourceInstance(DataSourceInstanceID instance_id) {
   conn_.Send("TearDownDataSourceInstance " + std::to_string(instance_id));
+}
+
+// OnConnect is meant to be called ony on the libtracing client side, not from
+// within th service business logic.
+// TODO: smells like bad design.
+void ProducerRPC::OnConnect() {
+  DCHECK(false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -196,8 +215,9 @@ TaskRunnerProxy* UnixServiceImpl::task_runner() const {
 std::unique_ptr<SharedMemory> UnixServiceImpl::CreateSharedMemoryWithPeer(
     Producer* peer,
     size_t shm_size) {
-  // TODO share with peer.
-  return UnixSharedMemory::Create(shm_size);
+  std::unique_ptr<UnixSharedMemory> shm = UnixSharedMemory::Create(shm_size);
+  static_cast<ProducerRPC*>(peer)->SendSharedMemory(*shm);
+  return std::move(shm);
 }
 
 }  // namespace perfetto

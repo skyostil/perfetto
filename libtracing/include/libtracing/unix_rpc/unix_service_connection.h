@@ -32,7 +32,7 @@ class UnixServiceConnection {
  public:
   // Connects to the producer port of the Service listening on the given
   // |service_socket_name|. Returns a RPC proxy interface that allows to
-  // interact with the service if the connection is succesfully, or nullptr if
+  // interact with the service if the connection is succesful, or nullptr if
   // the service is unreachable.
   static std::unique_ptr<Service> ConnectAsProducer(
       const char* service_socket_name,

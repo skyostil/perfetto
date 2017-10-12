@@ -25,6 +25,7 @@
 #include "libtracing/core/service.h"
 #include "libtracing/core/task_runner_proxy.h"
 #include "libtracing/src/core/base.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
 #include "libtracing/src/unix_rpc/unix_socket.h"
 
 // TODO think to what happens when ServiceRPC gets destroyed w.r.t. the Producer
@@ -53,6 +54,7 @@ class ServiceRPC : public Service {
   void UnregisterDataSource(DataSourceID) override;
   void NotifyPageTaken(ProducerID, uint32_t page_index) override;
   void NotifyPageReleased(ProducerID, uint32_t page_index) override;
+  SharedMemory* GetSharedMemoryForProducer(ProducerID) override;
 
  private:
   void OnDataAvailable();
@@ -61,6 +63,7 @@ class ServiceRPC : public Service {
   TaskRunnerProxy* task_runner_;
   RegisterDataSourceCallback pending_register_data_source_callback_;
   UnixSocket conn_;
+  std::unique_ptr<UnixSharedMemory> shmem_;
 };
 
 bool ServiceRPC::Connect(const char* service_socket_name) {
@@ -74,13 +77,26 @@ bool ServiceRPC::Connect(const char* service_socket_name) {
 void ServiceRPC::OnDataAvailable() {
   DLOG("[unix_service_connection.cc] ServiceRPC::OnDataAvailable\n");
   char cmd[1024];
-  ssize_t rsize = conn_.Recv(cmd, sizeof(cmd) - 1);
+  int shm_fd = -1;  // TODO really need ScopedFD here.
+  uint32_t shm_fd_size = 1;
+  ssize_t rsize = conn_.Recv(cmd, sizeof(cmd) - 1, &shm_fd, &shm_fd_size);
   if (rsize <= 0) {
     task_runner_->RemoveFileDescriptorWatch(conn_.fd());
     return;  // TODO connection closed (very likely peer died. do something.
   }
-
   cmd[rsize] = '\0';
+
+  if (strcmp(cmd, "SendSharedMemory") == 0) {
+    DCHECK(shm_fd_size == 1);
+    DCHECK(!shmem_);
+    DLOG("[unix_service_connection.cc] Received shm, fd=%d\n", shm_fd);
+    shmem_ = UnixSharedMemory::CreateFromFD(shm_fd);
+    DCHECK(shmem_);
+    DLOG("[unix_service_connection.cc] Mapped shm, size=%lu\n", shmem_->size());
+    producer_->OnConnect();  // TODO PostTask?
+    return;
+  }
+
   DataSourceID dsid;
   if (sscanf(cmd, "RegisterDataSourceCallback %" PRIu64, &dsid) == 1) {
     DCHECK(pending_register_data_source_callback_);
@@ -105,6 +121,7 @@ void ServiceRPC::OnDataAvailable() {
   }
 
   DLOG("Received unknown RPC from service: \"%s\"\n", cmd);
+  DCHECK(false);
 }
 
 void ServiceRPC::ConnectProducer(std::unique_ptr<Producer>,
@@ -131,6 +148,10 @@ void ServiceRPC::NotifyPageTaken(ProducerID, uint32_t page_index) {
 
 void ServiceRPC::NotifyPageReleased(ProducerID, uint32_t page_index) {
   conn_.Send("NotifyPageReleased " + std::to_string(page_index));
+}
+
+SharedMemory* ServiceRPC::GetSharedMemoryForProducer(ProducerID) {
+  return shmem_.get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

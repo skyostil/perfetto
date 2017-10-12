@@ -10,6 +10,7 @@
 #include "libtracing/core/data_source_config.h"
 #include "libtracing/core/data_source_descriptor.h"
 #include "libtracing/core/producer.h"
+#include "libtracing/core/shared_memory.h"
 #include "libtracing/core/task_runner_proxy.h"
 #include "libtracing/src/core/base.h"
 #include "libtracing/unix_rpc/unix_service.h"
@@ -23,26 +24,12 @@ using perfetto::DataSourceID;
 using perfetto::DataSourceInstanceID;
 using perfetto::Producer;
 using perfetto::Service;
+using perfetto::SharedMemory;
 using perfetto::TaskRunnerProxy;
 using perfetto::UnixService;
 using perfetto::UnixServiceConnection;
 
 const char kServiceSocketName[] = "/tmp/perfetto_test_sock";
-
-class TestProducer : public Producer {
-  void CreateDataSourceInstance(const DataSourceConfig& conf,
-                                DataSourceInstanceID id) override {
-    printf(
-        "TestProducer::CreateDataSourceInstance name=%s filters=%s "
-        "instance_id=%" PRIu64 "\n",
-        conf.data_source_name.c_str(), conf.trace_category_filters.c_str(), id);
-  }
-
-  void TearDownDataSourceInstance(DataSourceInstanceID id) override {
-    printf("TestProducer::TearDownDataSourceInstance instance_id=%" PRIu64 "\n",
-           id);
-  }
-};
 
 class PoorManTaskRunner : public TaskRunnerProxy {
  public:
@@ -131,6 +118,31 @@ class TestServiceDelegate : public UnixService::Delegate {
   std::function<void(DataSourceID)> on_data_source_connected_callback_;
 };
 
+class TestProducer : public Producer {
+ public:
+  void CreateDataSourceInstance(const DataSourceConfig& conf,
+                                DataSourceInstanceID id) override {
+    DLOG("[unix_test.cc] CreateDataSourceInstance name=%s filters=%s "
+        "instance_id=%" PRIu64 "\n",
+        conf.data_source_name.c_str(), conf.trace_category_filters.c_str(), id);
+  }
+
+  void TearDownDataSourceInstance(DataSourceInstanceID id) override {
+  }
+
+  void OnConnect() override {
+    DLOG("[unix_test.cc] OnConnect() ");
+    DCHECK(service);
+    SharedMemory* shm = service->GetSharedMemoryForProducer(0);
+    DCHECK(shm);
+    DLOG("[unix_test.cc] Succesfully wrote to the shared memory\n");
+    memcpy(shm->start(), "bazinga", 8);
+    service->NotifyPageReleased(0, 1);
+  }
+
+  Service* service = nullptr;
+};
+
 int ServiceMain() {
   unlink(kServiceSocketName);
 
@@ -161,6 +173,7 @@ int ProducerMain() {
     perror("Could not connect producer");
     return 1;
   }
+  producer.service = svc.get();
   task_runner.PostTask([&svc]() {
     DLOG("[unix_test.cc] Registering data source\n");
     DataSourceDescriptor desc{"org.chromium.trace_events"};

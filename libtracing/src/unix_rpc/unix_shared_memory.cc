@@ -19,13 +19,17 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <memory>
 #include <utility>
 
+#include "libtracing/src/core/base.h"
+
 namespace perfetto {
 
+// static
 std::unique_ptr<UnixSharedMemory> UnixSharedMemory::Create(size_t size) {
   // TODO: use memfd_create on Linux/Android if the kernel supports is (needs
   // syscall.h, there is no glibc wrtapper). If not, on Android fallback on
@@ -41,6 +45,22 @@ std::unique_ptr<UnixSharedMemory> UnixSharedMemory::Create(size_t size) {
   unlink(path);
   if (ftruncate(fd, static_cast<off_t>(size)) < 0)
     return nullptr;
+  return MapFD(fd, size);
+}
+
+// static
+std::unique_ptr<UnixSharedMemory> UnixSharedMemory::CreateFromFD(int fd) {
+  struct stat stat_buf = {};
+  if (fstat(fd, &stat_buf))
+    return nullptr;
+  DCHECK(stat_buf.st_size > 0);
+  return MapFD(fd, static_cast<size_t>(stat_buf.st_size));
+}
+
+// static
+std::unique_ptr<UnixSharedMemory> UnixSharedMemory::MapFD(int fd, size_t size) {
+  DCHECK(fd >= 0);
+  DCHECK(size > 0);
   void* start = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (start == MAP_FAILED)
     return nullptr;

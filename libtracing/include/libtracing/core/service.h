@@ -50,6 +50,9 @@ class Service {
   virtual void NotifyPageTaken(ProducerID, uint32_t page_index) = 0;
   virtual void NotifyPageReleased(ProducerID, uint32_t page_index) = 0;
 
+  // Returns the per-producer shared memory buffer.
+  virtual SharedMemory* GetSharedMemoryForProducer(ProducerID) = 0;
+
  protected:
   Service() = default;
 };

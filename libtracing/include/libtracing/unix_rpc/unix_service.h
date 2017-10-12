@@ -36,7 +36,8 @@ class TaskRunnerProxy;
 
 class UnixService {
  public:
-  // Implemented by the libtracing client.
+  // Implemented by the libtracing client (e.g., src/unix_rpc/unix_test.cc).
+  // TODO not sure about the name "Delegate" here.
   class Delegate {
    public:
     virtual ~Delegate() {}
