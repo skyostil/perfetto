@@ -441,6 +441,7 @@ source_set("benchmark") {
   ]
   defines = [ "HAVE_POSIX_REGEX" ]
   public_configs = [ ":benchmark_config" ]
+  all_dependent_configs = [ ":benchmark_config" ]
   configs -= [
     "//build:extra_warnings",
   ]
