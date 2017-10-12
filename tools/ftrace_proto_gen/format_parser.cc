@@ -44,7 +44,7 @@ bool EatName(const char** s, const char* end, std::string& output) {
   name[127] = '\0';
   int read = -1;
   int n = sscanf(*s, "name: %127[^\n]\n%n", name, &read);
-  // %n doesn't count as a field for the for the purpose of sscanf's return
+  // %n doesn't count as a field for the purpose of sscanf's return
   // value so if the input is broken in just the right way we can read all the
   // values correctly and not get anything for |read|.
   if (n != 1 || read == -1)
@@ -80,7 +80,7 @@ bool EatField(const char** s, const char* end, Field* output = nullptr) {
   type_and_name_buffer[127] = '\0';
   int read = -1;
   int n = sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n", type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
-  // %n doesn't count as a field for the for the purpose of sscanf's return
+  // %n doesn't count as a field for the purpose of sscanf's return
   // value so if the input is broken in just the right way we can read all the
   // values correctly and not get anything for |read|.
   if (n != 4 || read == -1)
