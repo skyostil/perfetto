@@ -55,9 +55,9 @@
     }                  \
   } while (0)
 #else
-#define DLOG(...) (void)
-#define DPLOG(...) (void)
-#define DCHECK(x) ignore_result(x)
+#define DLOG(...) do {} while(0)
+#define DPLOG(...) do {} while(0)
+#define DCHECK(x) ::perfetto::ignore_result(x)
 #endif  // DCHECK_IS_ON()
 
 #if DCHECK_IS_ON()
