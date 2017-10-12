@@ -54,7 +54,7 @@ target_cpu = "arm" or "arm64"  # Only when building for Android
 ```
 (See the [Build Configurations](#build-configurations) section below for more)
 
-Run `build/ninja -C out/android all`
+`$ build/ninja -C out/android all`
 
 
 ### Build from the Android tree
@@ -72,10 +72,10 @@ $ out/default/libtracing_unittests --gtest_help
 ### On Android
 Either connect a device in [ADB mode][adb-docs] or use the bundled emulator.
 
-To start the emulator just:
+To start the emulator:  
 `$ build/run_android_emulator (arm | arm64) &`
 
-To run the tests (either on the emulator or physical device):
+To run the tests (either on the emulator or physical device):  
 `$ build/run_android_test out/default libtracing_unittests`
 
 
