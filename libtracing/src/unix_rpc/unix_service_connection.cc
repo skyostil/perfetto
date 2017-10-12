@@ -18,6 +18,7 @@
 
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "libtracing/core/data_source_config.h"
 #include "libtracing/core/data_source_descriptor.h"

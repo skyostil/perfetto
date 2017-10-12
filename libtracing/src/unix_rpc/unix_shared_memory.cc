@@ -39,7 +39,7 @@ std::unique_ptr<UnixSharedMemory> UnixSharedMemory::Create(size_t size) {
 
   // TODO use ScopedFd (have to introduce it in base.h). Right now this leaks
   // a fd if mmap fails.
-  int fd = open(path, O_CREAT | O_RDWR | O_TRUNC);
+  int fd = open(path, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
   if (fd < 0)
     return nullptr;
   unlink(path);
