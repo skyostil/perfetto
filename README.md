@@ -51,7 +51,7 @@ the `build/` prefix below and just use gn/ninja from depot_tools.
 target_os = "android"          # Leave empty for local testing
 target_cpu = "arm" or "arm64"  # Only when building for Android
 ```
-(See the [Build Configurations](#Build configurations) section below for more)
+(See the [Build Configurations](#build-configurations) section below for more)
 
 Run `build/ninja -C out/android all`
 
