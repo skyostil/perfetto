@@ -42,9 +42,12 @@ bool EatWhitespace(const char** s, const char* end) {
 bool EatName(const char** s, const char* end, std::string& output) {
   char name[128];
   name[127] = '\0';
-  int read = 0;
+  int read = -1;
   int n = sscanf(*s, "name: %127[^\n]\n%n", name, &read);
-  if (n != 1)
+  // %n doesn't count as a field for the for the purpose of sscanf's return
+  // value so if the input is broken in just the right way we can read all the
+  // values correctly and not get anything for |read|.
+  if (n != 1 || read == -1)
     return false;
   output = std::string(name);
   *s += read;
@@ -75,9 +78,12 @@ bool EatField(const char** s, const char* end, Field* output = nullptr) {
 
   char type_and_name_buffer[128];
   type_and_name_buffer[127] = '\0';
-  int read = 0;
+  int read = -1;
   int n = sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n", type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
-  if (n != 4)
+  // %n doesn't count as a field for the for the purpose of sscanf's return
+  // value so if the input is broken in just the right way we can read all the
+  // values correctly and not get anything for |read|.
+  if (n != 4 || read == -1)
     return false;
 
   *s += read;
@@ -119,8 +125,8 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
       return false;
   }
 
-  // Intresting fields:
-  while (s[0] != 'p') {
+  // Interesting fields:
+  while (s < end && s[0] != 'p') {
     Field field;
     if (!EatField(&s, end, &field))
       return false;
