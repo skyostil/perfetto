@@ -15,11 +15,12 @@ Right now Linux desktop and OSX are maintained best-effort.
 Get the code
 ------------
 ### Prerequisites
-All dependent libraries are self-hosted and pulled by the `build/install-build-deps` script. The only requirements on the host are
-python, git and a compiler (preferably clang, gcc is maintained best-effort):
+All dependent libraries are self-hosted and pulled by the `build/install-build-deps` script.  
+The only requirements on the host are
+python, git and a compiler (preferably clang, gcc is maintained best-effort):  
 `$ sudo apt-get update && sudo apt-get install git clang python`
 
-Then:
+Then:  
 `$ git clone https://android.googlesource.com/platform/external/perfetto.git`
 
 
