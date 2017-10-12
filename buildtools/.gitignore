@@ -1,4 +1,5 @@
 android_sdk/
+benchmark/
 emulator_images/
 googletest/
 libcxx/
@@ -8,4 +9,3 @@ linux64/
 mac/
 ndk/
 protobuf/
-benchmark/

@@ -15,9 +15,9 @@
 executable("libtracing_unittests") {
   testonly = true
   deps += [
-    "../buildtools:gmock",
-    "../buildtools:gtest",
-    "../buildtools:gtest_main",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
   ]
   sources = [
     "hello_world_unittest.cc",
@@ -27,7 +27,7 @@ executable("libtracing_unittests") {
 executable("libtracing_benchmarks") {
   testonly = true
   deps += [
-    "../buildtools:benchmark",
+    "//buildtools:benchmark",
   ]
   configs -= [
     "//build:extra_warnings",
@@ -40,8 +40,8 @@ executable("libtracing_benchmarks") {
 executable("sanitizers_unittests") {
   testonly = true
   deps += [
-    "../buildtools:gtest",
-    "../buildtools:gtest_main",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
   ]
   sources = [
     "sanitizers_unittest.cc",
