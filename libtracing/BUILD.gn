@@ -29,9 +29,6 @@ executable("libtracing_benchmarks") {
   deps += [
     "//buildtools:benchmark",
   ]
-  configs -= [
-    "//build:extra_warnings",
-  ]
   sources = [
     "hello_world_benchmark.cc",
   ]
