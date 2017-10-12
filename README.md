@@ -3,7 +3,7 @@
 This project is meant to be built both as part of the Android tree and
 from a standalone checkout
 
-For internal docs see [goo.gl/pNTTpC](https://goo.gl/pNTTpC)
+For internal docs see [this page][internal-docs]
 
 
 Supported platforms
@@ -23,7 +23,6 @@ Then:
 `$ git clone https://android.googlesource.com/platform/external/perfetto.git`
 
 
-
 Contributing
 ------------
 This project uses [Android AOSP Gerrit][perfetto-gerrit] for code reviews and
@@ -36,7 +35,7 @@ You can use both `git cl upload` from [Chromium depot tools][depot-tools] or
 `git cl` is quite convenient as it supports code auto-formatting via
 `git cl format`.
 
-See https://source.android.com/source/contributing for more details.
+See https://source.android.com/source/contributing for more details about external contributions and CLA signing.
 
 
 Build instructions
@@ -90,15 +89,15 @@ Defaults to the current host, set "android" to build for Android.
 Defaults to `"arm"` when `target_os` == `"android"`, `"x64"` when targeting the
 host. 32-bit host builds are not supported.
 
-`is_debug = true | false`:
+`is_debug = true | false`:  
 Toggles Debug (default) / Release mode.
 
-`is_clang = true | false`:
+`is_clang = true | false`:  
 Use Clang (default) / GCC. It requires clang 3.5+ to be installed on the host.
 Clang is the default compiler on Mac (% having installed Xcode).
 On Linux: `sudo apt-get update && sudo apt-get install clang`
 
-`cc = "gcc" / cxx = "g++"`:
+`cc = "gcc" / cxx = "g++"`:  
 Uses a different compiler binary (default: autodetected depending on is_clang).
 
 `is_asan = true`:  
@@ -120,6 +119,7 @@ Enables [Thread Sanitizer](https://github.com/google/sanitizers/wiki/ThreadSanit
 Enables [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
 
 
+[internal-docs]: https://goo.gl/pNTTpC
 [perfetto-gerrit]: https://android-review.googlesource.com/q/project:platform%252Fexternal%252Fperfetto+status:open
 [google-cpp-style]: https://google.github.io/styleguide/cppguide.html
 [depot-tools]: https://dev.chromium.org/developers/how-tos/depottools
