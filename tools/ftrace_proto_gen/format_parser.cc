@@ -31,14 +31,6 @@ bool EatPrefix(const char** s, const char* end, const char* prefix) {
   return true;
 }
 
-bool EatNewline(const char** s, const char* end) {
-  return EatPrefix(s, end, "\n");
-}
-
-bool EatSemicolon(const char** s, const char* end) {
-  return EatPrefix(s, end, ";");
-}
-
 bool EatWhitespace(const char** s, const char* end) {
   while (*s != end && (**s == ' ' || **s == '\t')) {
     (*s)++;
@@ -46,145 +38,57 @@ bool EatWhitespace(const char** s, const char* end) {
   return true;
 }
 
-bool EatWord(const char** s, const char* end, std::string& output) {
-  const char* const start = *s;
-  size_t length = 0;
-  while (*s != end && **s != ' ' && **s != ';' && **s != '\n') {
-    (*s)++;
-    length++;
-  }
-  if (length == 0)
-    return false;
-  output = std::string(start, length);
-  return true;
-}
-
-bool EatToSemicolon(const char** s, const char* end, std::string& output) {
-  const char* const start = *s;
-  size_t length = 0;
-  while (*s != end && **s != ';') {
-    (*s)++;
-    length++;
-  }
-  if (length == 0)
-    return false;
-  output = std::string(start, length);
-  return true;
-}
-
-bool EatInt(const char** s, const char* end, int* output) {
-  std::string number;
-  if (!EatWord(s, end, number))
-    return false;
-
-  const char* ptr = number.c_str();
-  int n = static_cast<int>(std::strtol(ptr, const_cast<char**>(&ptr), 10));
-  if (number.c_str() == ptr)
-    return false;
-
-  *output = n;
-  return true;
-}
-
-bool EatBool(const char** s, const char* end, bool* output) {
-  int number;
-  if (!EatInt(s, end, &number))
-    return false;
-  *output = number != 0;
-  return true;
-}
-
 // e.g. "name: ion_alloc_buffer_end"
 bool EatName(const char** s, const char* end, std::string& output) {
-  if (!EatPrefix(s, end, "name:"))
+  char name[128];
+  name[127] = '\0';
+  int read = 0;
+  int n = sscanf(*s, "name: %127[^\n]\n%n", name, &read);
+  if (n != 1)
     return false;
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatWord(s, end, output))
-      return false;
-  if (!EatNewline(s, end))
-    return false;
+  output = std::string(name);
+  *s += read;
   return true;
 }
 
 // e.g. "ID: 143"
 bool EatId(const char** s, const char* end, int* output) {
-  if (!EatPrefix(s, end, "ID:"))
+  int read = 0;
+  int n = sscanf(*s, "ID: %d\n%n", output, &read);
+  if (n != 1)
     return false;
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatInt(s, end, output))
-      return false;
-  if (!EatNewline(s, end))
-    return false;
+  *s += read;
   return true;
 }
 
 // e.g. "format:"
 bool EatFormatLine(const char** s, const char* end) {
-  if (!EatPrefix(s, end, "format:"))
-    return false;
-  if (!EatNewline(s, end))
+  if (!EatPrefix(s, end, "format:\n"))
     return false;
   return true;
 }
 
-bool EatFieldPreamble(const char** s, const char* end) {
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatPrefix(s, end, "field:"))
-    return false;
-  return true;
-}
-
-bool EatFieldContents(const char** s, const char* end, Field* output = nullptr) {
-  std::string type_and_name;
+bool EatField(const char** s, const char* end, Field* output = nullptr) {
   int offset;
   int size;
-  bool is_signed;
+  int is_signed_as_int;
 
-  if (!EatToSemicolon(s, end, type_and_name))
-    return false;
-  if (!EatSemicolon(s, end))
-    return false;
-
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatPrefix(s, end, "offset:"))
-    return false;
-  if (!EatInt(s, end, &offset))
-    return false;
-  if (!EatSemicolon(s, end))
+  char type_and_name_buffer[128];
+  type_and_name_buffer[127] = '\0';
+  int read = 0;
+  int n = sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n", type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
+  if (n != 4)
     return false;
 
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatPrefix(s, end, "size:"))
-    return false;
-  if (!EatInt(s, end, &size))
-    return false;
-  if (!EatSemicolon(s, end))
-    return false;
+  *s += read;
 
-  if (!EatWhitespace(s, end))
-    return false;
-  if (!EatPrefix(s, end, "signed:"))
-    return false;
-  if (!EatBool(s, end, &is_signed))
-    return false;
-  if (!EatSemicolon(s, end))
-    return false;
-
-  if (!EatNewline(s, end))
-    return false;
-
-  if (output == nullptr)
+  if (!output)
     return true;
 
-  output->type_and_name = type_and_name;
+  output->type_and_name = std::string(type_and_name_buffer);
   output->offset = offset;
   output->size = size;
-  output->is_signed = is_signed;
+  output->is_signed = is_signed_as_int != 0;
 
   return true;
 }
@@ -211,27 +115,18 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
 
   // Common fields:
   for (int i=0; i<4; i++) {
-    if (!EatFieldPreamble(&s, end))
-      return false;
-    if (!EatFieldContents(&s, end))
+    if (!EatField(&s, end))
       return false;
   }
 
-  if (!EatNewline(&s, end))
-    return false;
-
   // Intresting fields:
-  for (;;) {
+  while (s[0] != 'p') {
     Field field;
-    if (!EatFieldPreamble(&s, end))
-      break;
-    if (!EatFieldContents(&s, end, &field))
+    if (!EatField(&s, end, &field))
       return false;
     fields.push_back(field);
   }
 
-  if (!EatNewline(&s, end))
-    return false;
   if (!EatPrefix(&s, end, "print fmt:"))
     return false;
   if (!EatWhitespace(&s, end))
