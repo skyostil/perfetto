@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <memory>
@@ -35,7 +35,7 @@ int main(int argc, const char** argv) {
   const char* output_path = argv[2];
 
   int fin = open(input_path, O_RDONLY);
-  if (fin < 0) { 
+  if (fin < 0) {
     fprintf(stderr, "Failed to open %s\n", input_path);
     return 1;
   }
@@ -45,7 +45,7 @@ int main(int argc, const char** argv) {
   do {
     lseek(fin, 0, SEEK_SET);
     rsize = read(fin, buf.get(), static_cast<size_t>(fsize));
-  } while(rsize < 0 && errno == EINTR);
+  } while (rsize < 0 && errno == EINTR);
   // TODO(hjd): CHECK(rsize == fsize);
   size_t length = static_cast<size_t>(rsize);
   buf[length] = '\0';
@@ -61,7 +61,7 @@ int main(int argc, const char** argv) {
   if (!perfetto::GenerateProto(format, &proto))
     exit(1);
 
-  FILE *fout = fopen(output_path, "w");
+  FILE* fout = fopen(output_path, "w");
   if (fout == nullptr) {
     perror("Error");
     exit(1);
@@ -69,4 +69,3 @@ int main(int argc, const char** argv) {
 
   perfetto::WriteProto(fout, proto);
 }
-

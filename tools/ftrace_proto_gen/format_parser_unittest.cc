@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/format_parser.h"
+#include "gtest/gtest.h"
 
 namespace perfetto {
 namespace {
@@ -63,8 +63,8 @@ format:
 print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
 )";
 
-  for (size_t i=0; i<input.length(); i++) {
-    for (size_t j=1; j<10 && i+j < input.length(); j++) {
+  for (size_t i = 0; i < input.length(); i++) {
+    for (size_t j = 1; j < 10 && i + j < input.length(); j++) {
       std::string copy = input;
       copy.erase(i, j);
       ParseFtraceEvent(copy);

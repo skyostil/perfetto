@@ -21,7 +21,7 @@ namespace {
 
 bool EatPrefix(const char** s, const char* end, const char* prefix) {
   int length = 0;
-  for (int i=0; prefix[i]; i++) {
+  for (int i = 0; prefix[i]; i++) {
     if (*s + i == end)
       return false;
     if (prefix[i] != (*s)[i])
@@ -71,7 +71,9 @@ bool EatFtraceEventLine(const char** s, const char* end) {
   return true;
 }
 
-bool EatField(const char** s, const char* end, FtraceEvent::Field* output = nullptr) {
+bool EatField(const char** s,
+              const char* end,
+              FtraceEvent::Field* output = nullptr) {
   int offset;
   int size;
   int is_signed_as_int;
@@ -79,7 +81,9 @@ bool EatField(const char** s, const char* end, FtraceEvent::Field* output = null
   char type_and_name_buffer[128];
   type_and_name_buffer[127] = '\0';
   int read = -1;
-  int n = sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n", type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
+  int n =
+      sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n",
+             type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
   // %n doesn't count as a field for the purpose of sscanf's return
   // value so if the input is broken in just the right way we can read all the
   // values correctly and not get anything for |read|.
@@ -99,7 +103,7 @@ bool EatField(const char** s, const char* end, FtraceEvent::Field* output = null
   return true;
 }
 
-} // namespace
+}  // namespace
 
 bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
   return ParseFtraceEvent(input.c_str(), input.length(), output);
@@ -120,7 +124,7 @@ bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output) {
     return false;
 
   // Common fields:
-  for (int i=0; i<4; i++) {
+  for (int i = 0; i < 4; i++) {
     if (!EatField(&s, end))
       return false;
   }
@@ -152,4 +156,4 @@ bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output) {
   return true;
 }
 
-} // namespace perfetto
+}  // namespace perfetto

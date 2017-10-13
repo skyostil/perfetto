@@ -52,6 +52,6 @@ bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
 std::string InferProtoType(const FtraceEvent::Field& field);
 std::string NameFromTypeAndName(std::string type_and_name);
 
-} // namespace perfetto
+}  // namespace perfetto
 
-#endif // TOOLS_FTRACE_PROTO_GEN_FTRACE_GEN_H_
+#endif  // TOOLS_FTRACE_PROTO_GEN_FTRACE_GEN_H_

@@ -15,10 +15,10 @@
 executable("ftrace_proto_gen_unittests") {
   testonly = true
   deps += [
+    ":lib",
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
-    ":lib",
   ]
   sources = [
     "format_parser_unittest.cc",
@@ -30,9 +30,7 @@ executable("ftrace_proto_gen") {
   sources = [
     "main.cc",
   ]
-  deps += [
-    ":lib",
-  ]
+  deps += [ ":lib" ]
 }
 
 source_set("lib") {
@@ -41,10 +39,8 @@ source_set("lib") {
     "format_parser.h",
     "ftrace_gen.cc",
     "ftrace_gen.h",
-    "proto_writer.h",
     "proto_writer.cc",
+    "proto_writer.h",
     "proto_writer.h",
   ]
 }
-
-

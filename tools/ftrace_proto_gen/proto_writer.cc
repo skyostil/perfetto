@@ -25,10 +25,10 @@ void WriteProto(FILE* fout, const Proto& proto) {
   fprintf(fout, "syntax = \"proto3\";\n");
   fprintf(fout, "message %s {\n", proto.name.c_str());
   for (const Proto::Field& field : proto.fields) {
-    fprintf(fout, "  %s %s = %d;\n", field.type.c_str(), field.name.c_str(), field.number);
+    fprintf(fout, "  %s %s = %d;\n", field.type.c_str(), field.name.c_str(),
+            field.number);
   }
   fprintf(fout, "}\n");
 }
 
 }  // namespace perfetto
-

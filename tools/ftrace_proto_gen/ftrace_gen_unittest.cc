@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/ftrace_gen.h"
+#include "gtest/gtest.h"
 
 namespace perfetto {
 namespace {
@@ -39,9 +39,9 @@ TEST(FtraceEventParser, NameFromTypeAndName) {
 }
 
 TEST(FtraceEventParser, InferProtoType) {
-  EXPECT_EQ(InferProtoType(FtraceEvent::Field{"char * foo", 2, 0, false}), "string");
+  EXPECT_EQ(InferProtoType(FtraceEvent::Field{"char * foo", 2, 0, false}),
+            "string");
 }
 
 }  // namespace
-} // namespace perfetto
-
+}  // namespace perfetto

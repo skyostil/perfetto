@@ -16,9 +16,9 @@
 
 #include "tools/ftrace_proto_gen/ftrace_gen.h"
 
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 namespace perfetto {
 namespace {
@@ -31,14 +31,14 @@ bool IsCIdentifier(const std::string& s) {
   return s.size() > 0 && !std::isdigit(s[0]);
 }
 
-} // namespace
+}  // namespace
 
 std::string NameFromTypeAndName(std::string type_and_name) {
   size_t right = type_and_name.size();
   if (right == 0)
     return "";
 
-  if (type_and_name[type_and_name.size()-1] == ']') {
+  if (type_and_name[type_and_name.size() - 1] == ']') {
     right = type_and_name.rfind('[');
     if (right == std::string::npos)
       return "";
@@ -49,7 +49,7 @@ std::string NameFromTypeAndName(std::string type_and_name) {
     return "";
   left++;
 
-  std::string result = type_and_name.substr(left, right-left);
+  std::string result = type_and_name.substr(left, right - left);
   if (!IsCIdentifier(result))
     return "";
 
@@ -93,5 +93,4 @@ bool GenerateProto(const FtraceEvent& format, Proto* proto_out) {
   return true;
 }
 
-} // namespace perfetto
-
+}  // namespace perfetto

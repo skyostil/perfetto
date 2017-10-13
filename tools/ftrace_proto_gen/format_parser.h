@@ -28,6 +28,6 @@ namespace perfetto {
 bool ParseFtraceEvent(const std::string& input, FtraceEvent* output = nullptr);
 bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output = nullptr);
 
-} // namespace perfetto
+}  // namespace perfetto
 
-#endif // TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
+#endif  // TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_

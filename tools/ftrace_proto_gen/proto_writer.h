@@ -25,6 +25,6 @@ namespace perfetto {
 
 void WriteProto(FILE* fout, const Proto& proto);
 
-} // namespace perfetto
+}  // namespace perfetto
 
-#endif // TOOLS_FTRACE_PROTO_GEN_PROTO_WRITER_H_
+#endif  // TOOLS_FTRACE_PROTO_GEN_PROTO_WRITER_H_
