@@ -57,7 +57,7 @@ std::string NameFromTypeAndName(std::string type_and_name) {
 
 std::string InferProtoType(const FormatField& field) {
   // Very scientific:
-  if (field.type_andtype_and_namee.find("char *") != std::string::npos)
+  if (field.type_and_name.find("char *") != std::string::npos)
     return "string";
   if (field.size <= 4 && field.is_signed)
     return "int32";
