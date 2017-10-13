@@ -15,27 +15,37 @@
  */
 
 #include "tools/ftrace_proto_gen/format_parser.h"
+#include "tools/ftrace_proto_gen/proto_writer.h"
 
 #include <stdio.h>
 #define MAXBUFLEN 1000000
 
+namespace {
+
+} // namespace
+
 int main(int argc, const char** argv) {
-  if (argc != 2) {
-    printf("Usage: ./ftrace_proto_gen format.txt.\n");
+  if (argc != 3) {
+    printf("Usage: ./ftrace_proto_gen in.format out.proto\n");
     exit(1);
   }
 
   char source[MAXBUFLEN + 1];
-  FILE *fp = fopen(argv[1], "r");
+  FILE* fin = fopen(argv[1], "r");
+  if (fin == nullptr) {
+    perror("Error");
+    exit(1);
+  }
+
   size_t length = 0;
-  if (fp != NULL) {
-    length = fread(source, sizeof(char), MAXBUFLEN, fp);
-    if (ferror(fp) != 0) {
-      fputs("Error reading file", stderr);
+  if (fin != NULL) {
+    length = fread(source, sizeof(char), MAXBUFLEN, fin);
+    if (ferror(fin) != 0) {
+      fprintf(stderr, "Error reading file %s\n", argv[1]);
     } else {
       source[length++] = '\0';
     }
-    fclose(fp);
+    fclose(fin);
   }
 
   Format format;
@@ -44,17 +54,16 @@ int main(int argc, const char** argv) {
     exit(1);
   }
 
-  printf("Parsed event!\n");
-  printf("    id: %d\n", format.id);
-  printf("  name: %s\n", format.name.c_str());
-  printf("fields:\n");
-  printf("    %25s %7s %4s %7s\n", "type", "offset", "size", "signed?");
-  for (const Field& field : format.fields) {
-    printf("    %25s %7d %4d %7s\n",
-        field.type_and_name.c_str(),
-        field.offset,
-        field.size,
-        field.is_signed ? "yes" : "no");
+  
+  Proto proto;
+  if (!GenerateProto(format, &proto))
+    exit(1);
+
+  FILE *fout = fopen(argv[2], "w");
+  if (fout == nullptr) {
+    perror("Error");
+    exit(1);
   }
 
+  WriteProto(fout, proto);
 }

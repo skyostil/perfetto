@@ -17,7 +17,6 @@
 #include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/format_parser.h"
 
-namespace perfetto {
 namespace {
 
 TEST(FormatParser, HappyPath) {
@@ -73,4 +72,3 @@ print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->clie
 }
 
 }  // namespace
-}  // namespace perfetto

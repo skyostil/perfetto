@@ -18,22 +18,33 @@ executable("ftrace_proto_gen_unittests") {
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
+    ":ftrace_proto_gen_src",
   ]
   sources = [
     "format_parser_unittest.cc",
-    "format_parser.cc",
-    "format_parser.h",
+    "ftrace_gen_unittest.cc",
   ]
 }
 
 executable("ftrace_proto_gen") {
   sources = [
-    "format_parser.cc",
-    "format_parser.h",
     "main.cc",
+  ]
+  deps += [
+    ":ftrace_proto_gen_src",
   ]
 }
 
-
+source_set("ftrace_proto_gen_src") {
+  sources = [
+    "format_parser.cc",
+    "format_parser.h",
+    "ftrace_gen.cc",
+    "ftrace_gen.h",
+    "proto_writer.h",
+    "proto_writer.cc",
+    "proto_writer.h",
+  ]
+}
 
 

@@ -71,7 +71,7 @@ bool EatFormatLine(const char** s, const char* end) {
   return true;
 }
 
-bool EatField(const char** s, const char* end, Field* output = nullptr) {
+bool EatField(const char** s, const char* end, FormatField* output = nullptr) {
   int offset;
   int size;
   int is_signed_as_int;
@@ -110,7 +110,7 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
   std::string name;
   int id;
   std::string fmt;
-  std::vector<Field> fields;
+  std::vector<FormatField> fields;
 
   if (!EatName(&s, end, name))
     return false;
@@ -127,7 +127,7 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
 
   // Interesting fields:
   while (s < end && s[0] != 'p') {
-    Field field;
+    FormatField field;
     if (!EatField(&s, end, &field))
       return false;
     fields.push_back(field);
