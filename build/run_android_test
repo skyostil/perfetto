@@ -37,6 +37,7 @@ def AdbCall(*args):
   print '> adb ' + ' '.join(args)
   return subprocess.check_call(cmd)
 
+
 def GetProp(prop):
   cmd = [ADB_PATH, 'shell', 'getprop', prop]
   print '> adb ' + ' '.join(cmd)
@@ -46,8 +47,10 @@ def GetProp(prop):
   print lines[0]
   return lines[0]
 
+
 def BootCompleted():
   return GetProp('sys.boot_completed') == '1'
+
 
 def ExponentialBackOff(f):
   delay_seconds = 1
@@ -56,6 +59,7 @@ def ExponentialBackOff(f):
       return
     time.sleep(delay_seconds)
     delay_seconds *= 2
+
 
 def Main():
   parser = argparse.ArgumentParser()
