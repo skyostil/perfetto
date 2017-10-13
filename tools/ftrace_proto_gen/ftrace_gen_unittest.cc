@@ -17,9 +17,10 @@
 #include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/ftrace_gen.h"
 
+namespace perfetto {
 namespace {
 
-TEST(FormatParser, NameFromTypeAndName) {
+TEST(FtraceEventParser, NameFromTypeAndName) {
   EXPECT_EQ(NameFromTypeAndName("int foo"), "foo");
   EXPECT_EQ(NameFromTypeAndName("int foo_bar"), "foo_bar");
   EXPECT_EQ(NameFromTypeAndName("const char * foo"), "foo");
@@ -37,8 +38,10 @@ TEST(FormatParser, NameFromTypeAndName) {
   EXPECT_EQ(NameFromTypeAndName("char 42"), "");
 }
 
-TEST(FormatParser, InferProtoType) {
-  EXPECT_EQ(InferProtoType(FormatField{"char * foo", 2, 0, false}), "string");
+TEST(FtraceEventParser, InferProtoType) {
+  EXPECT_EQ(InferProtoType(FtraceEvent::Field{"char * foo", 2, 0, false}), "string");
 }
 
 }  // namespace
+} // namespace perfetto
+

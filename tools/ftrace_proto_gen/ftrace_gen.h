@@ -17,36 +17,41 @@
 #ifndef TOOLS_FTRACE_PROTO_GEN_FTRACE_GEN_H_
 #define TOOLS_FTRACE_PROTO_GEN_FTRACE_GEN_H_
 
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 
-struct FormatField {
-  std::string type_and_name;
-  int offset;
-  int size;
-  bool is_signed;
-};
+namespace perfetto {
 
-struct Format {
+struct FtraceEvent {
+  struct Field {
+    std::string type_and_name;
+    int offset;
+    int size;
+    bool is_signed;
+  };
+
   std::string name;
   int id;
   std::string fmt;
-  std::vector<FormatField> fields;
-};
-
-struct ProtoField {
-  std::string type;
-  std::string name;
-  int number;
+  std::vector<Field> fields;
 };
 
 struct Proto {
+  struct Field {
+    std::string type;
+    std::string name;
+    uint32_t number;
+  };
   std::string name;
-  std::vector<ProtoField> fields;
+  std::vector<Field> fields;
 };
 
-bool GenerateProto(const Format& format, Proto* proto_out);
-std::string InferProtoType(const FormatField& field);
+bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
+std::string InferProtoType(const FtraceEvent::Field& field);
 std::string NameFromTypeAndName(std::string type_and_name);
+
+} // namespace perfetto
 
 #endif // TOOLS_FTRACE_PROTO_GEN_FTRACE_GEN_H_

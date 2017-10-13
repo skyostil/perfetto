@@ -17,9 +17,10 @@
 #include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/format_parser.h"
 
+namespace perfetto {
 namespace {
 
-TEST(FormatParser, HappyPath) {
+TEST(FtraceEventParser, HappyPath) {
   const std::string input = R"(name: the_name
 ID: 42
 format:
@@ -37,14 +38,14 @@ format:
 print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
 )";
 
-  Format output;
-  ASSERT_TRUE(ParseFormat(input));
-  ASSERT_TRUE(ParseFormat(input.c_str(), input.length(), &output));
+  FtraceEvent output;
+  ASSERT_TRUE(ParseFtraceEvent(input));
+  ASSERT_TRUE(ParseFtraceEvent(input.c_str(), input.length(), &output));
   EXPECT_EQ(output.name, "the_name");
   EXPECT_EQ(output.id, 42);
 }
 
-TEST(FormatParser, HalfAssedFuzzing) {
+TEST(FtraceEventParser, HalfAssedFuzzing) {
   const std::string input = R"(name: the_name
 ID: 42
 format:
@@ -66,9 +67,10 @@ print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->clie
     for (size_t j=1; j<10 && i+j < input.length(); j++) {
       std::string copy = input;
       copy.erase(i, j);
-      ParseFormat(copy);
+      ParseFtraceEvent(copy);
     }
   }
 }
 
 }  // namespace
+}  // namespace perfetto

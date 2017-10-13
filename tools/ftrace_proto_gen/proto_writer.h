@@ -18,8 +18,13 @@
 #define TOOLS_FTRACE_PROTO_GEN_PROTO_WRITER_H_
 
 #include <stddef.h>
+
 #include "tools/ftrace_proto_gen/ftrace_gen.h"
 
+namespace perfetto {
+
 void WriteProto(FILE* fout, const Proto& proto);
+
+} // namespace perfetto
 
 #endif // TOOLS_FTRACE_PROTO_GEN_PROTO_WRITER_H_

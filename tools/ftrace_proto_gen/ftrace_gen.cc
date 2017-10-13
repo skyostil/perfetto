@@ -20,6 +20,7 @@
 #include <vector>
 #include <set>
 
+namespace perfetto {
 namespace {
 
 bool IsCIdentifier(const std::string& s) {
@@ -55,7 +56,7 @@ std::string NameFromTypeAndName(std::string type_and_name) {
   return result;
 }
 
-std::string InferProtoType(const FormatField& field) {
+std::string InferProtoType(const FtraceEvent::Field& field) {
   // Very scientific:
   if (field.type_and_name.find("char *") != std::string::npos)
     return "string";
@@ -67,26 +68,30 @@ std::string InferProtoType(const FormatField& field) {
     return "int64";
   if (field.size <= 8 && !field.is_signed)
     return "uint64";
-  return "string";
+  return "";
 }
 
-bool GenerateProto(const Format& format, Proto* proto_out) {
-  proto_out->name = format.name; 
+bool GenerateProto(const FtraceEvent& format, Proto* proto_out) {
+  proto_out->name = format.name;
   proto_out->fields.reserve(format.fields.size());
   std::set<std::string> seen;
-  int i = 1;
-  for (const FormatField& field : format.fields) {
+  uint32_t i = 1;
+  for (const FtraceEvent::Field& field : format.fields) {
     std::string name = NameFromTypeAndName(field.type_and_name);
-    if (seen.count(name)) {
-      // TODO(hjd): Handle dup names.
+    // TODO(hjd): Handle dup names.
+    if (name == "" || seen.count(name))
       continue;
-    }
     seen.insert(name);
     std::string type = InferProtoType(field);
-    proto_out->fields.emplace_back(ProtoField{type, name, i});
+    // Check we managed to infer a type.
+    if (type == "")
+      continue;
+    proto_out->fields.emplace_back(Proto::Field{type, name, i});
     i++;
   }
 
   return true;
 }
+
+} // namespace perfetto
 

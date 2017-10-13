@@ -18,10 +18,16 @@
 #define TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
 
 #include <stddef.h>
+
 #include <string>
+
 #include "tools/ftrace_proto_gen/ftrace_gen.h"
 
-bool ParseFormat(const std::string& input, Format* output = nullptr);
-bool ParseFormat(const char* s, size_t len, Format* output = nullptr);
+namespace perfetto {
+
+bool ParseFtraceEvent(const std::string& input, FtraceEvent* output = nullptr);
+bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output = nullptr);
+
+} // namespace perfetto
 
 #endif // TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_

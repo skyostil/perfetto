@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include <memory>
+
 #include "tools/ftrace_proto_gen/format_parser.h"
 #include "tools/ftrace_proto_gen/proto_writer.h"
-
-#include <stdio.h>
-#define MAXBUFLEN 1000000
-
-namespace {
-
-} // namespace
 
 int main(int argc, const char** argv) {
   if (argc != 3) {
@@ -30,40 +31,42 @@ int main(int argc, const char** argv) {
     exit(1);
   }
 
-  char source[MAXBUFLEN + 1];
-  FILE* fin = fopen(argv[1], "r");
-  if (fin == nullptr) {
-    perror("Error");
+  const char* input_path = argv[1];
+  const char* output_path = argv[2];
+
+  int fin = open(input_path, O_RDONLY);
+  if (fin < 0) { 
+    fprintf(stderr, "Failed to open %s\n", input_path);
+    return 1;
+  }
+  off_t fsize = lseek(fin, 0, SEEK_END);
+  std::unique_ptr<char[]> buf(new char[fsize + 1]);
+  ssize_t rsize;
+  do {
+    lseek(fin, 0, SEEK_SET);
+    rsize = read(fin, buf.get(), static_cast<size_t>(fsize));
+  } while(rsize < 0 && errno == EINTR);
+  // TODO(hjd): CHECK(rsize == fsize);
+  size_t length = static_cast<size_t>(rsize);
+  buf[length] = '\0';
+  close(fin);
+
+  perfetto::FtraceEvent format;
+  if (!perfetto::ParseFtraceEvent(buf.get(), length, &format)) {
+    fprintf(stderr, "Could not parse file %s.\n", input_path);
     exit(1);
   }
 
-  size_t length = 0;
-  if (fin != NULL) {
-    length = fread(source, sizeof(char), MAXBUFLEN, fin);
-    if (ferror(fin) != 0) {
-      fprintf(stderr, "Error reading file %s\n", argv[1]);
-    } else {
-      source[length++] = '\0';
-    }
-    fclose(fin);
-  }
-
-  Format format;
-  if (!ParseFormat(source, length, &format)) {
-    printf("Format file invalid.\n");
-    exit(1);
-  }
-
-  
-  Proto proto;
-  if (!GenerateProto(format, &proto))
+  perfetto::Proto proto;
+  if (!perfetto::GenerateProto(format, &proto))
     exit(1);
 
-  FILE *fout = fopen(argv[2], "w");
+  FILE *fout = fopen(output_path, "w");
   if (fout == nullptr) {
     perror("Error");
     exit(1);
   }
 
-  WriteProto(fout, proto);
+  perfetto::WriteProto(fout, proto);
 }
+

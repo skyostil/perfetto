@@ -16,6 +16,7 @@
 
 #include "tools/ftrace_proto_gen/format_parser.h"
 
+namespace perfetto {
 namespace {
 
 bool EatPrefix(const char** s, const char* end, const char* prefix) {
@@ -39,9 +40,8 @@ bool EatWhitespace(const char** s, const char* end) {
 }
 
 // e.g. "name: ion_alloc_buffer_end"
-bool EatName(const char** s, const char* end, std::string& output) {
+bool EatName(const char** s, const char* end, std::string* output) {
   char name[128];
-  name[127] = '\0';
   int read = -1;
   int n = sscanf(*s, "name: %127[^\n]\n%n", name, &read);
   // %n doesn't count as a field for the purpose of sscanf's return
@@ -49,7 +49,7 @@ bool EatName(const char** s, const char* end, std::string& output) {
   // values correctly and not get anything for |read|.
   if (n != 1 || read == -1)
     return false;
-  output = std::string(name);
+  *output = std::string(name);
   *s += read;
   return true;
 }
@@ -65,13 +65,13 @@ bool EatId(const char** s, const char* end, int* output) {
 }
 
 // e.g. "format:"
-bool EatFormatLine(const char** s, const char* end) {
+bool EatFtraceEventLine(const char** s, const char* end) {
   if (!EatPrefix(s, end, "format:\n"))
     return false;
   return true;
 }
 
-bool EatField(const char** s, const char* end, FormatField* output = nullptr) {
+bool EatField(const char** s, const char* end, FtraceEvent::Field* output = nullptr) {
   int offset;
   int size;
   int is_signed_as_int;
@@ -101,22 +101,22 @@ bool EatField(const char** s, const char* end, FormatField* output = nullptr) {
 
 } // namespace
 
-bool ParseFormat(const std::string& input, Format* output) {
-  return ParseFormat(input.c_str(), input.length(), output);
+bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
+  return ParseFtraceEvent(input.c_str(), input.length(), output);
 }
 
-bool ParseFormat(const char* s, size_t len, Format* output) {
+bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output) {
   const char* const end = s + len;
   std::string name;
   int id;
   std::string fmt;
-  std::vector<FormatField> fields;
+  std::vector<FtraceEvent::Field> fields;
 
-  if (!EatName(&s, end, name))
+  if (!EatName(&s, end, &name))
     return false;
   if (!EatId(&s, end, &id))
     return false;
-  if (!EatFormatLine(&s, end))
+  if (!EatFtraceEventLine(&s, end))
     return false;
 
   // Common fields:
@@ -127,7 +127,7 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
 
   // Interesting fields:
   while (s < end && s[0] != 'p') {
-    FormatField field;
+    FtraceEvent::Field field;
     if (!EatField(&s, end, &field))
       return false;
     fields.push_back(field);
@@ -152,3 +152,4 @@ bool ParseFormat(const char* s, size_t len, Format* output) {
   return true;
 }
 
+} // namespace perfetto
