@@ -19,6 +19,10 @@
 namespace perfetto {
 namespace {
 
+#define MAX_FIELD_LENGTH 127
+#define STRINGIFY(x) STRINGIFY2(x)
+#define STRINGIFY2(x) #x
+
 bool EatPrefix(const char** s, const char* end, const char* prefix) {
   int length = 0;
   for (int i = 0; prefix[i]; i++) {
@@ -41,9 +45,9 @@ bool EatWhitespace(const char** s, const char* end) {
 
 // e.g. "name: ion_alloc_buffer_end"
 bool EatName(const char** s, const char* end, std::string* output) {
-  char name[128];
+  char name[MAX_FIELD_LENGTH + 1];
   int read = -1;
-  int n = sscanf(*s, "name: %127[^\n]\n%n", name, &read);
+  int n = sscanf(*s, "name: %" STRINGIFY(MAX_FIELD_LENGTH) "[^\n]\n%n", name, &read);
   // %n doesn't count as a field for the purpose of sscanf's return
   // value so if the input is broken in just the right way we can read all the
   // values correctly and not get anything for |read|.
@@ -78,11 +82,10 @@ bool EatField(const char** s,
   int size;
   int is_signed_as_int;
 
-  char type_and_name_buffer[128];
-  type_and_name_buffer[127] = '\0';
+  char type_and_name_buffer[MAX_FIELD_LENGTH + 1];
   int read = -1;
   int n =
-      sscanf(*s, "\tfield:%127[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n",
+      sscanf(*s, "\tfield:%" STRINGIFY(MAX_FIELD_LENGTH) "[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n",
              type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
   // %n doesn't count as a field for the purpose of sscanf's return
   // value so if the input is broken in just the right way we can read all the

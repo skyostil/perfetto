@@ -46,11 +46,13 @@ struct Proto {
   };
   std::string name;
   std::vector<Field> fields;
+
+  std::string ToString();
 };
 
 bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
 std::string InferProtoType(const FtraceEvent::Field& field);
-std::string NameFromTypeAndName(std::string type_and_name);
+std::string GetNameFromTypeAndName(std::string type_and_name);
 
 }  // namespace perfetto
 

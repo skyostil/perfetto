@@ -22,7 +22,7 @@ executable("ftrace_proto_gen_unittests") {
   ]
   sources = [
     "format_parser_unittest.cc",
-    "ftrace_gen_unittest.cc",
+    "ftrace_to_proto_unittest.cc",
   ]
 }
 
@@ -37,10 +37,7 @@ source_set("lib") {
   sources = [
     "format_parser.cc",
     "format_parser.h",
-    "ftrace_gen.cc",
-    "ftrace_gen.h",
-    "proto_writer.cc",
-    "proto_writer.h",
-    "proto_writer.h",
+    "ftrace_to_proto.cc",
+    "ftrace_to_proto.h",
   ]
 }

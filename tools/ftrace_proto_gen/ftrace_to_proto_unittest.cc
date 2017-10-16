@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
-#include "tools/ftrace_proto_gen/ftrace_gen.h"
+#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
 #include "gtest/gtest.h"
 
 namespace perfetto {
 namespace {
 
-TEST(FtraceEventParser, NameFromTypeAndName) {
-  EXPECT_EQ(NameFromTypeAndName("int foo"), "foo");
-  EXPECT_EQ(NameFromTypeAndName("int foo_bar"), "foo_bar");
-  EXPECT_EQ(NameFromTypeAndName("const char * foo"), "foo");
-  EXPECT_EQ(NameFromTypeAndName("const char foo[64]"), "foo");
-  EXPECT_EQ(NameFromTypeAndName("u8 foo[(int)sizeof(struct blah)]"), "foo");
+TEST(FtraceEventParser, GetNameFromTypeAndName) {
+  EXPECT_EQ(GetNameFromTypeAndName("int foo"), "foo");
+  EXPECT_EQ(GetNameFromTypeAndName("int foo_bar"), "foo_bar");
+  EXPECT_EQ(GetNameFromTypeAndName("const char * foo"), "foo");
+  EXPECT_EQ(GetNameFromTypeAndName("const char foo[64]"), "foo");
+  EXPECT_EQ(GetNameFromTypeAndName("u8 foo[(int)sizeof(struct blah)]"), "foo");
 
-  EXPECT_EQ(NameFromTypeAndName(""), "");
-  EXPECT_EQ(NameFromTypeAndName("]"), "");
-  EXPECT_EQ(NameFromTypeAndName("["), "");
-  EXPECT_EQ(NameFromTypeAndName(" "), "");
-  EXPECT_EQ(NameFromTypeAndName(" []"), "");
-  EXPECT_EQ(NameFromTypeAndName(" ]["), "");
-  EXPECT_EQ(NameFromTypeAndName("char"), "");
-  EXPECT_EQ(NameFromTypeAndName("char *"), "");
-  EXPECT_EQ(NameFromTypeAndName("char 42"), "");
+  EXPECT_EQ(GetNameFromTypeAndName(""), "");
+  EXPECT_EQ(GetNameFromTypeAndName("]"), "");
+  EXPECT_EQ(GetNameFromTypeAndName("["), "");
+  EXPECT_EQ(GetNameFromTypeAndName(" "), "");
+  EXPECT_EQ(GetNameFromTypeAndName(" []"), "");
+  EXPECT_EQ(GetNameFromTypeAndName(" ]["), "");
+  EXPECT_EQ(GetNameFromTypeAndName("char"), "");
+  EXPECT_EQ(GetNameFromTypeAndName("char *"), "");
+  EXPECT_EQ(GetNameFromTypeAndName("char 42"), "");
 }
 
 TEST(FtraceEventParser, InferProtoType) {

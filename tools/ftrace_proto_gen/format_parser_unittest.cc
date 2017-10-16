@@ -39,8 +39,8 @@ print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->clie
 )";
 
   FtraceEvent output;
-  ASSERT_TRUE(ParseFtraceEvent(input));
-  ASSERT_TRUE(ParseFtraceEvent(input.c_str(), input.length(), &output));
+  EXPECT_TRUE(ParseFtraceEvent(input));
+  EXPECT_TRUE(ParseFtraceEvent(input.c_str(), input.length(), &output));
   EXPECT_EQ(output.name, "the_name");
   EXPECT_EQ(output.id, 42);
 }

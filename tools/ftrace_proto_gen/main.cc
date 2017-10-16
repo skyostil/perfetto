@@ -23,7 +23,6 @@
 #include <memory>
 
 #include "tools/ftrace_proto_gen/format_parser.h"
-#include "tools/ftrace_proto_gen/proto_writer.h"
 
 int main(int argc, const char** argv) {
   if (argc != 3) {
@@ -67,5 +66,6 @@ int main(int argc, const char** argv) {
     exit(1);
   }
 
-  perfetto::WriteProto(fout, proto);
+  fprintf(fout, "%s", proto.ToString().c_str());
+  fclose(fout);
 }

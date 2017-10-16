@@ -21,7 +21,7 @@
 
 #include <string>
 
-#include "tools/ftrace_proto_gen/ftrace_gen.h"
+#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
 
 namespace perfetto {
 

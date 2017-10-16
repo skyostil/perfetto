@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright (C) 2017 The Android Open Source Project
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +23,17 @@ def test_command(*args):
   subprocess.check_call(args, stdout=sys.stdout, stderr=sys.stderr)
 
 if __name__ == '__main__':
+  if len(sys.argv) != 4:
+    print('Usage: test_proto_gen.py to/ftrace_proto_gen to/protoc to/format')
+    exit(1)
   format_proto_gen_path = sys.argv[1]
   protoc_path = sys.argv[2]
   format_path = sys.argv[3]
   tmpdir = tempfile.mkdtemp()
   proto_path = os.path.join(tmpdir, 'format.proto')
   test_command(format_proto_gen_path, format_path, proto_path)
-  test_command(protoc_path, proto_path, '--cpp_out='+tmpdir)
+  test_command(
+      protoc_path,
+      proto_path,
+      '--proto_path='+tmpdir,
+      '--cpp_out='+tmpdir)
