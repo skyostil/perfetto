@@ -1,0 +1,21 @@
+API between client and ???:
+---------------------------
+<-- Producer:
+  OnConnect()
+  OnDisconnect()
+  (unique_ptr<DataSource>?) CreateDataSourceInstance(id, config)
+  TearDownDataSource(id)
+  unique_ptr<TaskRunner> CreateTaskRunner()
+
+--> Service:
+  RegisterDataSource(DataSourceDescriptor, callback)
+  UnregisterDataSource(id)
+  NotifyPageTaken(page_id)
+  NotifyPageReleased(page_id)
+
+
+API between libtracing and embedder (unix / mojo):
+--------------------------------------------------
+<--
+  unique_ptr<TaskRunner> CreateTaskRunner()
+  unique_ptr<SharedMemory> CreateSharedMemoryWithPeer(Producer*,size_t)

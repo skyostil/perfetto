@@ -14,33 +14,31 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_
-#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_
+#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_
+#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_
 
 #include <memory>
 
 namespace perfetto {
 
 class Producer;
-class Service;
+class ServiceProxy;
 class TaskRunnerProxy;
 
-// The client-side of UnixService. Allows to connect to an existing service
-// instance over a UNIX socket and exposes the Producer/Service API proxying
-// them over RPC.
+// Allows to connect to an existing service through a UNIX doamain socket.
 class UnixServiceConnection {
  public:
   // Connects to the producer port of the Service listening on the given
-  // |service_socket_name|. Returns a RPC proxy interface that allows to
+  // |service_socket_name|. Returns a Service proxy interface that allows to
   // interact with the service if the connection is succesful, or nullptr if
   // the service is unreachable.
-  static std::unique_ptr<Service> ConnectAsProducer(
+  static std::unique_ptr<ServiceProxy> ConnectAsProducer(
       const char* service_socket_name,
       Producer*,
-      TaskRunnerProxy*);
+      TaskRunnerProxy* /* TODO should this be in Procuer*? */);
 
   // Not implemented yet.
-  // static std::unique_ptr<Service> ConnectAsConsumer(Producer*);
+  // static std::unique_ptr<ServiceProxy> ConnectAsConsumer(Producer*);
 
  private:
   UnixServiceConnection() = delete;
@@ -48,4 +46,4 @@ class UnixServiceConnection {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_
+#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_

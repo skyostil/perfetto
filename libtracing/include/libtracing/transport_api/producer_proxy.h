@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_INCLUDE_LIBTRACING_CORE_PRODUCER_H_
-#define LIBTRACING_INCLUDE_LIBTRACING_CORE_PRODUCER_H_
+#ifndef LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_PRODUCER_PROXY_H_
+#define LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_PRODUCER_PROXY_H_
+
+#include <memory>
 
 #include "libtracing/core/basic_types.h"
 
 namespace perfetto {
 
-class DataSourceConfig;
-
-// The interface that producer instances in the client code have to subclass
-// in order to receive commands and notifications from the service.
-class Producer {
+// The interface that the transport layer has to implement in order to model the
+// transport in the [service implementation] -> [remote producer] direction.
+// The transport must override the virtual methods below and turn them into
+// remote procedure calls.
+class ProducerProxy {
  public:
-  virtual ~Producer() {}
+  virtual ~ProducerProxy() {}
 
-  virtual void OnConnect() = 0;
-
-  virtual void CreateDataSourceInstance(const DataSourceConfig&,
-                                        DataSourceInstanceID) = 0;
-
+  virtual unique_ptr<SharedMemory> CreateSharedMemory(size_t) = 0;
+  virtual void CreateDataSourceInstance(DataSourceInstanceID,
+                                        const DataSourceConfig&)= 0;
   virtual void TearDownDataSourceInstance(DataSourceInstanceID) = 0;
 };
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_INCLUDE_LIBTRACING_CORE_PRODUCER_H_
+#endif  // LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_PRODUCER_PROXY_H_
