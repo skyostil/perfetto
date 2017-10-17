@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <memory>
 
 #include "tools/ftrace_proto_gen/format_parser.h"
+
+
 
 int main(int argc, const char** argv) {
   if (argc != 3) {
@@ -33,39 +32,34 @@ int main(int argc, const char** argv) {
   const char* input_path = argv[1];
   const char* output_path = argv[2];
 
-  int fin = open(input_path, O_RDONLY);
-  if (fin < 0) {
+  std::ifstream fin(input_path, std::ios::in | std::ios::binary);
+  if (!fin) {
     fprintf(stderr, "Failed to open %s\n", input_path);
-    return 1;
+    exit(1);
   }
-  off_t fsize = lseek(fin, 0, SEEK_END);
-  std::unique_ptr<char[]> buf(new char[fsize + 1]);
-  ssize_t rsize;
-  do {
-    lseek(fin, 0, SEEK_SET);
-    rsize = read(fin, buf.get(), static_cast<size_t>(fsize));
-  } while (rsize < 0 && errno == EINTR);
-  // TODO(hjd): CHECK(rsize == fsize);
-  size_t length = static_cast<size_t>(rsize);
-  buf[length] = '\0';
-  close(fin);
+  std::ostringstream stream;
+  stream << fin.rdbuf();
+  fin.close();
+  std::string contents = stream.str();
 
   perfetto::FtraceEvent format;
-  if (!perfetto::ParseFtraceEvent(buf.get(), length, &format)) {
+  if (!perfetto::ParseFtraceEvent(contents, &format)) {
     fprintf(stderr, "Could not parse file %s.\n", input_path);
     exit(1);
   }
 
   perfetto::Proto proto;
-  if (!perfetto::GenerateProto(format, &proto))
-    exit(1);
-
-  FILE* fout = fopen(output_path, "w");
-  if (fout == nullptr) {
-    perror("Error");
+  if (!perfetto::GenerateProto(format, &proto)) {
+    fprintf(stderr, "Could not generate proto for file %s\n", input_path);
     exit(1);
   }
 
-  fprintf(fout, "%s", proto.ToString().c_str());
-  fclose(fout);
+  std::ofstream fout(output_path, std::ios::out | std::ios::binary);
+  if (!fout) {
+    fprintf(stderr, "Failed to open %s\n", output_path);
+    exit(1);
+  }
+
+  fout << proto.ToString();
+  fout.close();
 }
