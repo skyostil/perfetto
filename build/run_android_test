@@ -91,12 +91,12 @@ def GetProp(prop):
   print '> adb ' + ' '.join(cmd)
   output = subprocess.check_output(cmd)
   lines = output.splitlines()
-  assert len(lines) == 1
+  assert len(lines) == 1, 'Expected output to have one line: {}'.format(output)
   print lines[0]
   return lines[0]
 
 
-@RetryOn([subprocess.CalledProcessError], returns_falsy=True, retries=15)
+@RetryOn([subprocess.CalledProcessError], returns_falsy=True, retries=10)
 def BlockOnBootCompleted():
   return GetProp('sys.boot_completed') == '1'
 
