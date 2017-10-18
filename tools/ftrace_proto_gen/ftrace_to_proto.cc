@@ -40,7 +40,7 @@ bool IsCIdentifier(const std::string& s) {
 // "char[] foo[16]" -> "foo"
 // "something_went_wrong" -> ""
 // "" -> ""
-std::string GetNameFromTypeAndName(std::string type_and_name) {
+std::string GetNameFromTypeAndName(const std::string& type_and_name) {
   size_t right = type_and_name.size();
   if (right == 0)
     return "";
