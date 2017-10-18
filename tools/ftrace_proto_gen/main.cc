@@ -24,8 +24,8 @@
 
 int main(int argc, const char** argv) {
   if (argc != 3) {
-    printf("Usage: ./ftrace_proto_gen in.format out.proto\n");
-    exit(1);
+    printf("Usage: ./%s in.format out.proto\n", argv[0]);
+    return 1;
   }
 
   const char* input_path = argv[1];
@@ -34,7 +34,7 @@ int main(int argc, const char** argv) {
   std::ifstream fin(input_path, std::ios::in);
   if (!fin) {
     fprintf(stderr, "Failed to open %s\n", input_path);
-    exit(1);
+    return 1;
   }
   std::ostringstream stream;
   stream << fin.rdbuf();
@@ -44,19 +44,19 @@ int main(int argc, const char** argv) {
   perfetto::FtraceEvent format;
   if (!perfetto::ParseFtraceEvent(contents, &format)) {
     fprintf(stderr, "Could not parse file %s.\n", input_path);
-    exit(1);
+    return 1;
   }
 
   perfetto::Proto proto;
   if (!perfetto::GenerateProto(format, &proto)) {
     fprintf(stderr, "Could not generate proto for file %s\n", input_path);
-    exit(1);
+    return 1;
   }
 
   std::ofstream fout(output_path, std::ios::out);
   if (!fout) {
     fprintf(stderr, "Failed to open %s\n", output_path);
-    exit(1);
+    return 1;
   }
 
   fout << proto.ToString();

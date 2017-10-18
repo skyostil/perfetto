@@ -17,8 +17,6 @@
 #ifndef TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
 #define TOOLS_FTRACE_PROTO_GEN_FORMAT_PARSER_H_
 
-#include <stddef.h>
-
 #include <string>
 
 namespace perfetto {

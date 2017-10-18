@@ -16,7 +16,8 @@
 
 #include "tools/ftrace_proto_gen/format_parser.h"
 
-#include <cstring>
+#include <string.h>
+
 #include <iosfwd>
 #include <iostream>
 #include <memory>
@@ -36,10 +37,8 @@ const char* kCommonFieldPrefix = "common_";
 }  // namespace
 
 bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
-  std::unique_ptr<char[]> input_copy(new char[input.size() + 1l]);
+  std::unique_ptr<char[]> input_copy(strdup(input.c_str()));
   char* s = input_copy.get();
-  size_t length = input.copy(s, input.size());
-  s[length] = '\0';
 
   char buffer[MAX_FIELD_LENGTH + 1];
 
@@ -50,8 +49,7 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
   std::string name;
   std::vector<FtraceEvent::Field> fields;
 
-  for (char* line = std::strtok(s, "\n"); line;
-       line = std::strtok(nullptr, "\n")) {
+  for (char* line = strtok(s, "\n"); line; line = strtok(nullptr, "\n")) {
     if (!has_id && sscanf(line, "ID: %d", &id) == 1) {
       has_id = true;
       continue;
@@ -70,21 +68,20 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
 
     int offset = 0;
     int size = 0;
-    int signed_as_int = 0;
+    int is_signed = 0;
     if (sscanf(
             line,
             "\tfield:%" STRINGIFY(
                 MAX_FIELD_LENGTH) "[^;];\toffset: %d;\tsize: %d;\tsigned: %d;",
-            buffer, &offset, &size, &signed_as_int) == 4) {
+            buffer, &offset, &size, &is_signed) == 4) {
       std::string type_and_name(buffer);
-      bool is_signed = signed_as_int == 1;
 
       // Don't add common fields.
       if (GetNameFromTypeAndName(type_and_name)
               .compare(0, strlen(kCommonFieldPrefix), kCommonFieldPrefix) == 0)
         continue;
 
-      FtraceEvent::Field field{type_and_name, offset, size, is_signed};
+      FtraceEvent::Field field{type_and_name, offset, size, is_signed == 1};
       fields.push_back(field);
       continue;
     }

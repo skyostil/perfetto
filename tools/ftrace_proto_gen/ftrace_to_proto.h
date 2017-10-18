@@ -60,7 +60,7 @@ struct Proto {
 
 bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
 std::string InferProtoType(const FtraceEvent::Field& field);
-std::string GetNameFromTypeAndName(std::string type_and_name);
+std::string GetNameFromTypeAndName(const std::string& type_and_name);
 
 // Allow gtest to pretty print FtraceEvent::Field.
 ::std::ostream& operator<<(::std::ostream& os, const FtraceEvent::Field&);
