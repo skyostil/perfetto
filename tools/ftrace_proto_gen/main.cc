@@ -15,13 +15,12 @@
  */
 
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
-#include <memory>
 
 #include "tools/ftrace_proto_gen/format_parser.h"
-
-
+#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
 
 int main(int argc, const char** argv) {
   if (argc != 3) {
@@ -32,7 +31,7 @@ int main(int argc, const char** argv) {
   const char* input_path = argv[1];
   const char* output_path = argv[2];
 
-  std::ifstream fin(input_path, std::ios::in | std::ios::binary);
+  std::ifstream fin(input_path, std::ios::in);
   if (!fin) {
     fprintf(stderr, "Failed to open %s\n", input_path);
     exit(1);
@@ -54,7 +53,7 @@ int main(int argc, const char** argv) {
     exit(1);
   }
 
-  std::ofstream fout(output_path, std::ios::out | std::ios::binary);
+  std::ofstream fout(output_path, std::ios::out);
   if (!fout) {
     fprintf(stderr, "Failed to open %s\n", output_path);
     exit(1);

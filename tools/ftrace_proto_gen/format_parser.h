@@ -21,12 +21,11 @@
 
 #include <string>
 
-#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
-
 namespace perfetto {
 
+struct FtraceEvent;
+
 bool ParseFtraceEvent(const std::string& input, FtraceEvent* output = nullptr);
-bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output = nullptr);
 
 }  // namespace perfetto
 

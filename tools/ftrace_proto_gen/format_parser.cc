@@ -16,6 +16,12 @@
 
 #include "tools/ftrace_proto_gen/format_parser.h"
 
+#include <cstring>
+#include <memory>
+#include <vector>
+
+#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
+
 namespace perfetto {
 namespace {
 
@@ -23,137 +29,77 @@ namespace {
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
 
-bool EatPrefix(const char** s, const char* end, const char* prefix) {
-  int length = 0;
-  for (int i = 0; prefix[i]; i++) {
-    if (*s + i == end)
-      return false;
-    if (prefix[i] != (*s)[i])
-      return false;
-    length++;
-  }
-  *s += length;
-  return true;
-}
-
-bool EatWhitespace(const char** s, const char* end) {
-  while (*s != end && (**s == ' ' || **s == '\t')) {
-    (*s)++;
-  }
-  return true;
-}
-
-// e.g. "name: ion_alloc_buffer_end"
-bool EatName(const char** s, const char* end, std::string* output) {
-  char name[MAX_FIELD_LENGTH + 1];
-  int read = -1;
-  int n = sscanf(*s, "name: %" STRINGIFY(MAX_FIELD_LENGTH) "[^\n]\n%n", name, &read);
-  // %n doesn't count as a field for the purpose of sscanf's return
-  // value so if the input is broken in just the right way we can read all the
-  // values correctly and not get anything for |read|.
-  if (n != 1 || read == -1)
-    return false;
-  *output = std::string(name);
-  *s += read;
-  return true;
-}
-
-// e.g. "ID: 143"
-bool EatId(const char** s, const char* end, int* output) {
-  int read = 0;
-  int n = sscanf(*s, "ID: %d\n%n", output, &read);
-  if (n != 1)
-    return false;
-  *s += read;
-  return true;
-}
-
-// e.g. "format:"
-bool EatFtraceEventLine(const char** s, const char* end) {
-  if (!EatPrefix(s, end, "format:\n"))
-    return false;
-  return true;
-}
-
-bool EatField(const char** s,
-              const char* end,
-              FtraceEvent::Field* output = nullptr) {
-  int offset;
-  int size;
-  int is_signed_as_int;
-
-  char type_and_name_buffer[MAX_FIELD_LENGTH + 1];
-  int read = -1;
-  int n =
-      sscanf(*s, "\tfield:%" STRINGIFY(MAX_FIELD_LENGTH) "[^;];\toffset: %d;\tsize: %d;\tsigned: %d;\n%n",
-             type_and_name_buffer, &offset, &size, &is_signed_as_int, &read);
-  // %n doesn't count as a field for the purpose of sscanf's return
-  // value so if the input is broken in just the right way we can read all the
-  // values correctly and not get anything for |read|.
-  if (n != 4 || read == -1)
-    return false;
-
-  *s += read;
-
-  if (!output)
-    return true;
-
-  output->type_and_name = std::string(type_and_name_buffer);
-  output->offset = offset;
-  output->size = size;
-  output->is_signed = is_signed_as_int != 0;
-
-  return true;
-}
-
 }  // namespace
 
 bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
-  return ParseFtraceEvent(input.c_str(), input.length(), output);
-}
+  std::unique_ptr<char[]> input_copy(new char[input.size() + 1l]);
+  char* s = input_copy.get();
+  size_t length = input.copy(s, input.size());
+  s[length] = '\0';
 
-bool ParseFtraceEvent(const char* s, size_t len, FtraceEvent* output) {
-  const char* const end = s + len;
+  char buffer[MAX_FIELD_LENGTH + 1];
+
+  bool has_id = false;
+  bool has_name = false;
+
+  int id = 0;
   std::string name;
-  int id;
-  std::string fmt;
   std::vector<FtraceEvent::Field> fields;
 
-  if (!EatName(&s, end, &name))
-    return false;
-  if (!EatId(&s, end, &id))
-    return false;
-  if (!EatFtraceEventLine(&s, end))
-    return false;
+  for (char* line = std::strtok(s, "\n"); line;
+       line = std::strtok(nullptr, "\n")) {
+    if (!has_id && sscanf(line, "ID: %d", &id) == 1) {
+      has_id = true;
+      continue;
+    }
 
-  // Common fields:
-  for (int i = 0; i < 4; i++) {
-    if (!EatField(&s, end))
-      return false;
+    if (!has_name &&
+        sscanf(line, "name: %" STRINGIFY(MAX_FIELD_LENGTH) "s", buffer) == 1) {
+      name = std::string(buffer);
+      has_name = true;
+      continue;
+    }
+
+    if (strcmp("format:", line) == 0) {
+      continue;
+    }
+
+    int offset = 0;
+    int size = 0;
+    int signed_as_int = 0;
+    if (sscanf(
+            line,
+            "\tfield:%" STRINGIFY(
+                MAX_FIELD_LENGTH) "[^;];\toffset: %d;\tsize: %d;\tsigned: %d;",
+            buffer, &offset, &size, &signed_as_int) == 4) {
+      std::string type_and_name(buffer);
+      bool is_signed = signed_as_int == 1;
+
+      FtraceEvent::Field field{type_and_name, offset, size, is_signed};
+      fields.push_back(field);
+      continue;
+    }
+
+    if (strncmp(line, "print fmt:", 10) == 0) {
+      break;
+    }
+
+    fprintf(stderr, "Cannot parse line: \"%s\"\n", line);
+    return false;
   }
 
-  // Interesting fields:
-  while (s < end && s[0] != 'p') {
-    FtraceEvent::Field field;
-    if (!EatField(&s, end, &field))
-      return false;
-    fields.push_back(field);
+  if (!has_id || !has_name || fields.size() == 0) {
+    fprintf(stderr, "Could not parse format file: %s.\n",
+            !has_id ? "no ID found"
+                    : !has_name ? "no name found" : "no fields found");
+    return false;
   }
-
-  if (!EatPrefix(&s, end, "print fmt:"))
-    return false;
-  if (!EatWhitespace(&s, end))
-    return false;
-
-  fmt = std::string(s, end);
-  s = end;
 
   if (!output)
     return true;
 
-  output->name = name;
   output->id = id;
-  output->fmt = fmt;
+  output->name = name;
   output->fields = std::move(fields);
 
   return true;

@@ -68,6 +68,10 @@ config("default") {
     "-Werror",
   ]
 
+  if (is_clang) {
+    cflags += [ "-fcolor-diagnostics" ]
+  }
+
   if (current_cpu == "arm") {
     cflags += [
       "-march=armv7-a",

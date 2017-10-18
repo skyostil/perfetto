@@ -34,7 +34,6 @@ struct FtraceEvent {
 
   std::string name;
   int id;
-  std::string fmt;
   std::vector<Field> fields;
 };
 

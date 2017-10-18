@@ -16,6 +16,7 @@
 
 #include "tools/ftrace_proto_gen/format_parser.h"
 #include "gtest/gtest.h"
+#include "tools/ftrace_proto_gen/ftrace_to_proto.h"
 
 namespace perfetto {
 namespace {
@@ -40,12 +41,12 @@ print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->clie
 
   FtraceEvent output;
   EXPECT_TRUE(ParseFtraceEvent(input));
-  EXPECT_TRUE(ParseFtraceEvent(input.c_str(), input.length(), &output));
+  EXPECT_TRUE(ParseFtraceEvent(input, &output));
   EXPECT_EQ(output.name, "the_name");
   EXPECT_EQ(output.id, 42);
 }
 
-TEST(FtraceEventParser, HalfAssedFuzzing) {
+TEST(FtraceEventParser, BasicFuzzing) {
   const std::string input = R"(name: the_name
 ID: 42
 format:
