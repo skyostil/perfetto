@@ -97,7 +97,7 @@ def GetProp(prop):
 
 
 @RetryOn([subprocess.CalledProcessError], returns_falsy=True, retries=10)
-def BlockOnBootCompleted():
+def WaitForBootCompletion():
   return GetProp('sys.boot_completed') == '1'
 
 
@@ -113,7 +113,7 @@ def Main():
 
   print 'Waiting for device ...'
   AdbCall('wait-for-device')
-  BlockOnBootCompleted()
+  WaitForBootCompletion()
 
   target_dir = '/data/local/tmp/' + args.test_name
   AdbCall('shell', 'rm -rf "%s"; mkdir -p "%s"' % (2 * (target_dir,)))
