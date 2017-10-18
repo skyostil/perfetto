@@ -17,6 +17,8 @@
 #include "tools/ftrace_proto_gen/format_parser.h"
 
 #include <cstring>
+#include <iosfwd>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -28,6 +30,8 @@ namespace {
 #define MAX_FIELD_LENGTH 127
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
+
+const char* kCommonFieldPrefix = "common_";
 
 }  // namespace
 
@@ -75,6 +79,11 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
       std::string type_and_name(buffer);
       bool is_signed = signed_as_int == 1;
 
+      // Don't add common fields.
+      if (GetNameFromTypeAndName(type_and_name)
+              .compare(0, strlen(kCommonFieldPrefix), kCommonFieldPrefix) == 0)
+        continue;
+
       FtraceEvent::Field field{type_and_name, offset, size, is_signed};
       fields.push_back(field);
       continue;
@@ -84,14 +93,16 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
       break;
     }
 
-    fprintf(stderr, "Cannot parse line: \"%s\"\n", line);
+    if (output)
+      fprintf(stderr, "Cannot parse line: \"%s\"\n", line);
     return false;
   }
 
   if (!has_id || !has_name || fields.size() == 0) {
-    fprintf(stderr, "Could not parse format file: %s.\n",
-            !has_id ? "no ID found"
-                    : !has_name ? "no name found" : "no fields found");
+    if (output)
+      fprintf(stderr, "Could not parse format file: %s.\n",
+              !has_id ? "no ID found"
+                      : !has_name ? "no name found" : "no fields found");
     return false;
   }
 
@@ -103,6 +114,18 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
   output->fields = std::move(fields);
 
   return true;
+}
+
+::std::ostream& operator<<(::std::ostream& os,
+                           const FtraceEvent::Field& field) {
+  PrintTo(field, &os);
+  return os;
+}
+
+// Allow gtest to pretty print FtraceEvent::Field.
+void PrintTo(const FtraceEvent::Field& field, ::std::ostream* os) {
+  *os << "FtraceEvent::Field(" << field.type_and_name << ", " << field.offset
+      << ", " << field.size << ", " << field.is_signed << ")";
 }
 
 }  // namespace perfetto

@@ -15,11 +15,15 @@
  */
 
 #include "tools/ftrace_proto_gen/format_parser.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "tools/ftrace_proto_gen/ftrace_to_proto.h"
 
 namespace perfetto {
 namespace {
+
+using testing::ElementsAre;
+using testing::Eq;
 
 TEST(FtraceEventParser, HappyPath) {
   const std::string input = R"(name: the_name
@@ -31,10 +35,7 @@ format:
 	field:int common_pid;	offset:4;	size:4;	signed:1;
 
 	field:char client_name[64];	offset:8;	size:64;	signed:0;
-	field:const char * heap_name;	offset:72;	size:4;	signed:0;
-	field:size_t len;	offset:76;	size:4;	signed:0;
-	field:unsigned int mask;	offset:80;	size:4;	signed:0;
-	field:unsigned int flags;	offset:84;	size:4;	signed:0;
+	field:const char * heap_name;	offset:72;	size:4;	signed:1;
 
 print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
 )";
@@ -44,6 +45,48 @@ print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->clie
   EXPECT_TRUE(ParseFtraceEvent(input, &output));
   EXPECT_EQ(output.name, "the_name");
   EXPECT_EQ(output.id, 42);
+  EXPECT_THAT(
+      output.fields,
+      ElementsAre(
+          Eq(FtraceEvent::Field{"char client_name[64]", 8, 64, false}),
+          Eq(FtraceEvent::Field{"const char * heap_name", 72, 4, true})));
+}
+
+TEST(FtraceEventParser, MissingName) {
+  const std::string input = R"(ID: 42
+format:
+	field:unsigned short common_type;	offset:0;	size:2;	signed:0;
+	field:unsigned char common_flags;	offset:2;	size:1;	signed:0;
+	field:unsigned char common_preempt_count;	offset:3;	size:1;	signed:0;
+	field:int common_pid;	offset:4;	size:4;	signed:1;
+
+print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
+)";
+
+  EXPECT_FALSE(ParseFtraceEvent(input));
+}
+
+TEST(FtraceEventParser, MissingID) {
+  const std::string input = R"(name: the_name
+format:
+	field:unsigned short common_type;	offset:0;	size:2;	signed:0;
+	field:unsigned char common_flags;	offset:2;	size:1;	signed:0;
+	field:unsigned char common_preempt_count;	offset:3;	size:1;	signed:0;
+	field:int common_pid;	offset:4;	size:4;	signed:1;
+
+print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
+)";
+
+  EXPECT_FALSE(ParseFtraceEvent(input));
+}
+
+TEST(FtraceEventParser, NoFeilds) {
+  const std::string input = R"(name: the_name
+ID: 10
+print fmt: "client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x", REC->client_name, REC->heap_name, REC->len, REC->mask, REC->flags
+)";
+
+  EXPECT_FALSE(ParseFtraceEvent(input));
 }
 
 TEST(FtraceEventParser, BasicFuzzing) {

@@ -19,7 +19,10 @@
 
 #include <stdint.h>
 
+#include <iosfwd>
+#include <iostream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace perfetto {
@@ -30,6 +33,12 @@ struct FtraceEvent {
     int offset;
     int size;
     bool is_signed;
+
+    bool operator==(const Field& other) const {
+      return std::tie(type_and_name, offset, size, is_signed) ==
+             std::tie(other.type_and_name, other.offset, other.size,
+                      other.is_signed);
+    }
   };
 
   std::string name;
@@ -52,6 +61,10 @@ struct Proto {
 bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
 std::string InferProtoType(const FtraceEvent::Field& field);
 std::string GetNameFromTypeAndName(std::string type_and_name);
+
+// Allow gtest to pretty print FtraceEvent::Field.
+::std::ostream& operator<<(::std::ostream& os, const FtraceEvent::Field&);
+void PrintTo(const FtraceEvent::Field& args, ::std::ostream* os);
 
 }  // namespace perfetto
 

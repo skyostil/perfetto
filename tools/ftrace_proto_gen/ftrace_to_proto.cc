@@ -82,6 +82,7 @@ bool GenerateProto(const FtraceEvent& format, Proto* proto_out) {
   proto_out->name = format.name;
   proto_out->fields.reserve(format.fields.size());
   std::set<std::string> seen;
+  // TODO(hjd): We should be cleverer about id assignment.
   uint32_t i = 1;
   for (const FtraceEvent::Field& field : format.fields) {
     std::string name = GetNameFromTypeAndName(field.type_and_name);
