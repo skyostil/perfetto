@@ -26,12 +26,12 @@ if __name__ == '__main__':
   if len(sys.argv) != 4:
     print('Usage: test_proto_gen.py to/ftrace_proto_gen to/protoc to/format')
     exit(1)
-  format_proto_gen_path = sys.argv[1]
+  ftrace_proto_gen_path = sys.argv[1]
   protoc_path = sys.argv[2]
   format_path = sys.argv[3]
   tmpdir = tempfile.mkdtemp()
   proto_path = os.path.join(tmpdir, 'format.proto')
-  test_command(format_proto_gen_path, format_path, proto_path)
+  test_command(ftrace_proto_gen_path, format_path, proto_path)
   test_command(
       protoc_path,
       proto_path,
