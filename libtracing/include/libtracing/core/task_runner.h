@@ -21,15 +21,21 @@
 
 namespace perfetto {
 
-// The embedder is supposed to subclass this to allow the execution of
-// libtracing on its own message loop.
+// A generic interface to allow the library clients to interleave the execution
+// of the libtracing internals in their runtime environment.
+//
+// Exposed to:
+//  Most internal classes under src/.
+//
+// Subclassed by:
+//   1. Libtracing clients.
+//   2. Tests (See test/test_task_runner.h)
 
 // TODO we should provide a reference implementation that just spins a dedicated
-// thread. For the moment the only implementation is the PoorManTaskRunner in
-// unix_test.cc .
-class TaskRunnerProxy {
+// thread. For the moment the only implementation is in test/test_task_runner.h.
+class TaskRunner {
  public:
-  virtual ~TaskRunnerProxy() {}
+  virtual ~TaskRunner() {}
 
   virtual void PostTask(std::function<void()>) = 0;
   virtual void AddFileDescriptorWatch(int fd, std::function<void()>) = 0;

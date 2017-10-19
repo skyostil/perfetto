@@ -22,20 +22,22 @@
 namespace perfetto {
 
 class Producer;
-class ServiceProxy;
-class TaskRunnerProxy;
+class ServiceProxyForProducer;
+class TaskRunner;
 
 // Allows to connect to an existing service through a UNIX doamain socket.
+// Exposed to:
+//   Producer(s) and Consumer(s) in the libtracing clients.
+// Implemented in:
+//   src/unix_transport/unix_service_connection.cc
 class UnixServiceConnection {
  public:
   // Connects to the producer port of the Service listening on the given
   // |service_socket_name|. Returns a Service proxy interface that allows to
   // interact with the service if the connection is succesful, or nullptr if
   // the service is unreachable.
-  static std::unique_ptr<ServiceProxy> ConnectAsProducer(
-      const char* service_socket_name,
-      Producer*,
-      TaskRunnerProxy* /* TODO should this be in Procuer*? */);
+  static std::unique_ptr<ServiceProxyForProducer>
+  ConnectAsProducer(const char* service_socket_name, Producer*, TaskRunner*);
 
   // Not implemented yet.
   // static std::unique_ptr<ServiceProxy> ConnectAsConsumer(Producer*);

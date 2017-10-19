@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_rpc/unix_shared_memory.h"
+#include "libtracing/src/unix_transport/unix_shared_memory.h"
 
 #include <fcntl.h>
 #include <stdint.h>
@@ -49,7 +49,7 @@ std::unique_ptr<UnixSharedMemory> UnixSharedMemory::Create(size_t size) {
 }
 
 // static
-std::unique_ptr<UnixSharedMemory> UnixSharedMemory::CreateFromFD(int fd) {
+std::unique_ptr<UnixSharedMemory> UnixSharedMemory::AttachToFd(int fd) {
   struct stat stat_buf = {};
   if (fstat(fd, &stat_buf))
     return nullptr;

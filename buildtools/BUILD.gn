@@ -24,9 +24,12 @@ config("googletest_config") {
   cflags = [
     "-Wno-deprecated",
     "-Wno-global-constructors",
+    "-Wno-inconsistent-missing-override",
     "-Wno-missing-noreturn",
     "-Wno-shift-sign-overflow",
+    "-Wno-sign-conversion",
     "-Wno-undef",
+    "-Wno-unused-member-function",
     "-Wno-used-but-marked-unused",
     "-Wno-weak-vtables",
   ]
@@ -391,9 +394,7 @@ if (use_custom_libcxx) {
 
 config("benchmark_config") {
   visibility = [ ":*" ]
-  include_dirs = [
-    "benchmark/include",
-  ]
+  include_dirs = [ "benchmark/include" ]
   cflags = [
     "-Wno-global-constructors",
     "-Wno-covered-switch-default",
@@ -442,7 +443,5 @@ source_set("benchmark") {
   defines = [ "HAVE_POSIX_REGEX" ]
   public_configs = [ ":benchmark_config" ]
   all_dependent_configs = [ ":benchmark_config" ]
-  configs -= [
-    "//build:extra_warnings",
-  ]
+  configs -= [ "//build:extra_warnings" ]
 }

@@ -17,22 +17,29 @@ config("libtracing_config") {
 }
 
 source_set("libtracing") {
-  # configs += [ ":libtracing_config" ]
   all_dependent_configs = [ ":libtracing_config" ]
   sources = [
     "src/core/service_impl.cc",
-    "src/unix_rpc/unix_service_connection.cc",
-    "src/unix_rpc/unix_service_impl.cc",
-    "src/unix_rpc/unix_shared_memory.cc",
-    "src/unix_rpc/unix_socket.cc",
+    "src/unix_transport/unix_producer_proxy.cc",
+    "src/unix_transport/unix_service_connection.cc",
+    "src/unix_transport/unix_service_host_impl.cc",
+    "src/unix_transport/unix_service_proxy_for_producer.cc",
+    "src/unix_transport/unix_shared_memory.cc",
+    "src/unix_transport/unix_socket.cc",
   ]
 }
 
 executable("unix_test") {
+  testonly = true
   sources = [
-    "src/unix_rpc/unix_test.cc",
+    "src/test/test_task_runner.cc",
+    "src/test/unix_test.cc",
   ]
-  deps += [ ":libtracing" ]
+  deps += [
+    ":libtracing",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+  ]
 }
 
 executable("libtracing_unittests") {
@@ -44,15 +51,13 @@ executable("libtracing_unittests") {
     "//buildtools:gtest_main",
   ]
   sources = [
-    "src/unix_rpc/unix_socket_unittest.cc",
+    "src/unix_transport/unix_socket_unittest.cc",
   ]
 }
 
 executable("libtracing_benchmarks") {
   testonly = true
-  deps += [
-    "//buildtools:benchmark",
-  ]
+  deps += [ "//buildtools:benchmark" ]
   sources = [
     "hello_world_benchmark.cc",
   ]

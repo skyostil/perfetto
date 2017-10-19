@@ -28,52 +28,40 @@
 namespace perfetto {
 
 class DataSourceConfig;
-class Producer;
-class SharedMemory;
-class TaskRunnerProxy;
+class ProducerProxy;
+class TaskRunner;
 
-// The tracing service business logic. Embedders of this library are supposed to
-// either encapsulate this, to wrap it with their own custom RPC mechanism
-// (e.g., Chrome Mojo) or to use the UnixService wrapper.
+// The tracing service business logic. Encapsulated by the transport layer
+// (e.g., src/unix_transport/unix_service_host.cc).
 class ServiceImpl : public Service {
  public:
-  // The embedder (e.g., unix_rpc/unix_service_impl.h) is supposed to subclass
-  // this Delegate interface to get platform abstractions.
-  // TODO maybe this sholud be called PlatformDelegate, or Platform, just to
-  // avoid calling everything just Delegate?
-  class Delegate {
-   public:
-    virtual ~Delegate() {}
-    virtual TaskRunnerProxy* task_runner() const = 0;
-    virtual std::unique_ptr<SharedMemory> CreateSharedMemoryWithPeer(
-        Producer* producer,
-        size_t shm_size) = 0;
-  };
-
-  explicit ServiceImpl(Delegate*);
+  explicit ServiceImpl(TaskRunner*);
   ~ServiceImpl() override;
 
-  void ConnectProducer(std::unique_ptr<Producer>,
-                       ConnectProducerCallback) override;
+  ProducerID ConnectProducer(std::unique_ptr<ProducerProxy>) override;
+  void DisconnectProducer(ProducerID) override;
 
-  void RegisterDataSource(ProducerID,
-                          const DataSourceDescriptor&,
-                          RegisterDataSourceCallback) override;
+  DataSourceID RegisterDataSource(ProducerID,
+                                  const DataSourceDescriptor&) override;
+  void UnregisterDataSource(ProducerID, DataSourceID) override;
 
-  void UnregisterDataSource(DataSourceID) override;
-
-  void NotifyPageTaken(ProducerID, uint32_t page_index) override;
-  void NotifyPageReleased(ProducerID, uint32_t page_index) override;
   SharedMemory* GetSharedMemoryForProducer(ProducerID) override;
+  void NotifyPageAcquired(ProducerID, uint32_t page_index) override;
+  void NotifyPageReleased(ProducerID, uint32_t page_index) override;
 
-  // Temporary, for testing.
-  void CreateDataSourceInstanceForTesting(const DataSourceConfig&,
-                                          DataSourceInstanceID);
+  DataSourceInstanceID CreateDataSourceInstanceForTesting(
+      ProducerID,
+      const DataSourceConfig&) override;
 
  private:
-  Delegate* const delegate_;
+  ServiceImpl(const ServiceImpl&) = delete;
+  ServiceImpl& operator=(const ServiceImpl&) = delete;
+
+  TaskRunner* const task_runner_;
   ProducerID last_producer_id_ = 0;
-  std::map<ProducerID, std::unique_ptr<Producer>> producers_;
+  DataSourceID last_data_source_id_ = 0;
+  DataSourceInstanceID last_data_source_instance_id_ = 0;
+  std::map<ProducerID, std::unique_ptr<ProducerProxy>> producers_;
   std::map<ProducerID, std::unique_ptr<SharedMemory>> producer_shm_;
 };
 

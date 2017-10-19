@@ -24,19 +24,21 @@
 namespace perfetto {
 
 class DataSourceConfig;
-class TaskRunnerProxy;
+class Service;
+class TaskRunner;
 
 // Creates an instance of the service (business logic + UNIX socket transport).
-// This is meant to be used in the process that will host the tracing service.
-// The concrete implementation of this class lives in src/unix_transport/.
+// Exposed to:
+//   The code in the libtracing client that will host the service e.g., traced.
+// Implemented in:
+//   src/unix_transport/unix_service_host.cc
 class UnixServiceHost {
  public:
-  // Implemented by the libtracing client (e.g., src/unix_rpc/unix_test.cc).
-  // Used only for tests.
   class ObserverForTesting {
    public:
     virtual ~ObserverForTesting() {}
 
+    // TODO: implement all these in unix_service_host_impl.cc.
     virtual void OnProducerConnected(ProducerID) = 0;
     virtual void OnDataSourceRegistered(DataSourceID) = 0;
     virtual void OnDataSourceUnregistered(DataSourceID) = 0;
@@ -46,18 +48,16 @@ class UnixServiceHost {
 
   static std::unique_ptr<UnixServiceHost> CreateInstance(
       const char* socket_name,
-      TaskRunnerProxy*,
+      TaskRunner*,
       ObserverForTesting* = nullptr);
-
   virtual ~UnixServiceHost() {}
 
-  // Temporary, just for testing, because the Consumer+Config port is not yet
-  // implemented. This method essentially simulates a configuration change
-  // from an hypotetical Consumer.
-  void CreateDataSourceInstanceForTesting(const DataSourceConfig&,
-                                          DataSourceInstanceID);
+  // Start listening on the Producer & Consumer ports. Returns false in case of
+  // failure (e.g., something else is listening on |socket_name|).
+  virtual bool Start() = 0;
 
-  bool Start() = 0;
+  // Accesses the underlying Service business logic. Exposed only for testing.
+  virtual Service* service_for_testing() const = 0;
 };
 
 }  // namespace perfetto

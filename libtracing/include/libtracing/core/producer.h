@@ -23,16 +23,23 @@ namespace perfetto {
 
 class DataSourceConfig;
 
-// The interface that producer instances in the client code have to subclass
-// in order to receive commands and notifications from the service.
+// The callback interface that concrete Producer(s) the libtracing clients
+// have to implement in order to register and interact with the service.
+//
+// Exposed to:
+//   The transport layer (e.g., unix_transport/unix_service_connection) when
+//   establishing a connection to the Service.
+//
+// Subclassed by:
+//   The Producer code in the libtracing client e.g., the ftrace reader process.
 class Producer {
  public:
   virtual ~Producer() {}
 
   virtual void OnConnect() = 0;
 
-  virtual void CreateDataSourceInstance(const DataSourceConfig&,
-                                        DataSourceInstanceID) = 0;
+  virtual void CreateDataSourceInstance(DataSourceInstanceID,
+                                        const DataSourceConfig&) = 0;
 
   virtual void TearDownDataSourceInstance(DataSourceInstanceID) = 0;
 };

@@ -1,0 +1,11 @@
+cwd: out/mac_debug
+cmd: ../../build/ninja
+name: libtracing
+sh: false
+args:
+  - "-j1"
+  - "-C."
+errorMatch:
+  - "\n(?<file>../../[\\/0-9a-zA-Z\\._]+):(?<line>\\d+):(?<col>\\d+):(?<message>[^\n+])"
+keymap: ctrl-i
+atomCommandName: build:dbg

@@ -27,7 +27,7 @@ class DataSourceConfig {
  public:
   std::string data_source_name;  // e.g., "org.chromium.trace_events"
 
-  // I am such a cheat!
+  // TODO: figure out how this should really look like.
   std::string trace_category_filters;  // e.g., "ipc,media,toplvel"
 };
 

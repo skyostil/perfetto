@@ -10,7 +10,7 @@ API between client and ???:
 --> Service:
   RegisterDataSource(DataSourceDescriptor, callback)
   UnregisterDataSource(id)
-  NotifyPageTaken(page_id)
+  NotifyPageAcquired(page_id)
   NotifyPageReleased(page_id)
 
 
@@ -19,3 +19,10 @@ API between libtracing and embedder (unix / mojo):
 <--
   unique_ptr<TaskRunner> CreateTaskRunner()
   unique_ptr<SharedMemory> CreateSharedMemoryWithPeer(Producer*,size_t)
+
+
+-->
+  ConnectProducer(Producer*)
+  RegisterDataSource(Config)
+  NotifyPageAcquired(Client, page_id)
+  NotifyPageReleased(Client, page_id)

@@ -23,17 +23,28 @@
 
 namespace perfetto {
 
-// The interface that the transport layer has to implement in order to model the
-// transport in the [service implementation] -> [remote producer] direction.
-// The transport must override the virtual methods below and turn them into
-// remote procedure calls.
+class DataSourceConfig;
+class SharedMemory;
+
+// Exposed to:
+//   the service business logic (src/core/service_impl.cc), which wants to
+//   interact with Producer(s) without knowing how to deal with the transport.
+//
+// Subclassed by:
+//   the transport layer (e.g., src/unix_transport) that proxies requests
+//   between Producer and Service over some RPC mechanism.
 class ProducerProxy {
  public:
   virtual ~ProducerProxy() {}
 
-  virtual unique_ptr<SharedMemory> CreateSharedMemory(size_t) = 0;
+  // Creates a shared memory region of size |shm_size| and shares it with the
+  // Producer. Called only once per instance.
+  virtual std::unique_ptr<SharedMemory> InitializeSharedMemory(
+      size_t shm_size) = 0;
+
   virtual void CreateDataSourceInstance(DataSourceInstanceID,
-                                        const DataSourceConfig&)= 0;
+                                        const DataSourceConfig&) = 0;
+
   virtual void TearDownDataSourceInstance(DataSourceInstanceID) = 0;
 };
 

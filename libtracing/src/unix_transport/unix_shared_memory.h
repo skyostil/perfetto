@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_
-#define LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_
+#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_
+#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_
 
 #include <stddef.h>
 
@@ -31,7 +31,7 @@ class UnixSharedMemory : public SharedMemory {
   static std::unique_ptr<UnixSharedMemory> Create(size_t size);
 
   // Mmaps a file descriptor to an existing SHM region (the producer uses this).
-  static std::unique_ptr<UnixSharedMemory> CreateFromFD(int fd);
+  static std::unique_ptr<UnixSharedMemory> AttachToFd(int fd);
 
   ~UnixSharedMemory() override;
 
@@ -55,4 +55,4 @@ class UnixSharedMemory : public SharedMemory {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_
+#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_

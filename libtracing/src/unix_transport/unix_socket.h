@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_SOCKET_H_
-#define LIBTRACING_SRC_UNIX_RPC_UNIX_SOCKET_H_
+#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SOCKET_H_
+#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SOCKET_H_
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -92,4 +92,4 @@ class UnixSocket {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_SOCKET_H_
+#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SOCKET_H_

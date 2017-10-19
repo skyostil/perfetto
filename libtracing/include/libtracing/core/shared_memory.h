@@ -21,12 +21,17 @@
 
 namespace perfetto {
 
-// The embedder is expected to subclass this and attach platform-specific
-// fields such as a file descriptor (see unix_shared_memory.cc as an example).
+// Exposed to:
+//   1. The service business logic (src/core/service_impl.cc).
+//   2. Producer(s).
+//
+// Subclassed by:
+//   The transport layer (e.g., unix_transport), which will attach
+//   platform-specific fields (e.g., a unix file descriptor) to this.
 class SharedMemory {
  public:
-  // The embedder is expected to tear down the resource associated to this
-  // Shared memory region when this class is destroyed.
+  // The transport layer is expected to tear down the resource associated to
+  // this object region when destroyed.
   virtual ~SharedMemory() {}
 
   virtual void* start() const = 0;

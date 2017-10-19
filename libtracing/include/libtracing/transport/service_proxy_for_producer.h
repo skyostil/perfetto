@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_H_
-#define LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_H_
+#ifndef LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_FOR_PRODUCER_H_
+#define LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_FOR_PRODUCER_H_
 
 #include <stdint.h>
 
@@ -25,22 +25,30 @@
 
 namespace perfetto {
 
-// The interface that the transport layer has to implement in order to model the
-// transport in the [producer implementation] -> [remote service] direction.
-// The transport must override the virtual methods below and turn them into
-// remote procedure calls.
-class ServiceProxy {
+class DataSourceDescriptor;
+class SharedMemory;
+
+// Exposed to:
+//   producer(s), the actual code in the clients of libtracing that wants to
+//   connect and interact with the service.
+//
+// Subclassed by:
+//   the transport layer (e.g., src/unix_transport) that proxies requests
+//   between Producer and Service over some RPC mechanism.
+class ServiceProxyForProducer {
  public:
-  virtual ~ServiceProxy() {}
+  virtual ~ServiceProxyForProducer() {}
 
   using RegisterDataSourceCallback = std::function<void(DataSourceID)>;
   virtual void RegisterDataSource(const DataSourceDescriptor&,
                                   RegisterDataSourceCallback) = 0;
   virtual void UnregisterDataSource(DataSourceID) = 0;
-  virtual void NotifyPageTaken(uint32_t page_index) = 0;
+
+  virtual SharedMemory* GetSharedMemory() = 0;
+  virtual void NotifyPageAcquired(uint32_t page_index) = 0;
   virtual void NotifyPageReleased(uint32_t page_index) = 0;
 };
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_H_
+#endif  // LIBTRACING_INCLUDE_LIBTRACING_TRANSPORT_API_SERVICE_PROXY_FOR_PRODUCER_H_

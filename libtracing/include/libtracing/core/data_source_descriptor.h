@@ -26,6 +26,8 @@ namespace perfetto {
 class DataSourceDescriptor {
  public:
   std::string name;  // e.g., org.chromium.trace_events.
+
+  // TODO: figure out how this should really look like.
 };
 
 }  // namespace perfetto
