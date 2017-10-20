@@ -20,6 +20,7 @@
 namespace perfetto {
 
 int SomePublicApi();
-}
+
+} // namespace perfetto
 
 #endif  // LIBFTRACE_FTRACE_H_
