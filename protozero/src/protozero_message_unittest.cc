@@ -43,11 +43,6 @@ uint32_t SimpleHash(const std::string& str) {
   return hash;
 }
 
-}  // namespace
-
-// The testing class cannot be in the anonymous namespace in order for the
-// FRIEND_TEST() macro in ProtoZeroMessage to work.
-
 class ProtoZeroMessageTest : public ::testing::Test {
  public:
   void SetUp() override {
@@ -347,4 +342,5 @@ TEST_F(ProtoZeroMessageTest, MessageHandle) {
   ASSERT_EQ(0x83u, size_msg_2.begin[0]);
 }
 
+}  // namespace
 }  // namespace protozero
