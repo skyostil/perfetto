@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef PROTOZERO_INCLUDE_PROTOZERO_PROTO_ZERO_MESSAGE_H_
-#define PROTOZERO_INCLUDE_PROTOZERO_PROTO_ZERO_MESSAGE_H_
+#ifndef PROTOZERO_INCLUDE_PROTOZERO_PROTOZERO_MESSAGE_H_
+#define PROTOZERO_INCLUDE_PROTOZERO_PROTOZERO_MESSAGE_H_
 
 #include <type_traits>
 
@@ -25,7 +25,7 @@
 
 #include "protozero/contiguous_memory_range.h"
 #include "protozero/proto_utils.h"
-#include "protozero/proto_zero_message_handle.h"
+#include "protozero/protozero_message_handle.h"
 #include "protozero/scattered_stream_writer.h"
 
 namespace protozero {
@@ -213,4 +213,4 @@ class ProtoZeroMessage {
 
 }  // namespace protozero
 
-#endif  // PROTOZERO_INCLUDE_PROTOZERO_PROTO_ZERO_MESSAGE_H_
+#endif  // PROTOZERO_INCLUDE_PROTOZERO_PROTOZERO_MESSAGE_H_
