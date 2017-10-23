@@ -18,6 +18,7 @@
 #define PROTOZERO_INCLUDE_PROTOZERO_PROTO_UTILS_H_
 
 #include <inttypes.h>
+#include <stddef.h>
 
 #include <type_traits>
 

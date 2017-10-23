@@ -18,6 +18,7 @@
 #define PROTOZERO_INCLUDE_PROTOZERO_CONTIGUOUS_MEMORY_RANGE_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 namespace protozero {
 
