@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# exec wrapper to invoke compiled build tools from the build system.
+""" Wrapper to invoke compiled build tools from the build system.
+
+This is just a workaround for GN assuming that all external scripts are
+python sources. It is used to invoke the built protoc compiler.
+"""
 
 import os
-import subprocess
 import sys
 
 def main():
@@ -24,10 +27,7 @@ def main():
   if not os.path.exists(cmd[0]):
     print >> sys.stderr, 'Cannot find ' + cmd[0]
     return 1
-  dnull = open(os.devnull)
-  job = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, stdin=dnull)
-  job.wait()
-  return job.returncode
+  os.execv(cmd[0], cmd)
 
 if __name__ == '__main__':
   sys.exit(main())

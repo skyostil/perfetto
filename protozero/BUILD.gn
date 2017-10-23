@@ -55,12 +55,8 @@ proto_library("testing_messages") {
     "src/test/example_proto/test_messages.proto",
     "src/test/example_proto/upper_import.proto",
   ]
-
   include_dirs = [ "include" ]
-
   proto_in_dir = "src/test/example_proto"
-
-  # proto_out_dir = "protozero/test"
   generator_plugin_label = "//protozero/src/protoc_plugin"
   generator_plugin_suffix = ".pbzero"
   generator_plugin_options = "wrapper_namespace=pbzero"

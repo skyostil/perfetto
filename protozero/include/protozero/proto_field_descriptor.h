@@ -17,8 +17,11 @@
 #ifndef PROTOZERO_INCLUDE_PROTOZERO_PROTO_FIELD_DESCRIPTOR_H_
 #define PROTOZERO_INCLUDE_PROTOZERO_PROTO_FIELD_DESCRIPTOR_H_
 
+#include <stdint.h>
+
 namespace protozero {
 
+// Used for minimal reflection support in auto-generated .pbzero.h files.
 class ProtoFieldDescriptor {
  public:
   enum Type {
@@ -50,13 +53,9 @@ class ProtoFieldDescriptor {
       : name_(name), type_(type), number_(number), is_repeated_(is_repeated) {}
 
   const char* name() const { return name_; }
-
   Type type() const { return type_; }
-
   uint32_t number() const { return number_; }
-
   bool is_repeated() const { return is_repeated_; }
-
   bool is_valid() const { return type_ != Type::TYPE_INVALID; }
 
  private:
