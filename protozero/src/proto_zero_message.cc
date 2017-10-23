@@ -26,8 +26,12 @@
 
 namespace protozero {
 
-// This method is called to initialize both root and nested messages.
-void ProtoZeroMessage::Reset(ScatteredStreamWriter* stream_writer) {
+// static
+constexpr uint32_t ProtoZeroMessage::kMaxNestingDepth;
+
+// Do NOT put any code in the constructor or use default initialization.
+// Use the Reset() method below instead. See the header for the reason why.
+ProtoZeroMessage::ProtoZeroMessage() {
   // Unfortunately deleting the copy constructor makes the class non-trivially
   // constructible anymore, and we really want to avoid accidental copies of
   // this class. Hence why we don't have a is_trivially_constructible check but
@@ -41,7 +45,10 @@ void ProtoZeroMessage::Reset(ScatteredStreamWriter* stream_writer) {
           kMaxNestingDepth * (sizeof(ProtoZeroMessage) -
                               sizeof(ProtoZeroMessage::nested_messages_arena_)),
       "ProtoZeroMessage::nested_messages_arena_ is too small");
+}
 
+// This method is called to initialize both root and nested messages.
+void ProtoZeroMessage::Reset(ScatteredStreamWriter* stream_writer) {
   stream_writer_ = stream_writer;
   size_ = 0;
   size_field_.reset();
