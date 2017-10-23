@@ -18,8 +18,8 @@
 #define PROTOZERO_INCLUDE_PROTOZERO_SCATTERED_STREAM_WRITER_H_
 
 #include <assert.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "protozero/contiguous_memory_range.h"
 
