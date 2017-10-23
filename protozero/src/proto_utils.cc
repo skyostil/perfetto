@@ -16,6 +16,8 @@
 
 #include "protozero/proto_utils.h"
 
+#include <string.h>
+
 #include <limits>
 
 #include "cpp_common/base.h"

@@ -23,7 +23,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "gtest/gtest_prod.h"
 #include "protozero/contiguous_memory_range.h"
 #include "protozero/proto_utils.h"
 #include "protozero/proto_zero_message_handle.h"
@@ -37,13 +36,14 @@ namespace protozero {
 // require any dynamic memory allocation.
 class ProtoZeroMessage {
  public:
-  // Do NOT create any constructor, use the Reset() method below instead.
+  static constexpr uint32_t kMaxNestingDepth = 8;
+
   // Ctor and Dtor of ProtoZeroMessage are never called, with the exeception
   // of root (non-nested) messages. Nested messages are allocated via placement
   // new in the |nested_messages_arena_| and implictly destroyed when the arena
   // of the root message goes away. This is fine as long as all the fields are
-  // PODs, which is checked by the static_assert in the Reset() method (see
-  // the .cc file).
+  // PODs, which is checked by the static_assert in the ctor (see the .cc file).
+  ProtoZeroMessage();
 
   // Clears up the state, allowing the message to be reused as a fresh one.
   void Reset(ScatteredStreamWriter*);
@@ -73,7 +73,6 @@ class ProtoZeroMessage {
   void set_handle(ProtoZeroMessageHandleBase* handle) { handle_ = handle; }
 #endif
 
- protected:
   // Proto types: uint64, uint32, int64, int32, bool, enum.
   template <typename T>
   void AppendVarInt(uint32_t field_id, T value) {
@@ -152,15 +151,6 @@ class ProtoZeroMessage {
   ProtoZeroMessage(const ProtoZeroMessage&) = delete;
   ProtoZeroMessage& operator=(const ProtoZeroMessage&) = delete;
 
-  friend class ProtoZeroMessageTest;
-  FRIEND_TEST(ProtoZeroMessageTest, BasicTypesNoNesting);
-  FRIEND_TEST(ProtoZeroMessageTest, BackfillSizeOnFinalization);
-  FRIEND_TEST(ProtoZeroMessageTest, NestedMessagesSimple);
-  FRIEND_TEST(ProtoZeroMessageTest, StressTest);
-  FRIEND_TEST(ProtoZeroMessageTest, MessageHandle);
-
-  enum : uint32_t { kMaxNestingDepth = 8 };
-
   void BeginNestedMessageInternal(uint32_t field_id, ProtoZeroMessage*);
 
   // Called by Finalize and Append* methods.
@@ -214,7 +204,7 @@ class ProtoZeroMessage {
   // the arena are meaningful only for the root message.
   // Unfortunately we cannot put the sizeof() math here because we cannot sizeof
   // the current class in a header. However the .cc file has a static_assert
-  // that guarantees that (see Reset() method).
+  // that guarantees that (see the ctor in the .cc file).
   alignas(sizeof(void*)) uint8_t nested_messages_arena_[512];
 
   // DO NOT add any fields below |nested_messages_arena_|. The memory layout of
