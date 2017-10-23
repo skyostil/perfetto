@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_HOST_IMPL_H_
-#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_HOST_IMPL_H_
+#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_HOST_IMPL_H_
+#define LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_HOST_IMPL_H_
 
 #include <memory>
 
-#include "libtracing/src/unix_transport/unix_socket.h"
-#include "libtracing/unix_transport/unix_service_host.h"
+#include "libtracing/src/unix_rpc/unix_socket.h"
+#include "libtracing/unix_rpc/unix_service_host.h"
 
 namespace perfetto {
 
@@ -40,6 +40,7 @@ class UnixServiceHostImpl : public UnixServiceHost {
  private:
   UnixServiceHostImpl(const UnixServiceHostImpl&) = delete;
   UnixServiceHostImpl& operator=(const UnixServiceHostImpl&) = delete;
+
   void OnNewConnection();
 
   const char* const socket_name_;
@@ -51,4 +52,4 @@ class UnixServiceHostImpl : public UnixServiceHost {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_HOST_IMPL_H_
+#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_HOST_IMPL_H_

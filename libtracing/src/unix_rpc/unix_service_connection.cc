@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include "libtracing/unix_transport/unix_service_connection.h"
+#include "libtracing/unix_rpc/unix_service_connection.h"
 
-#include "libtracing/src/unix_transport/unix_service_proxy_for_producer.h"
-#include "libtracing/transport/service_proxy_for_producer.h"
+#include "libtracing/core/service.h"
+#include "libtracing/src/unix_rpc/unix_service_proxy_for_producer.h"
 
 namespace perfetto {
 
 // static
-std::unique_ptr<ServiceProxyForProducer>
+std::unique_ptr<Service::ProducerEndpoint>
 UnixServiceConnection::ConnectAsProducer(const char* service_socket_name,
                                          Producer* producer,
                                          TaskRunner* task_runner) {

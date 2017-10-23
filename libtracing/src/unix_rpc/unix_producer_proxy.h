@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_PRODUCER_PROXY_H_
-#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_PRODUCER_PROXY_H_
+#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_PRODUCER_PROXY_H_
+#define LIBTRACING_SRC_UNIX_RPC_UNIX_PRODUCER_PROXY_H_
 
 #include "libtracing/core/basic_types.h"
-#include "libtracing/src/unix_transport/unix_socket.h"
-#include "libtracing/transport/producer_proxy.h"
-#include "libtracing/unix_transport/unix_service_host.h"
+#include "libtracing/core/producer.h"
+#include "libtracing/core/service.h"
+#include "libtracing/src/unix_rpc/unix_socket.h"
+#include "libtracing/unix_rpc/unix_service_host.h"
 
 namespace perfetto {
 
@@ -28,24 +29,22 @@ class Service;
 class TaskRunner;
 class UnixSharedMemory;
 
-class UnixProducerProxy : public ProducerProxy {
+// Exposed to the ServiceImpl business logic. Pretends to be a Producer, all it
+// does is forwarding requests back to the remote Producer and proxies the calls
+// back to the Service's ProducerEndpoint.
+class UnixProducerProxy : public Producer {
  public:
-  UnixProducerProxy(Service*,
-                    UnixSocket,
+  UnixProducerProxy(UnixSocket,
                     TaskRunner*,
                     UnixServiceHost::ObserverForTesting*);
   ~UnixProducerProxy() override;
 
-  void SendSharedMemory(const UnixSharedMemory&);
-  void OnDataAvailable();
-
-  void SetId(ProducerID id);
-
+  // void SendSharedMemory(const UnixSharedMemory&);
   UnixSocket* conn() { return &conn_; }
+  void set_service(Service::ProducerEndpoint* svc) { svc_ = svc; }
 
-  // ProducerProxy implementation.
-  std::unique_ptr<SharedMemory> InitializeSharedMemory(
-      size_t shm_size) override;
+  // Producer implementation.
+  void OnConnect(ProducerID, SharedMemory*) override;
   void CreateDataSourceInstance(DataSourceInstanceID,
                                 const DataSourceConfig&) override;
   void TearDownDataSourceInstance(DataSourceInstanceID) override;
@@ -54,14 +53,15 @@ class UnixProducerProxy : public ProducerProxy {
   UnixProducerProxy(const UnixProducerProxy&) = delete;
   UnixProducerProxy& operator=(const UnixProducerProxy&) = delete;
 
-  ProducerID id_ = 0;
-  Service* const svc_;
+  void OnDataAvailable();
+
   UnixSocket conn_;
   TaskRunner* const task_runner_;
   UnixServiceHost::ObserverForTesting* const observer_;
+  Service::ProducerEndpoint* svc_ = nullptr;
 };
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_PRODUCER_PROXY_H_
+#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_PRODUCER_PROXY_H_
 \

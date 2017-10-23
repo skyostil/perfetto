@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_
-#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_
+#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_
+#define LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_
 
 #include <stddef.h>
 
@@ -27,6 +27,12 @@ namespace perfetto {
 
 class UnixSharedMemory : public SharedMemory {
  public:
+  class Factory : public SharedMemory::Factory {
+   public:
+    ~Factory() override;
+    std::unique_ptr<SharedMemory> CreateSharedMemory(size_t) override;
+  };
+
   // Create a brand new SHM region (the service uses this).
   static std::unique_ptr<UnixSharedMemory> Create(size_t size);
 
@@ -55,4 +61,4 @@ class UnixSharedMemory : public SharedMemory {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SHARED_MEMORY_H_
+#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_SHARED_MEMORY_H_

@@ -23,46 +23,67 @@
 
 #include "libtracing/core/basic_types.h"
 #include "libtracing/core/service.h"
-#include "libtracing/core/shared_memory.h"
 
 namespace perfetto {
 
 class DataSourceConfig;
-class ProducerProxy;
+class Producer;
+class SharedMemory;
 class TaskRunner;
 
-// The tracing service business logic. Encapsulated by the transport layer
-// (e.g., src/unix_transport/unix_service_host.cc).
+// The tracing service business logic.
 class ServiceImpl : public Service {
  public:
-  explicit ServiceImpl(TaskRunner*);
+  explicit ServiceImpl(std::unique_ptr<SharedMemory::Factory>, TaskRunner*);
   ~ServiceImpl() override;
 
-  ProducerID ConnectProducer(std::unique_ptr<ProducerProxy>) override;
-  void DisconnectProducer(ProducerID) override;
-
-  DataSourceID RegisterDataSource(ProducerID,
-                                  const DataSourceDescriptor&) override;
-  void UnregisterDataSource(ProducerID, DataSourceID) override;
-
-  SharedMemory* GetSharedMemoryForProducer(ProducerID) override;
-  void NotifyPageAcquired(ProducerID, uint32_t page_index) override;
-  void NotifyPageReleased(ProducerID, uint32_t page_index) override;
-
-  DataSourceInstanceID CreateDataSourceInstanceForTesting(
-      ProducerID,
-      const DataSourceConfig&) override;
+  Service::ProducerEndpoint* ConnectProducer(
+      std::unique_ptr<Producer>) override;
+  void DisconnectProducer(Service::ProducerEndpoint*) override;
+  void CreateDataSourceInstanceForTesting(ProducerID,
+                                          const DataSourceConfig&) override;
 
  private:
+  // The service endpoint exposed to each producer.
+  class ProducerEndpointImpl : public Service::ProducerEndpoint {
+   public:
+    ProducerEndpointImpl(ProducerID,
+                         TaskRunner*,
+                         std::unique_ptr<Producer>,
+                         std::unique_ptr<SharedMemory>);
+    ~ProducerEndpointImpl() override;
+
+    Producer* producer() const { return producer_.get(); }
+    SharedMemory* shared_memory() const { return shared_memory_.get(); }
+
+    // Service::ProducerEndpoint implementation.
+    ProducerID GetID() const override;
+    void RegisterDataSource(const DataSourceDescriptor&,
+                            RegisterDataSourceCallback) override;
+    void UnregisterDataSource(DataSourceID) override;
+
+    void NotifyPageAcquired(uint32_t page) override;
+    void NotifyPageReleased(uint32_t page) override;
+
+   private:
+    ProducerEndpointImpl(const ProducerEndpointImpl&) = delete;
+    ProducerEndpointImpl& operator=(const ProducerEndpointImpl&) = delete;
+
+    ProducerID const id_;
+    TaskRunner* const task_runner_;
+    std::unique_ptr<Producer> producer_;
+    std::unique_ptr<SharedMemory> shared_memory_;
+    DataSourceID last_data_source_id_ = 0;
+  };
+
   ServiceImpl(const ServiceImpl&) = delete;
   ServiceImpl& operator=(const ServiceImpl&) = delete;
 
+  std::unique_ptr<SharedMemory::Factory> shm_factory_;
   TaskRunner* const task_runner_;
   ProducerID last_producer_id_ = 0;
-  DataSourceID last_data_source_id_ = 0;
   DataSourceInstanceID last_data_source_instance_id_ = 0;
-  std::map<ProducerID, std::unique_ptr<ProducerProxy>> producers_;
-  std::map<ProducerID, std::unique_ptr<SharedMemory>> producer_shm_;
+  std::map<ProducerID, std::unique_ptr<ProducerEndpointImpl>> producers_;
 };
 
 }  // namespace perfetto

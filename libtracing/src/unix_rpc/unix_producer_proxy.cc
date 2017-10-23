@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_transport/unix_producer_proxy.h"
+#include "libtracing/src/unix_rpc/unix_producer_proxy.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -24,19 +24,15 @@
 #include "libtracing/core/service.h"
 #include "libtracing/core/task_runner.h"
 #include "libtracing/src/core/base.h"
-#include "libtracing/src/unix_transport/unix_shared_memory.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
 
 namespace perfetto {
 
 UnixProducerProxy::UnixProducerProxy(
-    Service* svc,
     UnixSocket conn,
     TaskRunner* task_runner,
     UnixServiceHost::ObserverForTesting* observer)
-    : svc_(svc),
-      conn_(std::move(conn)),
-      task_runner_(task_runner),
-      observer_(observer) {
+    : conn_(std::move(conn)), task_runner_(task_runner), observer_(observer) {
   DCHECK(conn_.is_connected());
   task_runner_->AddFileDescriptorWatch(
       conn_.fd(), std::bind(&UnixProducerProxy::OnDataAvailable, this));
@@ -45,15 +41,6 @@ UnixProducerProxy::UnixProducerProxy(
 UnixProducerProxy::~UnixProducerProxy() {}
 
 void UnixProducerProxy::OnDataAvailable() {
-  if (id_ == 0) {
-    // We still haven't received the ConnectProducerCallback at this point so
-    // don't have the ID for the peer yet, but we have already received data.
-    // Just repost this task, shouldn't take that long really.
-    task_runner_->PostTask(
-        std::bind(&UnixProducerProxy::OnDataAvailable, this));
-    return;
-  }
-
   char cmd[1024];
   ssize_t rsize = conn_.Recv(cmd, sizeof(cmd) - 1);
   if (rsize <= 0) {
@@ -81,46 +68,41 @@ void UnixProducerProxy::OnDataAvailable() {
   char data_source_name[64];
   if (sscanf(cmd, "RegisterDataSource %64s", data_source_name) == 1) {
     DataSourceDescriptor descriptor{std::string(data_source_name)};
-    DataSourceID dsid = svc_->RegisterDataSource(id_, descriptor);
+    auto callback = [this](DataSourceID dsid) {
+      // TODO what to do if the send fails (conn closed?) here and below?
+      conn_.Send("RegisterDataSourceCallback " + std::to_string(dsid));
+      task_runner_->PostTask(std::bind(
+          &UnixServiceHost::ObserverForTesting::OnDataSourceRegistered,
+          observer_, dsid));
+    };
 
-    // TODO what to do if the send fails (conn closed?) here and below?
-    conn_.Send("RegisterDataSourceCallback " + std::to_string(dsid));
-    task_runner_->PostTask(
-        std::bind(&UnixServiceHost::ObserverForTesting::OnDataSourceRegistered,
-                  observer_, dsid));
+    // TODO lifetime: what happens if the producer is destroyed between soon
+    // after this call, before the callback is invoked?
+    svc_->RegisterDataSource(descriptor, callback);
     return;
   }
 
   uint32_t page_index;
-  if (sscanf(cmd, "NotifyPageAcquired %" PRIu32, &page_index) == 1) {
-    svc_->NotifyPageAcquired(id_, page_index);
+  if (sscanf(cmd, "NotifyPageAcquired %" SCNu32, &page_index) == 1) {
+    svc_->NotifyPageAcquired(page_index);
     return;
   }
 
-  if (sscanf(cmd, "NotifyPageReleased %" PRIu32, &page_index) == 1) {
-    svc_->NotifyPageReleased(id_, page_index);
+  if (sscanf(cmd, "NotifyPageReleased %" SCNu32, &page_index) == 1) {
+    svc_->NotifyPageReleased(page_index);
     return;
   }
 
-  DLOG("Received unknown RPC from producer: \"%s\"\n", cmd);
+  DLOG("Received unknown RPC from producer: \"%s\"", cmd);
   DCHECK(false);
 }
 
-void UnixProducerProxy::SetId(ProducerID id) {
-  DCHECK(id > 0);
-  id_ = id;
-}
-
-std::unique_ptr<SharedMemory> UnixProducerProxy::InitializeSharedMemory(
-    size_t shm_size) {
-  std::unique_ptr<UnixSharedMemory> shm = UnixSharedMemory::Create(shm_size);
-  if (!shm)
-    return nullptr;
-  static const char kMsg[] = "SendSharedMemory";
-  int fd = shm->fd();
-  bool res = conn_.Send(kMsg, sizeof(kMsg), &fd, 1);
+void UnixProducerProxy::OnConnect(ProducerID prid, SharedMemory* shm) {
+  char msg[32];
+  sprintf(msg, "OnConnect %" PRIu64, prid);
+  int fd = static_cast<const UnixSharedMemory*>(shm)->fd();
+  bool res = conn_.Send(msg, strlen(msg), &fd, 1);
   DCHECK(res);
-  return std::move(shm);
 }
 
 void UnixProducerProxy::CreateDataSourceInstance(

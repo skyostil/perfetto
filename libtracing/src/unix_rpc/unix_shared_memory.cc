@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_transport/unix_shared_memory.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
 
 #include <fcntl.h>
 #include <stdint.h>
@@ -74,6 +74,13 @@ UnixSharedMemory::UnixSharedMemory(void* start, size_t size, int fd)
 UnixSharedMemory::~UnixSharedMemory() {
   munmap(start(), size());
   close(fd_);
+}
+
+UnixSharedMemory::Factory::~Factory() {}
+
+std::unique_ptr<SharedMemory> UnixSharedMemory::Factory::CreateSharedMemory(
+    size_t size) {
+  return UnixSharedMemory::Create(size);
 }
 
 }  // namespace perfetto

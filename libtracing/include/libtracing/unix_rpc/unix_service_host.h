@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_HOST_H_
-#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_HOST_H_
+#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_HOST_H_
+#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_HOST_H_
 
 #include <memory>
 
@@ -31,7 +31,7 @@ class TaskRunner;
 // Exposed to:
 //   The code in the libtracing client that will host the service e.g., traced.
 // Implemented in:
-//   src/unix_transport/unix_service_host.cc
+//   src/unix_rpc/unix_service_host.cc
 class UnixServiceHost {
  public:
   class ObserverForTesting {
@@ -62,4 +62,4 @@ class UnixServiceHost {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_HOST_H_
+#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_HOST_H_

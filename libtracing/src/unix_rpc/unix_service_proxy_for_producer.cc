@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_transport/unix_service_proxy_for_producer.h"
+#include "libtracing/src/unix_rpc/unix_service_proxy_for_producer.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -24,7 +24,7 @@
 #include "libtracing/core/producer.h"
 #include "libtracing/core/task_runner.h"
 #include "libtracing/src/core/base.h"
-#include "libtracing/src/unix_transport/unix_shared_memory.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
 
 // TODO think to what happens when UnixServiceProxyForProducer gets destroyed
 // w.r.t. the Producer pointer. Also think to lifetime of the Producer* during
@@ -62,22 +62,28 @@ void UnixServiceProxyForProducer::OnDataAvailable() {
   }
   cmd[rsize] = '\0';
 
-  if (strcmp(cmd, "SendSharedMemory") == 0) {
-    DCHECK(shm_fd_size == 1);
-    DCHECK(!shmem_);
-    DLOG("[unix_service_proxy_for_producer.cc] Received shm, fd=%d\n", shm_fd);
-    shmem_ = UnixSharedMemory::AttachToFd(shm_fd);
-    DCHECK(shmem_);
-    DLOG("[unix_service_proxy_for_producer.cc] Mapped shm, size=%lu\n",
-         shmem_->size());
+  ProducerID prid;
+  if (sscanf(cmd, "OnConnect %" SCNu64, &prid) == 1) {
+    DCHECK(id_ == 0);
+    DCHECK(prid != 0);
+    id_ = prid;
 
-    // TODO what happens if Producer* goes away in the meantime?
-    task_runner_->PostTask(std::bind(&Producer::OnConnect, producer_));
+    DCHECK(shm_fd_size == 1);
+    DCHECK(!shared_memory_);
+    DLOG("[unix_service_proxy_for_producer.cc] Received shm, fd=%d\n", shm_fd);
+    shared_memory_ = UnixSharedMemory::AttachToFd(shm_fd);
+    DCHECK(shared_memory_);
+    DLOG("[unix_service_proxy_for_producer.cc] Mapped shm, size=%lu\n",
+         shared_memory_->size());
+
+    // TODO what happens if the Producer* is deleted in the meantime?
+    task_runner_->PostTask(
+        std::bind(&Producer::OnConnect, producer_, id_, shared_memory_.get()));
     return;
   }
 
   DataSourceID dsid;
-  if (sscanf(cmd, "RegisterDataSourceCallback %" PRIu64, &dsid) == 1) {
+  if (sscanf(cmd, "RegisterDataSourceCallback %" SCNu64, &dsid) == 1) {
     DCHECK(pending_register_data_source_callback_);
     task_runner_->PostTask(
         std::bind(std::move(pending_register_data_source_callback_), dsid));
@@ -87,7 +93,7 @@ void UnixServiceProxyForProducer::OnDataAvailable() {
   DataSourceInstanceID inst_id;
   char data_source_name[128];
   char trace_filters[128];
-  if (sscanf(cmd, "CreateDataSourceInstance %" PRIu64 " %128s %128s", &inst_id,
+  if (sscanf(cmd, "CreateDataSourceInstance %" SCNu64 " %128s %128s", &inst_id,
              data_source_name, trace_filters) == 3) {
     DataSourceConfig config{data_source_name, trace_filters};
     // TODO what happens if Producer* goes away in the meantime?
@@ -96,15 +102,19 @@ void UnixServiceProxyForProducer::OnDataAvailable() {
     return;
   }
 
-  if (sscanf(cmd, "TearDownDataSourceInstance %" PRIu64, &inst_id) == 1) {
+  if (sscanf(cmd, "TearDownDataSourceInstance %" SCNu64, &inst_id) == 1) {
     // TODO what happens if Producer* goes away in the meantime?
     task_runner_->PostTask(
         std::bind(&Producer::TearDownDataSourceInstance, producer_, inst_id));
     return;
   }
 
-  DLOG("Received unknown RPC from service: \"%s\"\n", cmd);
+  DLOG("Received unknown RPC from service: \"%s\"", cmd);
   DCHECK(false);
+}
+
+ProducerID UnixServiceProxyForProducer::GetID() const {
+  return id_;
 }
 
 void UnixServiceProxyForProducer::RegisterDataSource(
@@ -116,10 +126,6 @@ void UnixServiceProxyForProducer::RegisterDataSource(
 
 void UnixServiceProxyForProducer::UnregisterDataSource(DataSourceID) {
   DCHECK(false);  // Not implemented.
-}
-
-SharedMemory* UnixServiceProxyForProducer::GetSharedMemory() {
-  return shmem_.get();
 }
 
 void UnixServiceProxyForProducer::NotifyPageAcquired(uint32_t page_index) {

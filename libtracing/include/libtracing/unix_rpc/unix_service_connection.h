@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_
-#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_
+#ifndef LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_
+#define LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_
 
 #include <memory>
+
+#include "libtracing/core/service.h"
 
 namespace perfetto {
 
@@ -29,14 +31,14 @@ class TaskRunner;
 // Exposed to:
 //   Producer(s) and Consumer(s) in the libtracing clients.
 // Implemented in:
-//   src/unix_transport/unix_service_connection.cc
+//   src/unix_rpc/unix_service_connection.cc
 class UnixServiceConnection {
  public:
   // Connects to the producer port of the Service listening on the given
-  // |service_socket_name|. Returns a Service proxy interface that allows to
+  // |service_socket_name|. Returns a ProducerEndpoint interface that allows to
   // interact with the service if the connection is succesful, or nullptr if
   // the service is unreachable.
-  static std::unique_ptr<ServiceProxyForProducer>
+  static std::unique_ptr<Service::ProducerEndpoint>
   ConnectAsProducer(const char* service_socket_name, Producer*, TaskRunner*);
 
   // Not implemented yet.
@@ -48,4 +50,4 @@ class UnixServiceConnection {
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_TRANSPORT_UNIX_SERVICE_CONNECTION_H_
+#endif  // LIBTRACING_INCLUDE_LIBTRACING_UNIX_RPC_UNIX_SERVICE_CONNECTION_H_

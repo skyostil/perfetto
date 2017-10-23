@@ -16,9 +16,9 @@
 #include "libtracing/core/task_runner.h"
 #include "libtracing/src/core/base.h"
 #include "libtracing/src/test/test_task_runner.h"
-#include "libtracing/transport/service_proxy_for_producer.h"
-#include "libtracing/unix_transport/unix_service_connection.h"
-#include "libtracing/unix_transport/unix_service_host.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
+#include "libtracing/unix_rpc/unix_service_connection.h"
+#include "libtracing/unix_rpc/unix_service_host.h"
 
 #include "gmock/gmock.h"
 
@@ -41,17 +41,15 @@ class TestProducer : public Producer {
 
   void TearDownDataSourceInstance(DataSourceInstanceID id) override {}
 
-  void OnConnect() override {
-    DLOG("[unix_test.cc] OnConnect() ");
-    DCHECK(service_proxy);
-    SharedMemory* shm = service_proxy->GetSharedMemory();
-    DCHECK(shm);
+  void OnConnect(ProducerID prid, SharedMemory* shared_memory) override {
+    DLOG("[unix_test.cc] OnConnect() \n");
+    DCHECK(service_endpoint);
     DLOG("[unix_test.cc] Succesfully wrote to the shared memory\n");
-    memcpy(shm->start(), "bazinga", 8);
-    service_proxy->NotifyPageReleased(1);
+    memcpy(shared_memory->start(), "bazinga", 8);
+    service_endpoint->NotifyPageReleased(1);
   }
 
-  ServiceProxyForProducer* service_proxy = nullptr;
+  Service::ProducerEndpoint* service_endpoint = nullptr;
 };
 
 class TestServiceObserver : public UnixServiceHost::ObserverForTesting {
@@ -80,7 +78,7 @@ int ServiceMain() {
 
   EXPECT_CALL(observer, OnProducerConnected(_))
       .WillRepeatedly(Invoke([&svc_host](ProducerID prid) {
-        DLOG("[unix_test.cc] Producer connected, id=%" PRIu64 "\n", prid);
+        DLOG("[unix_test.cc] Producer connected, id=%" PRIu64, prid);
         DataSourceConfig config{"org.chromium.trace_events", "foo,bar"};
         svc_host->service_for_testing()->CreateDataSourceInstanceForTesting(
             prid, config);
@@ -88,7 +86,7 @@ int ServiceMain() {
 
   EXPECT_CALL(observer, OnDataSourceRegistered(_))
       .WillRepeatedly(Invoke([](DataSourceID dsid) {
-        DLOG("[unix_test.cc] OnDataSourceRegistered, id=%" PRIu64 "\n", dsid);
+        DLOG("[unix_test.cc] OnDataSourceRegistered, id=%" PRIu64, dsid);
 
       }));
 
@@ -100,21 +98,21 @@ int ServiceMain() {
 int ProducerMain() {
   TestTaskRunner task_runner;
   TestProducer producer;
-  std::unique_ptr<ServiceProxyForProducer> service_proxy =
+  std::unique_ptr<Service::ProducerEndpoint> service_endpoint =
       UnixServiceConnection::ConnectAsProducer(kServiceSocketName, &producer,
                                                &task_runner);
-  if (!service_proxy) {
+  if (!service_endpoint) {
     perror("Could not connect producer");
     return 1;
   }
-  producer.service_proxy = service_proxy.get();
-  task_runner.PostTask([&service_proxy]() {
+  producer.service_endpoint = service_endpoint.get();
+  task_runner.PostTask([&service_endpoint]() {
     DLOG("[unix_test.cc] Registering data source\n");
     DataSourceDescriptor desc{"org.chromium.trace_events"};
     auto callback = [](DataSourceID dsid) {
       printf("Data source registered with id=%" PRIu64 "\n", dsid);
     };
-    service_proxy->RegisterDataSource(desc, callback);
+    service_endpoint->RegisterDataSource(desc, callback);
   });
   task_runner.Run();
   return 0;

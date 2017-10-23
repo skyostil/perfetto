@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_
-#define LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_
+#ifndef LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_
+#define LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_
 
 #include "libtracing/core/basic_types.h"
-#include "libtracing/src/unix_transport/unix_socket.h"
-#include "libtracing/transport/service_proxy_for_producer.h"
+#include "libtracing/core/service.h"
+#include "libtracing/src/unix_rpc/unix_socket.h"
 
 namespace perfetto {
 
@@ -27,9 +27,9 @@ class Producer;
 class TaskRunner;
 class UnixSharedMemory;
 
-// Implements the transport ServiceProxyForProducer interface, via RPC over a
-// UNIX socket.
-class UnixServiceProxyForProducer : public ServiceProxyForProducer {
+// Implements the Service::ProducerEndpoint interface doing RPC over a UNIX
+// socket.
+class UnixServiceProxyForProducer : public Service::ProducerEndpoint {
  public:
   UnixServiceProxyForProducer(Producer*, TaskRunner*);
   ~UnixServiceProxyForProducer() override;
@@ -37,23 +37,24 @@ class UnixServiceProxyForProducer : public ServiceProxyForProducer {
   bool Connect(const char* service_socket_name);
 
   // ServiceProxyForProducer implementation.
+  ProducerID GetID() const override;
   void RegisterDataSource(const DataSourceDescriptor&,
                           RegisterDataSourceCallback) override;
   void UnregisterDataSource(DataSourceID) override;
-  SharedMemory* GetSharedMemory() override;
   void NotifyPageAcquired(uint32_t page_index) override;
   void NotifyPageReleased(uint32_t page_index) override;
 
  private:
   void OnDataAvailable();
 
+  ProducerID id_ = 0;
   Producer* const producer_;
   TaskRunner* const task_runner_;
   RegisterDataSourceCallback pending_register_data_source_callback_;
   UnixSocket conn_;
-  std::unique_ptr<UnixSharedMemory> shmem_;
+  std::unique_ptr<UnixSharedMemory> shared_memory_;
 };
 
 }  // namespace perfetto
 
-#endif  // LIBTRACING_SRC_UNIX_TRANSPORT_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_
+#endif  // LIBTRACING_SRC_UNIX_RPC_UNIX_SERVICE_PROXY_FOR_PRODUCER_H_

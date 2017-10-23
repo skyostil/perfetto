@@ -43,7 +43,7 @@
   })
 
 #if DCHECK_IS_ON()
-#define DLOG(...) fprintf(stderr, __VA_ARGS__)
+#define DLOG(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 #define DPLOG(x)                                                          \
   fprintf(stderr, x " %s:%d (errno: %d %s)\n", __FILE__, __LINE__, errno, \
           strerror(errno))

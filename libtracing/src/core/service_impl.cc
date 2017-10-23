@@ -19,89 +19,121 @@
 #include <inttypes.h>
 
 #include "libtracing/core/data_source_config.h"
+#include "libtracing/core/producer.h"
 #include "libtracing/core/shared_memory.h"
 #include "libtracing/core/task_runner.h"
 #include "libtracing/src/core/base.h"
-#include "libtracing/transport/producer_proxy.h"
 
 namespace perfetto {
 
 // TODO add ThreadChecker everywhere.
 
-// TODO What if the implementation of the embedder might shortcircuit the
-// PostTask and they might re-enter?
+// TODO Maybe add a test in the ctor that checks that the implementation of the
+// TaskRunner doesn't short-circuit calls by just invoking the tasks inline,
+// as that would cause very subtle re-entrancy bugs.
+
+namespace {
+constexpr size_t kShmSize = 4096;
+}  // namespace
 
 // static
-std::unique_ptr<Service> Service::CreateInstance(TaskRunner* task_runner) {
-  return std::unique_ptr<Service>(new ServiceImpl(task_runner));
+std::unique_ptr<Service> Service::CreateInstance(
+    std::unique_ptr<SharedMemory::Factory> shm_factory,
+    TaskRunner* task_runner) {
+  return std::unique_ptr<Service>(
+      new ServiceImpl(std::move(shm_factory), task_runner));
 }
 
-ServiceImpl::ServiceImpl(TaskRunner* task_runner) : task_runner_(task_runner) {
+ServiceImpl::ServiceImpl(std::unique_ptr<SharedMemory::Factory> shm_factory,
+                         TaskRunner* task_runner)
+    : shm_factory_(std::move(shm_factory)), task_runner_(task_runner) {
   DCHECK(task_runner_);
 }
 
 ServiceImpl::~ServiceImpl() {
-  CHECK(false);  // TODO handle teardown of all ProducerProxy?
+  CHECK(false);  // TODO handle teardown of all Producer?
 }
 
-ProducerID ServiceImpl::ConnectProducer(
-    std::unique_ptr<ProducerProxy> producer) {
-  ProducerID id = ++last_producer_id_;
-  producer_shm_[id] = producer->InitializeSharedMemory(4096);
-  DCHECK(producer_shm_[id]);
-  producers_[id] = std::move(producer);
-  return id;
-}
-
-void ServiceImpl::DisconnectProducer(ProducerID) {
-  DCHECK(false);  // Not implemented.
-}
-
-DataSourceID ServiceImpl::RegisterDataSource(ProducerID prid,
-                                             const DataSourceDescriptor& desc) {
-  CHECK(prid);
-  DLOG("[ServiceImpl] RegisterDataSource from producer id=%" PRIu64 "\n", prid);
-  last_data_source_id_ += 1000;
-  return last_data_source_id_;
-}
-
-void ServiceImpl::UnregisterDataSource(ProducerID prid, DataSourceID dsid) {
-  CHECK(prid);
-  CHECK(dsid);
-  return;
-}
-
-void ServiceImpl::NotifyPageAcquired(ProducerID prid, uint32_t page_index) {
-  CHECK(prid);
-  DLOG("[ServiceImpl] NotifyPageAcquired from producer id=%" PRIu64 "\n", prid);
-  return;
-}
-
-void ServiceImpl::NotifyPageReleased(ProducerID prid, uint32_t page_index) {
-  CHECK(prid);
-  DLOG("[ServiceImpl] NotifyPageReleased from producer id=%" PRIu64 "\n", prid);
-  DCHECK(producer_shm_.count(prid) == 1);
-  DLOG("[ServiceImpl] Reading Shared memory: \"%s\"\n",
-       reinterpret_cast<const char*>(producer_shm_[prid]->start()));
-  return;
-}
-
-SharedMemory* ServiceImpl::GetSharedMemoryForProducer(ProducerID prid) {
-  auto producerid_and_shmem = producer_shm_.find(prid);
-  if (producerid_and_shmem == producer_shm_.end())
+Service::ProducerEndpoint* ServiceImpl::ConnectProducer(
+    std::unique_ptr<Producer> producer) {
+  const ProducerID id = ++last_producer_id_;
+  auto shared_memory = shm_factory_->CreateSharedMemory(kShmSize);
+  std::unique_ptr<ProducerEndpointImpl> new_endpoint(new ProducerEndpointImpl(
+      id, task_runner_, std::move(producer), std::move(shared_memory)));
+  auto it_and_inserted = producers_.emplace(id, std::move(new_endpoint));
+  if (!it_and_inserted.second) {
+    DCHECK(false);
     return nullptr;
-  return producerid_and_shmem->second.get();
+  }
+
+  ProducerEndpointImpl* endpoint = it_and_inserted.first->second.get();
+  task_runner_->PostTask(std::bind(&Producer::OnConnect, endpoint->producer(),
+                                   id, endpoint->shared_memory()));
+  return endpoint;
 }
 
-DataSourceInstanceID ServiceImpl::CreateDataSourceInstanceForTesting(
+void ServiceImpl::DisconnectProducer(Service::ProducerEndpoint* endpoint) {
+  DCHECK(producers_.count(endpoint->GetID()));
+  producers_.erase(endpoint->GetID());
+  // TODO still has to tear down some resources.
+}
+
+void ServiceImpl::CreateDataSourceInstanceForTesting(
     ProducerID prid,
     const DataSourceConfig& config) {
   auto producer_it = producers_.find(prid);
   CHECK(producer_it != producers_.end());
   last_data_source_instance_id_ += 10;
   DataSourceInstanceID dsid = last_data_source_instance_id_;
-  producer_it->second->CreateDataSourceInstance(dsid, config);
-  return dsid;
+  producer_it->second->producer()->CreateDataSourceInstance(dsid, config);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ServiceImpl::ProducerEndpointImpl implementation
+////////////////////////////////////////////////////////////////////////////////
+
+ServiceImpl::ProducerEndpointImpl::ProducerEndpointImpl(
+    ProducerID id,
+    TaskRunner* task_runner,
+    std::unique_ptr<Producer> producer,
+    std::unique_ptr<SharedMemory> shared_memory)
+    : id_(id),
+      task_runner_(task_runner),
+      producer_(std::move(producer)),
+      shared_memory_(std::move(shared_memory)) {}
+
+ServiceImpl::ProducerEndpointImpl::~ProducerEndpointImpl() {}
+
+ProducerID ServiceImpl::ProducerEndpointImpl::GetID() const {
+  return id_;
+}
+
+// Service::ProducerEndpoint implementation.
+void ServiceImpl::ProducerEndpointImpl::RegisterDataSource(
+    const DataSourceDescriptor& desc,
+    RegisterDataSourceCallback callback) {
+  DLOG("[ServiceImpl] RegisterDataSource from producer id=%" PRIu64, id_);
+  task_runner_->PostTask(
+      std::bind(std::move(callback), ++last_data_source_id_));
+}
+
+void ServiceImpl::ProducerEndpointImpl::UnregisterDataSource(
+    DataSourceID dsid) {
+  CHECK(dsid);
+  return;
+}
+
+void ServiceImpl::ProducerEndpointImpl::NotifyPageAcquired(uint32_t page) {
+  DLOG("[ServiceImpl] NotifyPageAcquired from producer id=%" PRIu64, id_);
+  return;
+}
+
+void ServiceImpl::ProducerEndpointImpl::NotifyPageReleased(uint32_t page) {
+  DLOG("[ServiceImpl] NotifyPageReleased from producer id=%" PRIu64, id_);
+  DCHECK(shared_memory_);
+  DLOG("[ServiceImpl] Reading Shared memory: \"%s\"",
+       reinterpret_cast<const char*>(shared_memory_->start()));
+  return;
 }
 
 }  // namespace perfetto

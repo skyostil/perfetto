@@ -19,17 +19,21 @@
 
 #include <stddef.h>
 
+#include <memory>
+
 namespace perfetto {
 
-// Exposed to:
-//   1. The service business logic (src/core/service_impl.cc).
-//   2. Producer(s).
-//
 // Subclassed by:
-//   The transport layer (e.g., unix_transport), which will attach
+//   The transport layer (e.g., src/unix_rpc), which will attach
 //   platform-specific fields (e.g., a unix file descriptor) to this.
 class SharedMemory {
  public:
+  class Factory {
+   public:
+    virtual ~Factory() {}
+    virtual std::unique_ptr<SharedMemory> CreateSharedMemory(size_t) = 0;
+  };
+
   // The transport layer is expected to tear down the resource associated to
   // this object region when destroyed.
   virtual ~SharedMemory() {}

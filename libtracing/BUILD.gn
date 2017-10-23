@@ -20,12 +20,12 @@ source_set("libtracing") {
   all_dependent_configs = [ ":libtracing_config" ]
   sources = [
     "src/core/service_impl.cc",
-    "src/unix_transport/unix_producer_proxy.cc",
-    "src/unix_transport/unix_service_connection.cc",
-    "src/unix_transport/unix_service_host_impl.cc",
-    "src/unix_transport/unix_service_proxy_for_producer.cc",
-    "src/unix_transport/unix_shared_memory.cc",
-    "src/unix_transport/unix_socket.cc",
+    "src/unix_rpc/unix_producer_proxy.cc",
+    "src/unix_rpc/unix_service_connection.cc",
+    "src/unix_rpc/unix_service_host_impl.cc",
+    "src/unix_rpc/unix_service_proxy_for_producer.cc",
+    "src/unix_rpc/unix_shared_memory.cc",
+    "src/unix_rpc/unix_socket.cc",
   ]
 }
 
@@ -51,7 +51,7 @@ executable("libtracing_unittests") {
     "//buildtools:gtest_main",
   ]
   sources = [
-    "src/unix_transport/unix_socket_unittest.cc",
+    "src/unix_rpc/unix_socket_unittest.cc",
   ]
 }
 

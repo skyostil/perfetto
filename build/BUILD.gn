@@ -29,6 +29,7 @@ config("extra_warnings") {
       "-Wno-c++98-compat",
       "-Wno-gnu-include-next",
       "-Wno-gnu-statement-expression",
+      "-Wno-gnu-zero-variadic-macro-arguments",
       "-Wno-padded",
       "-Wno-reserved-id-macro",
       "-Wno-unknown-warning-option",

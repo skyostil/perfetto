@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_transport/unix_service_host_impl.h"
+#include "libtracing/src/unix_rpc/unix_service_host_impl.h"
 
 #include "libtracing/core/service.h"
 #include "libtracing/core/task_runner.h"
 #include "libtracing/src/core/base.h"
-#include "libtracing/src/unix_transport/unix_producer_proxy.h"
-#include "libtracing/src/unix_transport/unix_shared_memory.h"
+#include "libtracing/src/unix_rpc/unix_producer_proxy.h"
+#include "libtracing/src/unix_rpc/unix_shared_memory.h"
 
 namespace perfetto {
 
 // Implements the publicly exposed factory method declared in
-// include/libtracing/unix_transport/unix_service_host.h.
+// include/libtracing/unix_rpc/unix_service_host.h.
 
 // static
 std::unique_ptr<UnixServiceHost> UnixServiceHost::CreateInstance(
@@ -42,7 +42,9 @@ UnixServiceHostImpl::UnixServiceHostImpl(const char* socket_name,
     : socket_name_(socket_name),
       task_runner_(task_runner),
       observer_(observer) {
-  svc_ = Service::CreateInstance(task_runner);
+  std::unique_ptr<SharedMemory::Factory> shm_factory(
+      new UnixSharedMemory::Factory());
+  svc_ = Service::CreateInstance(std::move(shm_factory), task_runner);
 }
 
 UnixServiceHostImpl::~UnixServiceHostImpl() {}
@@ -58,16 +60,22 @@ bool UnixServiceHostImpl::Start() {
 void UnixServiceHostImpl::OnNewConnection() {
   DLOG("[UnixServiceHostImpl] Woken up for new connection\n");
   UnixSocket client_connection;
+
+  // TODO this shoould be a while() loop in nonblock mode or will miss
+  // connections if two of them happen back to back with just one select()
+  // notification.
   producer_port_.Accept(&client_connection);
 
   DLOG("[UnixServiceHostImpl] New connection established\n");
   UnixProducerProxy* unix_producer_proxy = new UnixProducerProxy(
-      svc_.get(), std::move(client_connection), task_runner_, observer_);
-  const ProducerID producer_id = svc_->ConnectProducer(
+      std::move(client_connection), task_runner_, observer_);
+
+  Service::ProducerEndpoint* svc_endpoint = svc_->ConnectProducer(
       std::unique_ptr<UnixProducerProxy>(unix_producer_proxy));
-  unix_producer_proxy->SetId(producer_id);
+
+  unix_producer_proxy->set_service(svc_endpoint);
   task_runner_->PostTask(std::bind(&ObserverForTesting::OnProducerConnected,
-                                   observer_, producer_id));
+                                   observer_, svc_endpoint->GetID()));
 }
 
 Service* UnixServiceHostImpl::service_for_testing() const {

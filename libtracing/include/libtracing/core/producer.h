@@ -22,21 +22,17 @@
 namespace perfetto {
 
 class DataSourceConfig;
+class SharedMemory;
 
-// The callback interface that concrete Producer(s) the libtracing clients
-// have to implement in order to register and interact with the service.
-//
-// Exposed to:
-//   The transport layer (e.g., unix_transport/unix_service_connection) when
-//   establishing a connection to the Service.
-//
 // Subclassed by:
-//   The Producer code in the libtracing client e.g., the ftrace reader process.
+//  1. The actual Producer code in the clients e.g., the ftrace reader process.
+//  2. The transport layer when createing a RPC layer between the service and
+//     producers.
 class Producer {
  public:
   virtual ~Producer() {}
 
-  virtual void OnConnect() = 0;
+  virtual void OnConnect(ProducerID, SharedMemory*) = 0;
 
   virtual void CreateDataSourceInstance(DataSourceInstanceID,
                                         const DataSourceConfig&) = 0;

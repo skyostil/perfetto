@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "libtracing/src/unix_transport/unix_socket.h"
+#include "libtracing/src/unix_rpc/unix_socket.h"
 
 #include <fcntl.h>
 #include <stdlib.h>
