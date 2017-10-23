@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "protozero/proto_zero_message.h"
+#include "protozero/protozero_message.h"
 
 #include "cpp_common/base.h"
 

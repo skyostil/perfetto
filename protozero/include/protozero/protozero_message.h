@@ -25,7 +25,7 @@
 
 #include "protozero/contiguous_memory_range.h"
 #include "protozero/proto_utils.h"
-#include "protozero/proto_zero_message_handle.h"
+#include "protozero/protozero_message_handle.h"
 #include "protozero/scattered_stream_writer.h"
 
 namespace protozero {
