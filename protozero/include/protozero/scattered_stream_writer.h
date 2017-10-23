@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #include "protozero/contiguous_memory_range.h"
 
