@@ -21,7 +21,7 @@ import datetime
 
 """Pulls all format files from an Android device.
 
-Usage: ./tools/extract_formats.py [-s serial] [-p dir_prefix]
+Usage: ./tools/extract_formats.py [-s serial] [-p directory_prefix]
 """
 
 
@@ -36,13 +36,17 @@ def adb(*cmd, **kwargs):
 
 
 def get_devices():
+  #  adb devices output looks like:
+  #    List of devices attached
+  #    557dccd8\tdevice
+  #  With a trailing newline.
   serials = [s.split('\t')[0] for s in adb('devices').split('\n')[1:] if s]
   return serials
 
 
 def ensure_output_directory_empty(path):
   if os.path.isfile(path):
-    print('The output directory {} exists as a file. Remove or choose a new directory'.format(path))
+    print('The output directory {} exists as a file.'.format(path))
     exit(1)
 
   if os.path.isdir(path) and os.listdir(path):
@@ -73,7 +77,8 @@ def ensure_single_device(serial):
 def pull_format_files(serial, output_directory):
   # Pulling each file individually is 100x slower so we pipe all together then
   # split them on the host.
-  cmd = 'find /sys/kernel/debug/tracing/events/*/*/format | while read f; do echo "path:" $f; cat $f; done'
+  cmd = 'find /sys/kernel/debug/tracing/events/*/*/format | ' \
+      'while read f; do echo "path:" $f; cat $f; done'
 
   output = adb('shell', cmd, serial=serial)
   sections = output.split('path: /sys/kernel/debug/tracing/events/')
