@@ -42,8 +42,9 @@ class ProtoZeroMessage {
   // of root (non-nested) messages. Nested messages are allocated via placement
   // new in the |nested_messages_arena_| and implictly destroyed when the arena
   // of the root message goes away. This is fine as long as all the fields are
-  // PODs, which is checked by the static_assert in the ctor (see the .cc file).
-  ProtoZeroMessage();
+  // PODs, which is checked by the static_assert in the ctor (see the Reset()
+  // method in the .cc file).
+  ProtoZeroMessage() = default;
 
   // Clears up the state, allowing the message to be reused as a fresh one.
   void Reset(ScatteredStreamWriter*);
@@ -204,7 +205,7 @@ class ProtoZeroMessage {
   // the arena are meaningful only for the root message.
   // Unfortunately we cannot put the sizeof() math here because we cannot sizeof
   // the current class in a header. However the .cc file has a static_assert
-  // that guarantees that (see the ctor in the .cc file).
+  // that guarantees that (see the Reset() method in the .cc file).
   alignas(sizeof(void*)) uint8_t nested_messages_arena_[512];
 
   // DO NOT add any fields below |nested_messages_arena_|. The memory layout of
