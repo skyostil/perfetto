@@ -14,20 +14,23 @@
 # limitations under the License.
 
 from __future__ import print_function
-import os
-import subprocess
 import argparse
 import datetime
+import os
+import subprocess
+import sys
 
 """Pulls all format files from an Android device.
 
-Usage: ./tools/extract_formats.py [-s serial] [-p directory_prefix]
+Usage: ./tools/pull_ftrace_format_files.py [-s serial] [-p directory_prefix]
 """
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ADB_PATH = os.path.join(ROOT_DIR, 'buildtools/android_sdk/platform-tools/adb')
 
 def adb(*cmd, **kwargs):
   serial = kwargs.get('serial', None)
-  prefix = ['adb']
+  prefix = [ADB_PATH]
   if serial:
     prefix += ['-s', serial]
   cmd = prefix + list(cmd)
@@ -47,21 +50,29 @@ def get_devices():
 def ensure_output_directory_empty(path):
   if os.path.isfile(path):
     print('The output directory {} exists as a file.'.format(path))
-    exit(1)
+    sys.exit(1)
 
   if os.path.isdir(path) and os.listdir(path):
     print('The output directory {} exists but is not empty.'.format(path))
-    exit(1)
+    sys.exit(1)
 
   if not os.path.isdir(path):
     os.makedirs(path)
+
+
+def ensure_dir(path):
+  try:
+    os.makedirs(path)
+  except OSError:
+    if not os.path.isdir(path):
+      raise
 
 
 def ensure_single_device(serial):
   serials = get_devices()
   if serial is None and len(serials) == 1:
     return serials[0]
-  
+
   if serial in serials:
     return serial
 
@@ -71,14 +82,17 @@ def ensure_single_device(serial):
     print('More than one device connected, use -s.')
   else:
     print('No device with serial {} found.'.format(serial))
-  exit(1)
+  sys.exit(1)
 
 
 def pull_format_files(serial, output_directory):
   # Pulling each file individually is 100x slower so we pipe all together then
   # split them on the host.
-  cmd = 'find /sys/kernel/debug/tracing/events/*/*/format | ' \
-      'while read f; do echo "path:" $f; cat $f; done'
+  cmd = "find /sys/kernel/debug/tracing/events/ " \
+      "-name format -o " \
+      "-name header_event -o " \
+      "-name header_page | " \
+      "while read f; do echo 'path:' $f; cat $f; done"
 
   output = adb('shell', cmd, serial=serial)
   sections = output.split('path: /sys/kernel/debug/tracing/events/')
@@ -87,7 +101,7 @@ def pull_format_files(serial, output_directory):
       continue
     path, rest = section.split('\n', 1)
     path = os.path.join(output_directory, path)
-    os.makedirs(os.path.dirname(path))
+    ensure_dir(os.path.dirname(path))
     with open(path, 'wb') as f:
       f.write(rest)
 
@@ -103,7 +117,7 @@ def get_output_directory(prefix=None):
   return '_'.join(parts)
 
 
-if __name__ == '__main__':
+def main():
   parser = argparse.ArgumentParser(description='Pull format files.')
   parser.add_argument('-p', dest='prefix', default=None,
                       help='the output directory prefix')
@@ -119,3 +133,10 @@ if __name__ == '__main__':
 
   ensure_output_directory_empty(output_directory)
   pull_format_files(serial, output_directory)
+
+  return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
