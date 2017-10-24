@@ -32,6 +32,9 @@ class Producer {
   virtual ~Producer() {}
 
   virtual void OnConnect(ProducerID, SharedMemory*) = 0;
+
+  // Once this call returns it is possible to safely destroy the Producer
+  // instance.
   virtual void OnDisconnect() = 0;
 
   virtual void CreateDataSourceInstance(DataSourceInstanceID,
