@@ -14,12 +14,47 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <memory>
 
 #include "libftrace/ftrace.h"
 
 int main(int argc, const char** argv) {
-  if (argc > 1)
-    printf("Usage: %s\n", argv[0]);
-  return perfetto::SomePublicApi();
+  std::unique_ptr<char[]> buffer =
+      std::unique_ptr<char[]>(new char[perfetto::kPageSize]);
+
+  perfetto::ClearTrace();
+
+  perfetto::WriteTraceMarker("Hello, world!");
+
+  for (int i = 1; i < argc; i++) {
+    printf("Enabling: %s\n", argv[i]);
+    perfetto::EnableEvent(argv[i]);
+  }
+
+  // Sleep for one second so we get some events
+  sleep(1);
+
+  for (int i = 0; i < perfetto::GetNumberOfCpus(); i++) {
+    ssize_t bytes_read = perfetto::ReadPageFromRawPipe(i, buffer.get());
+    if (bytes_read <= 0) {
+      continue;
+    }
+    printf("=== Data for cpu %d ===\n", i);
+    perfetto::ParsePage(buffer.get());
+    printf("=======================\n\n");
+  }
+
+  for (int i = 1; i < argc; i++) {
+    printf("Disable: %s\n", argv[i]);
+    perfetto::DisableEvent(argv[i]);
+  }
+
+  return 0;
 }
