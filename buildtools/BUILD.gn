@@ -37,7 +37,9 @@ config("googletest_config") {
     "-Wno-missing-noreturn",
     "-Wno-shift-sign-overflow",
     "-Wno-undef",
+    "-Wno-unknown-warning-option",
     "-Wno-used-but-marked-unused",
+    "-Wno-zero-as-null-pointer-constant",
     "-Wno-weak-vtables",
   ]
 }
