@@ -16,6 +16,8 @@
 
 #include "protozero/protozero_message_handle.h"
 
+#include <utility>
+
 #include "cpp_common/base.h"
 #include "protozero/protozero_message.h"
 
