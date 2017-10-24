@@ -121,13 +121,13 @@ script:
   - build/ninja -C out/dist -j8 all
   - |
     if [[ "$CFG" != android-* ]]; then
-      out/dist/libtracing_unittests
-      out/dist/libtracing_benchmarks
+      out/dist/tracing_unittests
+      out/dist/tracing_benchmarks
     else
       TARGET_ARCH=$(echo $CFG | cut -d- -f3)
       build/run_android_emulator $TARGET_ARCH --pid /tmp/emulator.pid -v &
-      build/run_android_test out/dist libtracing_unittests
-      build/run_android_test out/dist libtracing_benchmarks
+      build/run_android_test out/dist tracing_unittests
+      build/run_android_test out/dist tracing_benchmarks
     fi
 
 after_script:
