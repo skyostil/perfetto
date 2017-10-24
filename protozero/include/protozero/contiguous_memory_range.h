@@ -17,11 +17,13 @@
 #ifndef PROTOZERO_INCLUDE_PROTOZERO_CONTIGUOUS_MEMORY_RANGE_H_
 #define PROTOZERO_INCLUDE_PROTOZERO_CONTIGUOUS_MEMORY_RANGE_H_
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 
 namespace protozero {
 
+// Keep this struct trivially constructible (no ctors, no default initializers).
 struct ContiguousMemoryRange {
   uint8_t* begin;
   uint8_t* end;  // STL style: one byte past the end of the buffer.

@@ -16,8 +16,6 @@
 
 #include "protozero/scattered_stream_writer.h"
 
-#include <string.h>
-
 #include <algorithm>
 
 #include "cpp_common/base.h"
@@ -43,30 +41,14 @@ void ScatteredStreamWriter::Extend() {
   Reset(delegate_->GetNewBuffer());
 }
 
-void ScatteredStreamWriter::WriteByte(uint8_t value) {
-  if (write_ptr_ >= cur_range_.end)
-    Extend();
-  *write_ptr_++ = value;
-}
-
-void ScatteredStreamWriter::WriteBytes(const uint8_t* src, size_t size) {
-  uint8_t* const end = write_ptr_ + size;
-  if (end <= cur_range_.end) {
-    // Fast-path, the buffer fits into the current contiguous range.
-    // TODO(primiano): perf optimization, this is a tracing hot path. The
-    // compiler can make strong optimization on memcpy if the size arg is a
-    // constexpr. Make a templated variant of this for fixed-size writes.
-    memcpy(write_ptr_, src, size);
-    write_ptr_ = end;
-    return;
-  }
-  // Slow path, scatter the writes.
+void ScatteredStreamWriter::WriteBytesSlowPath(const uint8_t* src,
+                                               size_t size) {
   size_t bytes_left = size;
   while (bytes_left > 0) {
     if (write_ptr_ >= cur_range_.end)
       Extend();
     const size_t burst_size = std::min(bytes_available(), bytes_left);
-    WriteBytes(src, burst_size);
+    WriteBytesUnsafe(src, burst_size);
     bytes_left -= burst_size;
     src += burst_size;
   }
@@ -75,8 +57,9 @@ void ScatteredStreamWriter::WriteBytes(const uint8_t* src, size_t size) {
 // TODO(primiano): perf optimization: I suspect that at the end this will always
 // be called with |size| == 4, in which case we might just hardcode it.
 ContiguousMemoryRange ScatteredStreamWriter::ReserveBytes(size_t size) {
-  // Assume the reservations are always < kChunkSize.
   if (write_ptr_ + size > cur_range_.end) {
+    // Assume the reservations are always < Delegate::GetNewBuffer().size(),
+    // so that one single call to Extend() will definitely give enough headroom.
     Extend();
     DCHECK(write_ptr_ + size <= cur_range_.end);
   }
