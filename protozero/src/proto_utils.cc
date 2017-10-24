@@ -31,11 +31,8 @@ namespace proto_utils {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define BYTE_SWAP_TO_LE32(x) (x)
 #define BYTE_SWAP_TO_LE64(x) (x)
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define BYTE_SWAP_TO_LE32(x) __builtin_bswap32(x)
-#define BYTE_SWAP_TO_LE64(x) __builtin_bswap64(x)
 #else
-#error TODO unknown byte order
+#error Unimplemented for big endian archs.
 #endif
 
 const uint8_t* ParseVarInt(const uint8_t* start,

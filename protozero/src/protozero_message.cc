@@ -21,7 +21,7 @@
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
 // The memcpy() for float and double below needs to be adjusted if we want to
 // support big endian CPUs. There doesn't seem to be a compelling need today.
-#error Big-endian archs not supported.
+#error Unimplemented for big endian archs.
 #endif
 
 namespace protozero {
