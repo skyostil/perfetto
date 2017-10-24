@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "protozero/contiguous_memory_range.h"
 
@@ -49,15 +50,40 @@ class ScatteredStreamWriter {
   explicit ScatteredStreamWriter(Delegate* delegate);
   ~ScatteredStreamWriter();
 
-  void WriteByte(uint8_t value);
-  void WriteBytes(const uint8_t* src, size_t size);
+  inline void WriteByte(uint8_t value) {
+    if (write_ptr_ >= cur_range_.end)
+      Extend();
+    *write_ptr_++ = value;
+  }
+
+  // Assumes that the caller checked that there is enough headroom.
+  // TODO(primiano): perf optimization, this is a tracing hot path. The
+  // compiler can make strong optimization on memcpy if the size arg is a
+  // constexpr. Make a templated variant of this for fixed-size writes.
+  // TODO(primiano): restrict / noalias might also help.
+  inline void WriteBytesUnsafe(const uint8_t* src, size_t size) {
+    uint8_t* const end = write_ptr_ + size;
+    assert(end <= cur_range_.end);
+    memcpy(write_ptr_, src, size);
+    write_ptr_ = end;
+  }
+
+  inline void WriteBytes(const uint8_t* src, size_t size) {
+    uint8_t* const end = write_ptr_ + size;
+    if (__builtin_expect(end <= cur_range_.end, 1))
+      return WriteBytesUnsafe(src, size);
+    WriteBytesSlowPath(src, size);
+  }
+
+  void WriteBytesSlowPath(const uint8_t* src, size_t size);
 
   // Reserves a fixed amount of bytes to be backfilled later. The reserved range
-  // is guaranteed to be contiguous and not span across chunks.
+  // is guaranteed to be contiguous and not span across chunks. |size| has to be
+  // <= than the size of a new buffer returned by the Delegate::GetNewBuffer().
   ContiguousMemoryRange ReserveBytes(size_t size);
 
   // Fast (but unsafe) version of the above. The caller must have previously
-  // checked that there are at least |size| contiguos bytes available.
+  // checked that there are at least |size| contiguous bytes available.
   // Returns only the start pointer of the reservation.
   uint8_t* ReserveBytesUnsafe(size_t size) {
     uint8_t* begin = write_ptr_;

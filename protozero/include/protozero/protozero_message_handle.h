@@ -43,7 +43,7 @@ class ProtoZeroMessageHandleBase {
   ~ProtoZeroMessageHandleBase();
 
   // Move-only type.
-  ProtoZeroMessageHandleBase(ProtoZeroMessageHandleBase&&);
+  ProtoZeroMessageHandleBase(ProtoZeroMessageHandleBase&&) noexcept;
   ProtoZeroMessageHandleBase& operator=(ProtoZeroMessageHandleBase&&);
 
  protected:
@@ -58,7 +58,7 @@ class ProtoZeroMessageHandleBase {
       delete;
 
   void reset_message() { message_ = nullptr; }
-  void Move(ProtoZeroMessageHandleBase* other);
+  void Move(ProtoZeroMessageHandleBase&&);
 
   ProtoZeroMessage* message_;
 };
