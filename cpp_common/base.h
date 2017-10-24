@@ -55,12 +55,8 @@
     }                  \
   } while (0)
 #else
-#define DLOG(...) \
-  do {            \
-  } while (0)
-#define DPLOG(...) \
-  do {             \
-  } while (0)
+#define DLOG(...) ::ignore_result(__VA_ARGS__)
+#define DPLOG(...) ::ignore_result(__VA_ARGS__)
 #define DCHECK(x) ::ignore_result(x)
 #endif  // DCHECK_IS_ON()
 
@@ -78,7 +74,7 @@ template <typename T, size_t N>
 char (&ArraySizeHelper(T (&array)[N]))[N];
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
-template <typename T>
-inline void ignore_result(const T&) {}
+template <typename... T>
+inline void ignore_result(const T&...) {}
 
 #endif  // CPP_COMMON_BASE_H_

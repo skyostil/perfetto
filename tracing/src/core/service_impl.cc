@@ -101,7 +101,7 @@ ProducerID ServiceImpl::ProducerEndpointImpl::GetID() const {
 }
 
 void ServiceImpl::ProducerEndpointImpl::RegisterDataSource(
-    const DataSourceDescriptor& desc,
+    const DataSourceDescriptor&,
     RegisterDataSourceCallback callback) {
   const DataSourceID dsid = ++last_data_source_id_;
   DLOG("[ServiceImpl] RegisterDataSource from producer %" PRIu64, id_);
