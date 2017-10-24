@@ -147,8 +147,7 @@ ssize_t ReadPageFromRawPipe(int cpu, char* buffer) {
     return -1;
   }
 
-  // TODO(hjd): 4096
-  ssize_t bytes_read = read(fd, buffer, 4096);
+  ssize_t bytes_read = read(fd, buffer, kPageSize);
   if (bytes_read == -1 && errno == EAGAIN) {
     bytes_read = 0;
   }
@@ -168,14 +167,14 @@ ssize_t GetNumberOfCpus() {
 // First a page header:
 //   8 bytes of timestamp
 //   8 bytes of page length TODO(hjd): other fields also defined here?
-//
+// // TODO(hjd): Document rest of format.
 // Some information about the layout of the page header is available in user
 // space at: /sys/kernel/debug/tracing/events/header_event
 void ParsePage(const char* ptr) {
   // TODO(hjd): Read this format dynamically?
   uint64_t timestamp = Read<uint64_t>(&ptr);
   uint64_t page_length = Read<uint64_t>(&ptr) & 0xfffful;
-  CHECK(page_length <= 4080);
+  CHECK(page_length <= kPageSize - 64 * 2);
   const char* const start = ptr;
   const char* const end = ptr + page_length;
 
