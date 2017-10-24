@@ -256,15 +256,15 @@ class GeneratorJob {
 
     // Print includes for public imports.
     for (const FileDescriptor* dependency : public_imports_) {
-      // Dependency name could contatin slashes but importing from upper-level
-      // directories is not possible anyway since build system process each
-      // proto file individually. Hence proto lookup path always equal to the
+      // Dependency name could contain slashes but importing from upper-level
+      // directories is not possible anyway since build system processes each
+      // proto file individually. Hence proto lookup path is always equal to the
       // directory where particular proto file is located and protoc does not
       // allow reference to upper directory (aka ..) in import path.
       //
       // Laconically said:
       // - source_->name() may never have slashes,
-      // - dependency->name() may have slashes but always reffers to inner path.
+      // - dependency->name() may have slashes but always refers to inner path.
       stub_h_->Print("#include \"$name$.h\"\n", "name",
                      ProtoStubName(dependency));
     }

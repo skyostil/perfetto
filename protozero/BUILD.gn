@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//build/proto_library.gni")
+import("protozero_library.gni")
 
 config("protozero_config") {
   include_dirs = [ "include" ]
@@ -48,7 +48,7 @@ executable("protozero_unittests") {
 }
 
 # Generates both xxx.pbzero.h and xxx.pb.h (official proto).
-proto_library("testing_messages") {
+protozero_library("testing_messages") {
   sources = [
     "src/test/example_proto/library.proto",
     "src/test/example_proto/library_internals/galaxies.proto",
@@ -57,7 +57,4 @@ proto_library("testing_messages") {
   ]
   include_dirs = [ "include" ]
   proto_in_dir = "src/test/example_proto"
-  generator_plugin_label = "//protozero/src/protoc_plugin"
-  generator_plugin_suffix = ".pbzero"
-  generator_plugin_options = "wrapper_namespace=pbzero"
 }
