@@ -1,6 +1,6 @@
 cwd: out/mac_debug
 cmd: ../../build/ninja
-name: libtracing
+name: tracing
 sh: false
 args:
   - "-j1"
