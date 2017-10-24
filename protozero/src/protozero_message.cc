@@ -36,9 +36,11 @@ constexpr uint32_t ProtoZeroMessage::kMaxNestingDepth;
 
 // This method is called to initialize both root and nested messages.
 void ProtoZeroMessage::Reset(ScatteredStreamWriter* stream_writer) {
+// Older versions of libstdcxx don't have is_trivially_constructible.
+#if !defined(__GLIBCXX__) || __GLIBCXX__ >= 20150123
   static_assert(std::is_trivially_constructible<ProtoZeroMessage>::value,
                 "ProtoZeroMessage must be trivially destructible");
-
+#endif
   static_assert(std::is_trivially_destructible<ProtoZeroMessage>::value,
                 "ProtoZeroMessage must be trivially destructible");
 
