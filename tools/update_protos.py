@@ -79,7 +79,7 @@ def main():
   single_event = args.event
 
   if whitelist_path is not None and not os.path.isfile(whitelist_path):
-    parser.error('Whitelist file {} does not exist.', whitelist_path)
+    parser.error('Whitelist file {} does not exist.'.format(whitelist_path))
 
   if bool(whitelist_path) == bool(single_event):
     parser.error('Exactly one of --whitelist and --event required.')
@@ -92,7 +92,7 @@ def main():
   events = get_whitelisted_events(single_event, whitelist_path)
 
   for event in events:
-    proto_file_name = event.replace('/', '_') + '.proto'
+    proto_file_name = event.split('/')[1] + '.proto'
     input_path = os.path.join(input_dir, event, 'format')
     output_path = os.path.join(output_dir, proto_file_name)
     command(gen_path, input_path, output_path)
