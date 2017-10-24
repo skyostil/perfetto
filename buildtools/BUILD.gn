@@ -88,8 +88,14 @@ config("protobuf_gen_config") {
   include_dirs = [ "protobuf/src" ]
   cflags = [
     "-Wno-deprecated",
+    "-Wno-unknown-warning-option",
+    "-Wno-disabled-macro-expansion",
+    "-Wno-missing-variable-declarations",
+    "-Wno-old-style-cast",
     "-Wno-sign-conversion",
+    "-Wno-int-to-void-pointer-cast",
     "-Wno-sign-compare",
+    "-Wno-zero-as-null-pointer-constant",
   ]
   if (is_clang) {
     cflags += [ "-Wno-weak-vtables" ]
