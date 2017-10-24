@@ -16,6 +16,8 @@
 
 #include "protozero/protozero_message.h"
 
+#include <type_traits>
+
 #include "cpp_common/base.h"
 
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__

@@ -17,11 +17,11 @@
 #ifndef PROTOZERO_INCLUDE_PROTOZERO_PROTOZERO_MESSAGE_H_
 #define PROTOZERO_INCLUDE_PROTOZERO_PROTOZERO_MESSAGE_H_
 
-#include <type_traits>
-
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+
+#include <type_traits>
 
 #include "protozero/contiguous_memory_range.h"
 #include "protozero/proto_utils.h"
