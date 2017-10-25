@@ -21,8 +21,9 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-#if defined(NDEBUG) && !defined(DCHECK_ALWAYS_ON)
+#if defined(NDEBUG)
 #define DCHECK_IS_ON() 0
 #else
 #define DCHECK_IS_ON() 1
@@ -44,24 +45,20 @@
 
 #if DCHECK_IS_ON()
 #define DLOG(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-#define DPLOG(x)                                                          \
-  fprintf(stderr, x " %s:%d (errno: %d %s)\n", __FILE__, __LINE__, errno, \
-          strerror(errno))
-#define DCHECK(x)      \
-  do {                 \
-    if (!(x)) {        \
-      DPLOG("CHECK "); \
-      abort();         \
-    }                  \
+#define DPLOG(x)                                                    \
+  DLOG("%s %s:%d (errno: %d %s)\n", (x), __FILE__, __LINE__, errno, \
+       strerror(errno))
+#define DCHECK(x)                         \
+  do {                                    \
+    if (!__builtin_expect(!!(x), true)) { \
+      DPLOG("CHECK(" #x ")");             \
+      abort();                            \
+    }                                     \
   } while (0)
 #else
-#define DLOG(...) \
-  do {            \
-  } while (0)
-#define DPLOG(...) \
-  do {             \
-  } while (0)
-#define DCHECK(x) ::ignore_result(x)
+#define DLOG(...) ::perfetto::ignore_result(__VA_ARGS__)
+#define DPLOG(...) ::perfetto::ignore_result(__VA_ARGS__)
+#define DCHECK(x) ::perfetto::ignore_result(x)
 #endif  // DCHECK_IS_ON()
 
 #if DCHECK_IS_ON()
@@ -74,11 +71,48 @@
   } while (0)
 #endif  // DCHECK_IS_ON()
 
+namespace perfetto {
+
 template <typename T, size_t N>
 char (&ArraySizeHelper(T (&array)[N]))[N];
-#define arraysize(array) (sizeof(ArraySizeHelper(array)))
+#define arraysize(array) (sizeof(::perfetto::ArraySizeHelper(array)))
 
-template <typename T>
-inline void ignore_result(const T&) {}
+template <typename... T>
+inline void ignore_result(const T&...) {}
+
+// RAII classes for auto-releasing fd/dirs.
+template <typename T, int (*CLOSE_FN)(T), T INVALID_VALUE>
+class ScopedResource {
+ public:
+  explicit ScopedResource(T t = INVALID_VALUE) : t_(t) {}
+  ScopedResource(ScopedResource&& other) noexcept {
+    t_ = other.t_;
+    other.t_ = INVALID_VALUE;
+  }
+  ScopedResource& operator=(ScopedResource&& other) {
+    reset(other.t_);
+    other.t_ = INVALID_VALUE;
+    return *this;
+  }
+  T get() const { return t_; }
+  void reset(T r = INVALID_VALUE) {
+    if (t_ != INVALID_VALUE) {
+      int res = CLOSE_FN(t_);
+      CHECK(res == 0);
+    }
+    t_ = r;
+  }
+  ~ScopedResource() { reset(INVALID_VALUE); }
+
+ private:
+  ScopedResource(const ScopedResource&) = delete;
+  ScopedResource& operator=(const ScopedResource&) = delete;
+
+  T t_;
+};
+
+using ScopedFile = ScopedResource<int, close, -1>;
+
+}  // namespace perfetto
 
 #endif  // CPP_COMMON_BASE_H_
