@@ -81,28 +81,28 @@ template <typename... T>
 inline void ignore_result(const T&...) {}
 
 // RAII classes for auto-releasing fd/dirs.
-template <typename T, int (*CLOSE_FN)(T), T INVALID_VALUE>
+template <typename T, int (*CloseFunction)(T), T InvalidValue>
 class ScopedResource {
  public:
-  explicit ScopedResource(T t = INVALID_VALUE) : t_(t) {}
+  explicit ScopedResource(T t = InvalidValue) : t_(t) {}
   ScopedResource(ScopedResource&& other) noexcept {
     t_ = other.t_;
-    other.t_ = INVALID_VALUE;
+    other.t_ = InvalidValue;
   }
   ScopedResource& operator=(ScopedResource&& other) {
     reset(other.t_);
-    other.t_ = INVALID_VALUE;
+    other.t_ = InvalidValue;
     return *this;
   }
   T get() const { return t_; }
-  void reset(T r = INVALID_VALUE) {
-    if (t_ != INVALID_VALUE) {
-      int res = CLOSE_FN(t_);
+  void reset(T r = InvalidValue) {
+    if (t_ != InvalidValue) {
+      int res = CloseFunction(t_);
       CHECK(res == 0);
     }
     t_ = r;
   }
-  ~ScopedResource() { reset(INVALID_VALUE); }
+  ~ScopedResource() { reset(InvalidValue); }
 
  private:
   ScopedResource(const ScopedResource&) = delete;
