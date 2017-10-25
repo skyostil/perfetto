@@ -12,27 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-group("all") {
-  testonly = true  # allow to build also test targets
-  deps = [
-    ":tests",
-    "//buildtools:protobuf_lite",
-    "//buildtools:protoc($host_toolchain)",
-    "//libftrace:libftrace_driver",
-    "//protozero/src/protoc_plugin($host_toolchain)",
-    "//tools/ftrace_proto_gen:ftrace_proto_gen",
-  ]
-}
-
-group("tests") {
+executable("base_unittests") {
   testonly = true
-  deps = [
-    "//cpp_common:base_unittests",
-    "//libftrace:libftrace_unittests",
-    "//protozero:protozero_unittests",
-    "//tools/ftrace_proto_gen:ftrace_proto_gen_unittests",
-    "//tools/sanitizers_unittests",
-    "//tracing:tracing_benchmarks",
-    "//tracing:tracing_unittests",
+  deps += [
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
+  ]
+  sources = [
+    "base_unittest.cc",
   ]
 }
