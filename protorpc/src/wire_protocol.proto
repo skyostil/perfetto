@@ -26,18 +26,28 @@ message RPCFrame {
   }
 
   message InvokeMethod {
-    string service_name = 1;
+    int32 service_id = 1;
+    int32 method_id = 2;
+    bytes request = 3;  // proto-encoded request argument.
   }
 
   // Host -> Client messages.
   message BindServiceReply {
     int32 service_id = 1;
-    map<string, int32> methods;  // method name -> method id.
+    map<string, int32> methods = 2;  // method name -> method id.
   }
 
+  message InvokeMethodReply {
+    bool success = 1;
+    bool eof = 2;  // only for streaming RPCs.
+    bytes reply = 3;  // proto-encoded response value.
+  }
 
+  uint64 frame_id = 1;
   oneof msg {
-    BindService msg_bind_service;
-    BindServiceReply msg_bind_service_reply;
+    BindService msg_bind_service = 2;
+    BindServiceReply msg_bind_service_reply = 3;
+    BindService msg_invoke_method = 4;
+    BindService msg_invoke_method_reply = 5;
   }
 };
