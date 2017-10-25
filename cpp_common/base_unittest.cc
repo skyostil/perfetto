@@ -29,7 +29,9 @@ TEST(ScopedFD, CloseOutOfScope) {
   ASSERT_GE(raw_fd, 0);
   {
     ScopedFile scoped_file(raw_fd);
-    ASSERT_GE(scoped_file.get(), 0);
+    ASSERT_EQ(raw_fd, scoped_file.get());
+    ASSERT_EQ(raw_fd, *scoped_file);
+    ASSERT_TRUE(scoped_file);
   }
   ASSERT_NE(0, close(raw_fd));  // close() should fail if the fd is closed.
 }
@@ -61,6 +63,8 @@ TEST(ScopedFD, MoveCtor) {
     ScopedFile scoped_file1(ScopedFile{raw_fd1});
     ScopedFile scoped_file2(std::move(scoped_file1));
     ASSERT_EQ(-1, scoped_file1.get());
+    ASSERT_EQ(-1, *scoped_file1);
+    ASSERT_FALSE(scoped_file1);
     ASSERT_EQ(raw_fd1, scoped_file2.get());
 
     scoped_file1.reset(raw_fd2);
@@ -80,6 +84,7 @@ TEST(ScopedFD, MoveAssignment) {
     ScopedFile scoped_file2(raw_fd2);
     scoped_file2 = std::move(scoped_file1);
     ASSERT_EQ(-1, scoped_file1.get());
+    ASSERT_FALSE(scoped_file1);
     ASSERT_EQ(raw_fd1, scoped_file2.get());
     ASSERT_NE(0, close(raw_fd2));
 

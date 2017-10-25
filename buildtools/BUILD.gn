@@ -87,6 +87,7 @@ config("protobuf_gen_config") {
   defines = [
     "GOOGLE_PROTOBUF_NO_RTTI",
     "GOOGLE_PROTOBUF_NO_STATIC_INITIALIZER",
+    "PROTOBUF_INLINE_NOT_IN_HEADERS=0"
   ]
   include_dirs = [ "protobuf/src" ]
   cflags = [

@@ -95,6 +95,8 @@ class ScopedResource {
     return *this;
   }
   T get() const { return t_; }
+  T operator*() const { return t_; }
+  explicit operator bool() const { return t_ != InvalidValue; }
   void reset(T r = InvalidValue) {
     if (t_ != InvalidValue) {
       int res = CloseFunction(t_);
