@@ -1,13 +1,13 @@
 #!/bin/bash
 #<!--
 # Copyright (C) 2017 The Android Open Source Project
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,19 +15,19 @@
 # limitations under the License.
 
 python -m webbrowser -t "http://localhost:8000/libftrace/test/explorer.html"
-python -m SimpleHTTPServer 
+python -m SimpleHTTPServer
 
 <<-EOF
 -->
 <body>
 <style>
-* { 
+* {
   box-sizing: border-box;
 }
 
 .main {
   display: flex;
-  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif; 
+  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
   font-weight: 300;
 }
 
@@ -207,9 +207,9 @@ function contextView(filterText, namesToRecords) {
     m('h1', {class: 'title'}, 'Ftrace Format Explorer'),
     m('input[type=text][placeholder=Filter]', {
       oninput: m.withAttr('value', value => gFilterText = value),
-      value: filterText, 
+      value: filterText,
     }),
-    m('ul', 
+    m('ul',
       Array.from(namesToRecords.entries()).filter(e => e[1].length > 1).filter(e => matcher(e[0])).map(e => m('li', {
       onclick: () => { gDisplayedRecords = e[1]; gDisplayedName = e[0]; },
       class: gDisplayedName == e[0] ? 'selected' : '',
@@ -221,7 +221,7 @@ function focusView(records) {
   if (records == null) {
     return m('div.focus');
   }
-  
+
   let r1 = records.filter(r => r.device == gADevice)[0];
   let r2 = records.filter(r => r.device == gBDevice)[0];
   if (!r1) r1 = records[0];
@@ -239,11 +239,11 @@ function focusView(records) {
     m('ul.version', gDevices.map(device => m('li', {
       onclick: () => gADevice = device,
       class: device == gADevice ? 'selected' : '',
-    }, device))), 
+    }, device))),
     m('ul.version', gDevices.map(device => m('li', {
       onclick: () => gBDevice = device,
       class: device == gBDevice ? 'selected' : '',
-    }, device))), 
+    }, device))),
     m('.file', [m('h2', gADevice),  m('pre', f1)]),
     m('.file', [m('h2', gBDevice),  m('pre', f2)]),
     m('.file', [m('h2', 'Delta'), m('pre', es)]),
@@ -278,6 +278,3 @@ m.mount(root, App);
 <!--
 EOF
 #-->
-
-
-
