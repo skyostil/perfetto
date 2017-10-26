@@ -27,27 +27,35 @@
 namespace perfetto {
 namespace protorpc {
 
-ServiceProxy::ServiceProxy(std::weak_ptr<ServiceProxy> weak_ptr_self,
-                           std::weak_ptr<Client> client,
-                           ServiceID service_id,
-                           std::map<std::string, MethodID> remote_method_ids)
-    : weak_ptr_self_(weak_ptr_self),
-      client_(client),
-      service_id_(service_id),
-      remote_method_ids_(std::move(remote_method_ids)) {}
-
+ServiceProxy::ServiceProxy() = default;
 ServiceProxy::~ServiceProxy() = default;
+
+void ServiceProxy::InitializeBinding(
+    const std::weak_ptr<ServiceProxy>& weak_ptr_self,
+    const std::weak_ptr<Client>& client,
+    ServiceID service_id,
+    std::map<std::string, MethodID> remote_method_ids) {
+  weak_ptr_self_ = std::move(weak_ptr_self);
+  client_ = client;
+  service_id_ = service_id;
+  remote_method_ids_ = std::move(remote_method_ids);
+}
 
 void ServiceProxy::BeginInvokeGeneric(
     const std::string& method_name,
     ProtoMessage* method_args,
     std::function<void(MethodInvocationReply<ProtoMessage>)> callback) {
+  if (!connected()) {
+    DCHECK(false);
+    return;
+  }
   auto remote_method_it = remote_method_ids_.find(method_name);
   std::shared_ptr<Client> client = client_.lock();
   RequestID request_id = 0;
   if (remote_method_it != remote_method_ids_.end() && client)
-    request_id = client->BeginInvoke(service_id_, remote_method_it->second,
-                                     method_args, weak_ptr_self_);
+    request_id =
+        client->BeginInvoke(service_id_, method_name, remote_method_it->second,
+                            method_args, weak_ptr_self_);
   if (!request_id) {
     callback(MethodInvocationReply<ProtoMessage>(nullptr, true /*eof*/));
     return;
@@ -64,11 +72,14 @@ void ServiceProxy::EndInvoke(RequestID request_id,
     DCHECK(false);
     return;
   }
-  MethodInvocationReply<ProtoMessage> callback_result(std::move(result),
-  eof); auto callback = std::move(callback_it->second);
+  MethodInvocationReply<ProtoMessage> callback_result(std::move(result), eof);
+  auto callback = std::move(callback_it->second);
   pending_callbacks_.erase(callback_it);
   callback(std::move(callback_result));
 }
+
+void ServiceProxy::OnConnect() {}
+void ServiceProxy::OnConnectionFailed() {}
 
 }  // namespace protorpc
 }  // namespace perfetto

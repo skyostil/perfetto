@@ -30,6 +30,7 @@ namespace protorpc {
 class Service;
 class ServiceRequestBase;
 class ServiceReplyBase;
+class ServiceProxy;
 
 class ServiceDescriptor {
  public:
@@ -45,6 +46,7 @@ class ServiceDescriptor {
     using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
     MethodPtr function;
   };
+
   std::string service_name;
 
   // Note that methods order is not stable. Client and Host might have different

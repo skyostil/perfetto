@@ -54,10 +54,6 @@ class Greeter {
   // Exposed to the Client side.
   class ServiceProxy : public ::perfetto::protorpc::ServiceProxy {
    public:
-    ServiceProxy(std::weak_ptr<::perfetto::protorpc::ServiceProxy>,
-                 std::weak_ptr<::perfetto::protorpc::Client>,
-                 ::perfetto::protorpc::ServiceID,
-                 std::map<std::string, ::perfetto::protorpc::MethodID>);
     virtual ~ServiceProxy();
     const ::perfetto::protorpc::ServiceDescriptor& GetDescriptor() override;
 

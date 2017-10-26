@@ -24,6 +24,7 @@
 #include "cpp_common/task_runner.h"
 #include "protorpc/host_handle.h"
 #include "protorpc/method_invocation_reply.h"
+#include "protorpc/service_descriptor.h"
 #include "protorpc/service_proxy.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
@@ -32,12 +33,13 @@ namespace perfetto {
 namespace protorpc {
 
 // static
-std::unique_ptr<Client> Client::CreateInstance(const char* socket_name,
+std::shared_ptr<Client> Client::CreateInstance(const char* socket_name,
                                                TaskRunner* task_runner) {
-  std::unique_ptr<ClientImpl> client(new ClientImpl(socket_name, task_runner));
+  std::shared_ptr<ClientImpl> client(new ClientImpl(socket_name, task_runner));
+  client->set_weak_ptr(std::weak_ptr<Client>(client));
   if (!client->Connect())
     return nullptr;
-  return std::unique_ptr<Client>(client.release());
+  return client;
 }
 
 ClientImpl::ClientImpl(const char* socket_name, TaskRunner* task_runner)
@@ -59,30 +61,31 @@ bool ClientImpl::Connect() {
   return true;
 }
 
-void ClientImpl::BindServiceGeneric(
-    const std::string& service_name,
-    std::function<void(std::shared_ptr<ServiceProxy>)> callback) {
+void ClientImpl::BindService(const std::weak_ptr<ServiceProxy>& weak_service) {
+  std::shared_ptr<ServiceProxy> service_proxy = weak_service.lock();
+  if (!service_proxy)
+    return;
   RequestID request_id = ++last_request_id_;
   RPCFrame rpc_frame;
   rpc_frame.set_request_id(request_id);
   RPCFrame::BindService* req = rpc_frame.mutable_msg_bind_service();
+  const std::string& service_name = service_proxy->GetDescriptor().service_name;
   req->set_service_name(service_name);
   if (!SendRPCFrame(rpc_frame)) {
-    DLOG("Failed BindService(%s)", service_name.c_str());
-    task_runner_->PostTask(std::bind(callback, nullptr));
-    return;
+    DLOG("BindService(%s) failed", service_name.c_str());
+    return service_proxy->OnConnectionFailed();
   }
   QueuedRequest qr;
   qr.type = RPCFrame::kMsgBindService;
   qr.request_id = request_id;
-  qr.service_name = service_name;
-  qr.bind_callback = std::move(callback);
+  qr.service_proxy = std::weak_ptr<ServiceProxy>(service_proxy);
   queued_requests_.emplace(request_id, std::move(qr));
-}
+}  // namespace protorpc
 
 RequestID ClientImpl::BeginInvoke(
     ServiceID service_id,
-    MethodID method_id,
+    const std::string& method_name,
+    MethodID remote_method_id,
     ProtoMessage* method_args,
     const std::weak_ptr<ServiceProxy>& service_proxy) {
   std::string args_proto;
@@ -91,7 +94,7 @@ RequestID ClientImpl::BeginInvoke(
   rpc_frame.set_request_id(request_id);
   RPCFrame::InvokeMethod* req = rpc_frame.mutable_msg_invoke_method();
   req->set_service_id(service_id);
-  req->set_method_id(method_id);
+  req->set_method_id(remote_method_id);
   bool did_serialize = method_args->SerializeToString(&args_proto);
   req->set_args_proto(args_proto);
   if (!did_serialize || !SendRPCFrame(rpc_frame)) {
@@ -99,7 +102,7 @@ RequestID ClientImpl::BeginInvoke(
   }
   QueuedRequest qr;
   qr.type = RPCFrame::kMsgInvokeMethod;
-  qr.method_id = method_id;
+  qr.method_name = method_name;
   qr.service_proxy = service_proxy;
   queued_requests_.emplace(request_id, std::move(qr));
   return request_id;
@@ -179,10 +182,13 @@ void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
 
 void ClientImpl::OnBindServiceReply(QueuedRequest req,
                                     const RPCFrame::BindServiceReply& reply) {
-  if (req.succeeded) {
-    DLOG("Failed to bind Service \"%s\"", req.service_name.c_str());
-    task_runner_->PostTask(std::bind(req.bind_callback, nullptr));
+  std::shared_ptr<ServiceProxy> service_proxy = req.service_proxy.lock();
+  if (!service_proxy)
     return;
+  if (!req.succeeded) {
+    DLOG("Failed BindService(%s)",
+         service_proxy->GetDescriptor().service_name.c_str());
+    return service_proxy->OnConnectionFailed();
   }
   std::map<std::string, MethodID> methods;
   for (const auto& method : reply.methods()) {
@@ -193,26 +199,29 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
     }
     methods[method.name()] = method.id();
   }
-  std::shared_ptr<ServiceProxy> service_proxy(
-      new ServiceProxy(this, reply.service_id(), std::move(methods)));
-  DCHECK(req.bind_callback);
-  task_runner_->PostTask(
-      std::bind(req.bind_callback, std::move(service_proxy)));
+  service_proxy->InitializeBinding(req.service_proxy, weak_ptr_self_,
+                                   reply.service_id(), std::move(methods));
+  service_proxy->OnConnect();
 }
 
 void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
                                      const RPCFrame::InvokeMethodReply& reply) {
-  DCHECK(req.invoke_callback);
-  bool success = req.succeeded;
-  bool decoded = reply.reply_proto();
-  success = decoded ? success : false;
-  MethodInvocationReplyBase reply_arg(success, reply.eof(), reply_proto);
-  task_runner_->PostTask(
-      EndInvokeClosure(req.service_proxy, req.request_id, success));
+  std::shared_ptr<ServiceProxy> service_proxy = req.service_proxy.lock();
+  if (!service_proxy)
+    return;
+  std::unique_ptr<ProtoMessage> decoded_reply;
+  if (req.succeeded) {
+    // TODO this could be optimized, stop doing method name string lookups.
+    for (const auto& method : service_proxy->GetDescriptor().methods) {
+      if (req.method_name == method.name) {
+        decoded_reply = method.decoder(reply.reply_proto());
+        break;
+      }
+    }
+  }
+  service_proxy->EndInvoke(req.request_id, nullptr, reply.eof());
 }
 
-ClientImpl::ServiceBinding::ServiceBinding() = default;
-ClientImpl::ServiceBinding::Method::Method() = default;
 ClientImpl::QueuedRequest::QueuedRequest() = default;
 
 }  // namespace protorpc

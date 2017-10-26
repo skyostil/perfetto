@@ -98,15 +98,6 @@ const ServiceDescriptor& Greeter::Service::GetDescriptor() {
 }
 
 // ServiceProxy methods.
-Greeter::ServiceProxy::ServiceProxy(
-    std::weak_ptr<::perfetto::protorpc::ServiceProxy> weak_ptr_self,
-    std::weak_ptr<::perfetto::protorpc::Client> client,
-    ::perfetto::protorpc::ServiceID service_id,
-    std::map<std::string, ::perfetto::protorpc::MethodID> remote_method_ids)
-    : ::perfetto::protorpc::ServiceProxy(weak_ptr_self,
-                                         client,
-                                         service_id,
-                                         remote_method_ids) {}
 Greeter::ServiceProxy::~ServiceProxy() = default;
 
 const ServiceDescriptor& Greeter::ServiceProxy::GetDescriptor() {

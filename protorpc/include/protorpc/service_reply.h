@@ -21,10 +21,11 @@
 #include <utility>
 
 #include "protorpc/basic_types.h"
-#include "protorpc/host_handle.h"
 
 namespace perfetto {
 namespace protorpc {
+
+class HostHandle;
 
 class ServiceReplyBase {
  public:

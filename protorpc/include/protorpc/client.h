@@ -31,23 +31,14 @@ class ServiceProxy;
 
 class Client {
  public:
-  static std::unique_ptr<Client> CreateInstance(const char* socket_name,
+  static std::shared_ptr<Client> CreateInstance(const char* socket_name,
                                                 TaskRunner*);
   virtual ~Client() = default;
 
-  template <typename T>
-  void BindService(const std::string& service_name,
-                   std::function<void(std::shared_ptr<T>)> callback) {
-    static_assert(std::is_base_of<ServiceProxy, T>::value,
-                  "T must derive ServiceProxy");
-    BindServiceGeneric(service_name, callback);
-  }
-
-  virtual void BindServiceGeneric(
-      const std::string& service_name,
-      std::function<void(std::shared_ptr<ServiceProxy>)>) = 0;
+  virtual void BindService(const std::weak_ptr<ServiceProxy>&) = 0;
 
   virtual RequestID BeginInvoke(ServiceID,
+                                const std::string& method_name,
                                 MethodID remote_method_id,
                                 ProtoMessage*,
                                 const std::weak_ptr<ServiceProxy>&) = 0;

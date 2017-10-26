@@ -40,14 +40,15 @@ class ClientImpl : public Client {
   bool Connect();
 
   // Client implementation.
-  void BindServiceGeneric(
-      const std::string& service_name,
-      std::function<void(std::shared_ptr<ServiceProxy>)>) override;
+  void BindService(const std::weak_ptr<ServiceProxy>&) override;
 
   RequestID BeginInvoke(ServiceID,
+                        const std::string& method_name,
                         MethodID,
                         ProtoMessage*,
                         const std::weak_ptr<ServiceProxy>&) override;
+
+  void set_weak_ptr(const std::weak_ptr<Client>& wp) { weak_ptr_self_ = wp; }
 
  private:
   struct QueuedRequest {
@@ -55,14 +56,10 @@ class ClientImpl : public Client {
     int type = 0;  // From RPCFrame::msg_case() (see wire_protocol.proto).
     RequestID request_id = 0;
     bool succeeded = false;
-
-    // only for type == kMsgBindService.
-    std::string service_name;
-    std::function<void(std::shared_ptr<ServiceProxy>)> bind_callback;
+    std::weak_ptr<ServiceProxy> service_proxy;
 
     // only for type == kMsgInvokeMethod.
-    MethodID method_id;
-    std::weak_ptr<ServiceProxy> service_proxy;
+    std::string method_name;
   };
   ClientImpl(const ClientImpl&) = delete;
   ClientImpl& operator=(const ClientImpl&) = delete;
@@ -73,6 +70,7 @@ class ClientImpl : public Client {
   void OnBindServiceReply(QueuedRequest, const RPCFrame::BindServiceReply&);
   void OnInvokeMethodReply(QueuedRequest, const RPCFrame::InvokeMethodReply&);
 
+  std::weak_ptr<Client> weak_ptr_self_;
   const char* const socket_name_;
   TaskRunner* const task_runner_;
   UnixSocket sock_;

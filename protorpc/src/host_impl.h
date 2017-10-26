@@ -37,17 +37,16 @@ class HostImpl : public Host {
   HostImpl(const char* socket_name, TaskRunner*);
   ~HostImpl() override;
 
+  void set_weak_ptr(const std::weak_ptr<Host>& ptr) { weak_ptr_ = ptr; }
+
   // Host implementation.
   bool Start() override;
-  bool ExposeService(Service*) override;
+  bool ExposeService(std::shared_ptr<Service>) override;
 
   // reply == nullptr means abort.
   void ReplyToMethodInvocation(ClientID,
                                RequestID,
                                std::unique_ptr<ProtoMessage>) override;
-
-  void AddHandle(HostHandle*) override;
-  void RemoveHandle(HostHandle*) override;
 
  private:
   struct ClientConnection {
@@ -68,12 +67,19 @@ class HostImpl : public Host {
   void OnDataAvailable(ClientID);
   void OnClientDisconnect(ClientID);
   void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
+  void OnBindService(ClientConnection*,
+                     const RPCFrame::BindService&,
+                     std::unique_ptr<RPCFrame>);
+  void OnInvokeMethod(ClientConnection*,
+                      const RPCFrame::InvokeMethod&,
+                      std::unique_ptr<RPCFrame>);
+
   const ExposedService* GetServiceByName(const std::string&);
   void SendRPCFrame(ClientConnection*, std::unique_ptr<RPCFrame>);
 
+  std::weak_ptr<Host> weak_ptr_;
   const char* const socket_name_;
   TaskRunner* const task_runner_;
-  std::set<HostHandle*> handles_;
   std::map<ServiceID, ExposedService> services_;
   UnixSocket sock_;  // The listening socket.
   std::map<ClientID, std::unique_ptr<ClientConnection>> clients_;

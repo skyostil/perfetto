@@ -25,7 +25,6 @@ source_set("protorpc") {
   ]
   sources = [
     "src/client_impl.cc",
-    "src/host_handle.cc",
     "src/host_impl.cc",
     "src/rpc_frame_decoder.cc",
     "src/service_proxy.cc",

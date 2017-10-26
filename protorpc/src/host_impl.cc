@@ -25,7 +25,6 @@
 #include <utility>
 
 #include "cpp_common/task_runner.h"
-#include "protorpc/host_handle.h"
 #include "protorpc/service.h"
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_reply.h"
@@ -37,19 +36,20 @@ namespace perfetto {
 namespace protorpc {
 
 // static
-std::unique_ptr<Host> Host::CreateInstance(const char* socket_name,
+std::shared_ptr<Host> Host::CreateInstance(const char* socket_name,
                                            TaskRunner* task_runner) {
-  return std::unique_ptr<Host>(new HostImpl(socket_name, task_runner));
+  std::shared_ptr<HostImpl> host(new HostImpl(socket_name, task_runner));
+  host->set_weak_ptr(std::weak_ptr<Host>(host));
+  return host;
 }
 
 HostImpl::HostImpl(const char* socket_name, TaskRunner* task_runner)
-    : socket_name_(socket_name), task_runner_(task_runner) {}
+    : socket_name_(socket_name), task_runner_(task_runner) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+}
 
 HostImpl::~HostImpl() {
-  GOOGLE_PROTOBUF_VERIFY_VERSION;
-  for (HostHandle* handle : handles_)
-    handle->clear_host();
-  if (sock_.is_listening())
+  if (sock_.fd() >= 0)
     task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
 
@@ -57,6 +57,7 @@ bool HostImpl::Start() {
   if (!sock_.Listen(socket_name_))
     return false;
   sock_.SetBlockingIOMode(false);
+  // TODO use the weak ptr.
   task_runner_->AddFileDescriptorWatch(
       sock_.fd(), std::bind(&HostImpl::OnNewConnection, this));
   return true;
@@ -76,6 +77,7 @@ void HostImpl::OnNewConnection() {
     client->sock = std::move(cli_sock);
     ClientID client_id = ++last_client_id_;
     clients_[client_id] = std::move(client);
+    // TODO use the weak ptr.
     task_runner_->AddFileDescriptorWatch(
         cli_sock_fd, std::bind(&HostImpl::OnDataAvailable, this, client_id));
   }
@@ -114,56 +116,60 @@ void HostImpl::OnReceivedRPCFrame(ClientID client_id,
   std::unique_ptr<RPCFrame> reply_frame(new RPCFrame());
   reply_frame->set_request_id(req_frame.request_id());
   reply_frame->set_reply_success(false);
+  if (req_frame.msg_case() == RPCFrame::kMsgBindService) {
+    return OnBindService(client, req_frame.msg_bind_service(),
+                         std::move(reply_frame));
 
-  switch (req_frame.msg_case()) {
-    case RPCFrame::kMsgBindService: {
-      const RPCFrame::BindService& req = req_frame.msg_bind_service();
-      auto* reply = reply_frame->mutable_msg_bind_service_reply();
-      const ExposedService* service = GetServiceByName(req.service_name());
-      if (!service)
-        break;
-      reply_frame->set_reply_success(true);
-      reply->set_service_id(service->id);
-      for (const auto& method_it : service->instance->GetDescriptor().methods) {
-        RPCFrame::BindServiceReply::Method* method = reply->add_methods();
-        method->set_name(method_it.second.name);
-        method->set_id(method_it.first);
-      }
-      break;
+  } else if (req_frame.msg_case() == RPCFrame::kMsgBindService) {
+    return OnInvokeMethod(client, req_frame.msg_invoke_method(),
+                          std::move(reply_frame));
+  }
+  DLOG("Received invalid RPC frame %u from client %" PRIu64,
+       req_frame.msg_case(), client_id);
+  SendRPCFrame(client, std::move(reply_frame));
+}
+
+void HostImpl::OnBindService(ClientConnection* client,
+                             const RPCFrame::BindService& req,
+                             std::unique_ptr<RPCFrame> reply_frame) {
+  auto* reply = reply_frame->mutable_msg_bind_service_reply();
+  const ExposedService* service = GetServiceByName(req.service_name());
+  if (service) {
+    reply_frame->set_reply_success(true);
+    reply->set_service_id(service->id);
+    for (const auto& method_it : service->instance->GetDescriptor().methods) {
+      RPCFrame::BindServiceReply::Method* method = reply->add_methods();
+      method->set_name(method_it.second.name);
+      method->set_id(method_it.first);
     }
-    case RPCFrame::kMsgInvokeMethod: {
-      const RPCFrame::InvokeMethod& req = req_frame.msg_invoke_method();
-      auto* reply = reply_frame->mutable_msg_invoke_method_reply();
-      reply_frame->set_reply_success(true);
-      auto svc_it = services_.find(req.service_id());
-      if (svc_it == services_.end())
-        break;
-
-      const ServiceDescriptor& svc = svc_it->second.instance->GetDescriptor();
-      const auto& methods = svc.methods;
-      if (req.method_id() <= 0 || req.method_id() > methods.size())
-        break;
-
-      // TODO find here;
-      // const ServiceDescriptor::Method& method = methods[req.method_id()];
-      // std::unique_ptr<ProtoMessage> in_args = method.decoder(req.args_proto());
-      // if (!in_args)
-        break;
-
-      ((*svc.service).*(method.function))(
-          ServiceRequestBase(std::move(in_args)),
-          ServiceReplyBase(client_id, req_frame.request_id(), HostHandle(this),
-                           method.new_reply_obj()));
-      break;
-    }
-    case RPCFrame::kMsgBindServiceReply:
-    case RPCFrame::kMsgInvokeMethodReply:
-    case RPCFrame::MSG_NOT_SET:
-      DLOG("Received invalid RPC frame %u from client %d", req_frame.msg_case(),
-           client->sock.fd());
-      return;
   }
   SendRPCFrame(client, std::move(reply_frame));
+}
+
+void HostImpl::OnInvokeMethod(ClientConnection* client,
+                              const RPCFrame::InvokeMethod& req,
+                              std::unique_ptr<RPCFrame> reply_frame) {
+  auto* reply = reply_frame->mutable_msg_invoke_method_reply();
+  reply_frame->set_reply_success(true);
+  auto svc_it = services_.find(req.service_id());
+  if (svc_it == services_.end())
+    break;
+
+  const ServiceDescriptor& svc = svc_it->second.instance->GetDescriptor();
+  const auto& methods = svc.methods;
+  if (req.method_id() <= 0 || req.method_id() > methods.size())
+    break;
+
+  // TODO find here;
+  // const ServiceDescriptor::Method& method = methods[req.method_id()];
+  // std::unique_ptr<ProtoMessage> in_args =
+  // method.decoder(req.args_proto()); if (!in_args)
+  break;
+
+  ((*svc.service).*(method.function))(
+      ServiceRequestBase(std::move(in_args)),
+      ServiceReplyBase(client_id, req_frame.request_id(), HostHandle(this),
+                       method.new_reply_obj()));
 }
 
 void HostImpl::OnClientDisconnect(ClientID client_id) {
