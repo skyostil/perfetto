@@ -98,7 +98,7 @@ class UnixSocket {
   State state_ = State::DISCONNECTED;
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // TRACING_SRC_UNIX_RPC_UNIX_SOCKET_H_

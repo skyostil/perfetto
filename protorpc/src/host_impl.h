@@ -19,6 +19,7 @@
 
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "cpp_common/task_runner.h"
@@ -28,6 +29,8 @@
 namespace perfetto {
 namespace protorpc {
 
+class RPCFrame;
+
 class HostImpl : public Host {
  public:
   HostImpl(const char* socket_name, TaskRunner*);
@@ -35,10 +38,12 @@ class HostImpl : public Host {
 
   // Host implementation.
   bool Start() override;
-  ServiceID ExposeService(const ServiceDescriptor&) override;
+  ServiceID ExposeService(ServiceDescriptor) override;
 
   // reply == nullptr means abort.
-  void SendReply(RequestID, std::unique_ptr<ProtoMessage> reply) override;
+  void ReplyToMethodInvocation(ClientID,
+                               RequestID,
+                               std::unique_ptr<ProtoMessage>) override;
 
   void AddHandle(HostHandle*) override;
   void RemoveHandle(HostHandle*) override;
@@ -54,17 +59,23 @@ class HostImpl : public Host {
 
   bool Initialize(const char* socket_name);
   void OnNewConnection();
-  void OnDataAvailable(int client_fd);
-  void OnClientDisconnect(int client_fd);
+  void OnDataAvailable(ClientID);
+  void OnClientDisconnect(ClientID);
+  void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
+  ServiceID GetServiceByName(const std::string&);
+  void SendRPCFrame(ClientConnection*, std::unique_ptr<RPCFrame>);
 
   const char* const socket_name_;
   TaskRunner* const task_runner_;
   std::set<HostHandle*> handles_;
+  std::map<ServiceID, ServiceDescriptor> services_;
   UnixSocket sock_;  // The listening socket.
-  std::map<int, std::unique_ptr<ClientConnection>> clients_;
+  std::map<ClientID, std::unique_ptr<ClientConnection>> clients_;
+  ServiceID last_service_id_ = 0;
+  ClientID last_client_id_ = 0;
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_SRC_HOST_IMPL_H_

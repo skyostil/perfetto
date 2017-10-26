@@ -17,8 +17,10 @@
 #ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_DESCRIPTOR_H_
 #define PROTORPC_INCLUDE_PROTORPC_SERVICE_DESCRIPTOR_H_
 
-#include <map>
+#include <functional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace perfetto {
 namespace protorpc {
@@ -27,16 +29,29 @@ class Service;
 class ServiceRequestBase;
 class ServiceReplyBase;
 
-struct ServiceDescriptor {
-  using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
+class ServiceDescriptor {
+ public:
+  struct Method {
+    using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
+    std::string name;
+    std::function<std::unique_ptr<ProtoMessage>(const std::string&)> decoder;
+    std::function<std::unique_ptr<ProtoMessage>()> new_reply_obj;
+    MethodPtr function = nullptr;
+  };
   ServiceDescriptor() = default;
+  ServiceDescriptor(ServiceDescriptor&&) noexcept = default;
+  ServiceDescriptor& operator=(ServiceDescriptor&&) = default;
 
   Service* service = nullptr;
   std::string service_name;
-  std::map<std::string, MethodPtr> methods;
+  std::vector<Method> methods;
+
+ private:
+  ServiceDescriptor(const ServiceDescriptor&) = delete;
+  ServiceDescriptor& operator=(const ServiceDescriptor&) = delete;
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_DESCRIPTOR_H_

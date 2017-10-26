@@ -28,8 +28,13 @@ namespace protorpc {
 class ServiceRequestBase {
  public:
   explicit ServiceRequestBase(std::unique_ptr<ProtoMessage> request);
+  virtual ~ServiceRequestBase();
+  ServiceRequestBase(ServiceRequestBase&&) noexcept;
+  ServiceRequestBase& operator=(ServiceRequestBase&&);
 
   ProtoMessage* request() const { return request_.get(); }
+
+  // TODO: add support for streaming requests.
 
  private:
   ServiceRequestBase(const ServiceRequestBase&) = delete;
@@ -50,7 +55,7 @@ class ServiceRequest : public ServiceRequestBase {
   T* operator->() { return static_cast<T*>(request()); }
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_REQUEST_H_

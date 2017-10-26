@@ -25,5 +25,7 @@ namespace protorpc {
 ServiceRequestBase::ServiceRequestBase(std::unique_ptr<ProtoMessage> request)
     : request_(std::move(request)) {}
 
-}  // namespace perfetto
+ServiceRequestBase::~ServiceRequestBase() = default;
+
 }  // namespace protorpc
+}  // namespace perfetto

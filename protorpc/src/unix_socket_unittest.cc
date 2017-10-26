@@ -203,5 +203,5 @@ TEST_F(UnixSocketTest, SharedMemory) {
 // not left around.
 
 }  // namespace
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto

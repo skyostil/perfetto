@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// TODO(primiano): protobuf leaks CHECK macro, sigh.
+#include "wire_protocol.pb.h"
+
 #include "protorpc/host_handle.h"
 
 #include <utility>
@@ -24,7 +27,10 @@
 namespace perfetto {
 namespace protorpc {
 
-HostHandle::HostHandle(Host* host) : host_(host) {}
+HostHandle::HostHandle(Host* host) : host_(host) {
+  host_->AddHandle(this);
+}
+
 HostHandle::~HostHandle() = default;
 
 HostHandle::HostHandle(HostHandle&& other) noexcept {
@@ -35,16 +41,18 @@ HostHandle& HostHandle::operator=(HostHandle&& other) {
   if (host_)
     host_->RemoveHandle(this);
   host_ = other.host_;
-  other.host_ = nullptr;
   host_->RemoveHandle(&other);
+  other.host_ = nullptr;
   host_->AddHandle(this);
   return *this;
 }
 
-void HostHandle::SendReply(RequestID rid, std::unique_ptr<ProtoMessage> reply) {
+void HostHandle::ReplyToMethodInvocation(ClientID client_id,
+                                         RequestID request_id,
+                                         std::unique_ptr<ProtoMessage> reply) {
   if (host_)
-    host_->SendReply(rid, std::move(reply));
+    host_->ReplyToMethodInvocation(client_id, request_id, std::move(reply));
 }
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto

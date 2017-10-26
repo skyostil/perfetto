@@ -87,18 +87,19 @@ config("protobuf_gen_config") {
   defines = [
     "GOOGLE_PROTOBUF_NO_RTTI",
     "GOOGLE_PROTOBUF_NO_STATIC_INITIALIZER",
-    "PROTOBUF_INLINE_NOT_IN_HEADERS=0"
   ]
   include_dirs = [ "protobuf/src" ]
   cflags = [
     "-Wno-deprecated",
-    "-Wno-unknown-warning-option",
     "-Wno-disabled-macro-expansion",
+    "-Wno-int-to-void-pointer-cast",
     "-Wno-missing-variable-declarations",
     "-Wno-old-style-cast",
-    "-Wno-sign-conversion",
-    "-Wno-int-to-void-pointer-cast",
+    "-Wno-shorten-64-to-32",
     "-Wno-sign-compare",
+    "-Wno-sign-conversion",
+    "-Wno-undef",
+    "-Wno-unknown-warning-option",
     "-Wno-zero-as-null-pointer-constant",
   ]
   if (is_clang) {

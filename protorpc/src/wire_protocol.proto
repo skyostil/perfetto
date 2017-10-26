@@ -21,33 +21,36 @@ package perfetto.protorpc;
 
 message RPCFrame {
   // Client -> Host messages.
-  message BindService {
-    string service_name = 1;
-  }
+  message BindService { string service_name = 1; }
 
   message InvokeMethod {
     int32 service_id = 1;
     int32 method_id = 2;
-    bytes request = 3;  // proto-encoded request argument.
+    bytes args_proto = 3;  // proto-encoded request argument.
   }
 
   // Host -> Client messages.
   message BindServiceReply {
-    int32 service_id = 1;
-    map<string, int32> methods = 2;  // method name -> method id.
+    message Method {
+      int32 id = 1;
+      string name = 2;
+    }
+    bool success = 1;
+    int32 service_id = 2;
+    repeated Method methods = 3;
   }
 
   message InvokeMethodReply {
     bool success = 1;
-    bool eof = 2;  // only for streaming RPCs.
-    bytes reply = 3;  // proto-encoded response value.
+    bool eof = 2;           // only for streaming RPCs.
+    bytes reply_proto = 3;  // proto-encoded response value.
   }
 
-  uint64 frame_id = 1;
+  uint64 request_id = 1;
   oneof msg {
     BindService msg_bind_service = 2;
     BindServiceReply msg_bind_service_reply = 3;
-    BindService msg_invoke_method = 4;
-    BindService msg_invoke_method_reply = 5;
+    InvokeMethod msg_invoke_method = 4;
+    InvokeMethodReply msg_invoke_method_reply = 5;
   }
 };

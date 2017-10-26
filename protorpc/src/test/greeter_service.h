@@ -17,6 +17,8 @@
 #ifndef PROTORPC_SRC_TEST_GREETER_SERVICE_H_
 #define PROTORPC_SRC_TEST_GREETER_SERVICE_H_
 
+#include "helloworld.pb.h"
+
 #include "protorpc/service.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -24,8 +26,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "protorpc/service_reply.h"
 #include "protorpc/service_request.h"
-
-#include "helloworld.pb.h"
 
 namespace protorpc_test {
 
@@ -37,7 +37,8 @@ class Greeter {
 
     using HelloRequest =
         ::perfetto::protorpc::ServiceRequest<::protorpc_test::HelloRequest>;
-    using HelloReply = ::perfetto::protorpc::ServiceReply<::protorpc_test::HelloReply>;
+    using HelloReply =
+        ::perfetto::protorpc::ServiceReply<::protorpc_test::HelloReply>;
     virtual void SayHello(HelloRequest, HelloReply) = 0;
   };
 

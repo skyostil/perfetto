@@ -34,7 +34,7 @@ class Service {
   //  RPCService& operator=(const RPCService&) = delete;
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_H_

@@ -24,12 +24,16 @@
 namespace perfetto {
 namespace protorpc {
 
-ServiceReplyBase::ServiceReplyBase(RequestID request_id,
+ServiceReplyBase::ServiceReplyBase(ClientID client_id,
+                                   RequestID request_id,
                                    HostHandle host_handle,
                                    std::unique_ptr<ProtoMessage> reply)
-    : request_id_(request_id),
+    : client_id_(client_id),
+      request_id_(request_id),
       host_handle_(std::move(host_handle)),
-      reply_(std::move(reply)) {}
+      reply_(std::move(reply)) {
+  DCHECK(reply_);
+}
 
 ServiceReplyBase::~ServiceReplyBase() {
   if (reply_)
@@ -44,14 +48,18 @@ void ServiceReplyBase::Abort() {
     DCHECK(false);
     return;
   }
-  host_handle_.SendReply(request_id_, nullptr);
   reply_.reset();
+  host_handle_.ReplyToMethodInvocation(client_id_, request_id_, nullptr);
 }
 
 void ServiceReplyBase::Send() {
-  DCHECK(reply_);
-  host_handle_.SendReply(request_id_, std::move(reply_));
+  if (!reply_) {
+    DCHECK(false);
+    return;
+  }
+  host_handle_.ReplyToMethodInvocation(client_id_, request_id_,
+                                       std::move(reply_));
 }
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto

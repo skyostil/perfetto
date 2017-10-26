@@ -38,10 +38,11 @@ class Host {
 
   virtual bool Start() = 0;
 
-  virtual ServiceID ExposeService(const ServiceDescriptor&) = 0;
+  virtual ServiceID ExposeService(ServiceDescriptor) = 0;
 
-  // reply == nullptr means abort.
-  virtual void SendReply(RequestID, std::unique_ptr<ProtoMessage> reply) = 0;
+  virtual void ReplyToMethodInvocation(ClientID,
+                                       RequestID,
+                                       std::unique_ptr<ProtoMessage>) = 0;
 
   virtual void AddHandle(HostHandle*) = 0;
   virtual void RemoveHandle(HostHandle*) = 0;

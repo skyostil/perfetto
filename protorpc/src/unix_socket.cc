@@ -276,5 +276,5 @@ std::string UnixSocket::RecvString(size_t max_length) {
   return std::string(buf.get());
 }
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto

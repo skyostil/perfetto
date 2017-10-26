@@ -28,7 +28,10 @@ namespace protorpc {
 
 class ServiceReplyBase {
  public:
-  ServiceReplyBase(RequestID, HostHandle, std::unique_ptr<ProtoMessage> reply);
+  ServiceReplyBase(ClientID,
+                   RequestID,
+                   HostHandle,
+                   std::unique_ptr<ProtoMessage> reply);
   virtual ~ServiceReplyBase();
   ServiceReplyBase(ServiceReplyBase&&) noexcept;
   ServiceReplyBase& operator=(ServiceReplyBase&&);
@@ -42,6 +45,7 @@ class ServiceReplyBase {
   ServiceReplyBase(const ServiceReplyBase&) = delete;
   ServiceReplyBase& operator=(const ServiceReplyBase&) = delete;
 
+  ClientID client_id_;
   RequestID request_id_;
   HostHandle host_handle_;
   std::unique_ptr<ProtoMessage> reply_;
@@ -50,8 +54,9 @@ class ServiceReplyBase {
 template <typename T>
 class ServiceReply : public ServiceReplyBase {
  public:
-  ServiceReply(RequestID request_id, HostHandle host_handle)
-      : ServiceReplyBase(request_id,
+  ServiceReply(ClientID client_id, RequestID request_id, HostHandle host_handle)
+      : ServiceReplyBase(client_id,
+                         request_id,
                          std::move(host_handle),
                          std::unique_ptr<ProtoMessage>(new T())) {
     static_assert(std::is_base_of<ProtoMessage, T>::value,
@@ -65,7 +70,7 @@ class ServiceReply : public ServiceReplyBase {
   T* operator->() { return static_cast<T*>(reply()); }
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_REPLY_H_

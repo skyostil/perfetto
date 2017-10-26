@@ -36,7 +36,9 @@ class HostHandle {
   HostHandle(HostHandle&&) noexcept;
   HostHandle& operator=(HostHandle&&);
 
-  void SendReply(RequestID, std::unique_ptr<ProtoMessage> reply);
+  void ReplyToMethodInvocation(ClientID,
+                               RequestID,
+                               std::unique_ptr<ProtoMessage>);
 
   // Called by the Host dtor.
   void clear_host() { host_ = nullptr; }
@@ -48,7 +50,7 @@ class HostHandle {
   Host* host_;
 };
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_HOST_HANDLE_H_

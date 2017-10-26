@@ -30,9 +30,10 @@ namespace protorpc {
 
 using ProtoMessage = ::google::protobuf::MessageLite;
 using ServiceID = uint64_t;
+using ClientID = uint64_t;
 using RequestID = uint64_t;
 
-}  // namespace perfetto
 }  // namespace protorpc
+}  // namespace perfetto
 
 #endif  // PROTORPC_INCLUDE_PROTORPC_BASIC_TYPES_H_
