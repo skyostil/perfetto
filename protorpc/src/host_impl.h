@@ -24,13 +24,13 @@
 
 #include "cpp_common/task_runner.h"
 #include "protorpc/host.h"
+#include "protorpc/src/rpc_frame_decoder.h"
 #include "protorpc/src/unix_socket.h"
 
 namespace perfetto {
 namespace protorpc {
 
 class RPCFrame;
-class RPCFrameDecoder;
 
 class HostImpl : public Host {
  public:
@@ -53,7 +53,7 @@ class HostImpl : public Host {
   struct ClientConnection {
     ~ClientConnection();
     UnixSocket sock;
-    RPCFrameDecoder rxbuf;
+    RPCFrameDecoder frame_decoder;
   };
   HostImpl(const HostImpl&) = delete;
   HostImpl& operator=(const HostImpl&) = delete;

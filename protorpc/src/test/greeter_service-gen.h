@@ -56,7 +56,7 @@ class Greeter {
    public:
     virtual ~ServiceStub() = default;
     using GreeterReplyCallback = std::function<void()>;
-        ::perfetto::protorpc::ServiceReply<::protorpc_test::GreeterReply>;
+        // ::perfetto::protorpc::ServiceReply<::protorpc_test::GreeterReply>;
 
     virtual void SayHello(GreeterRequest, GreeterReply) = 0;
     virtual void SayGoodBye(GreeterRequest, GreeterReplyCallback) = 0;

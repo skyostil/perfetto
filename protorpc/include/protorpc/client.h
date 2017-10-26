@@ -25,9 +25,9 @@
 namespace perfetto {
 
 class TaskRunner;
-class ServiceStub;
 
 namespace protorpc {
+class ServiceStub;
 
 class Client {
  public:
@@ -36,7 +36,7 @@ class Client {
   virtual ~Client() = default;
 
   using BindServiceCallback = std::function<void(std::unique_ptr<ServiceStub>)>;
-  void BindService(const std::string& service_name, BindServiceCallback);
+  virtual void BindService(const std::string& service_name, BindServiceCallback) = 0;
 
 };
 

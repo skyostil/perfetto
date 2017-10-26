@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "protorpc/basic_types.h"
+
 namespace perfetto {
 namespace protorpc {
 

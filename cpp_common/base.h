@@ -71,6 +71,12 @@
   } while (0)
 #endif  // DCHECK_IS_ON()
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define BYTE_SWAP_TO_LE32(x) (x)
+#else
+#error Unimplemented for big endian archs.
+#endif
+
 namespace perfetto {
 
 template <typename T, size_t N>

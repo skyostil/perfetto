@@ -29,7 +29,6 @@
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_reply.h"
 #include "protorpc/service_request.h"
-#include "protorpc/src/rpc_frame_decoder.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
@@ -86,22 +85,22 @@ void HostImpl::OnDataAvailable(ClientID client_id) {
   if (client_it == clients_.end())
     return;
   ClientConnection* client = client_it->second.get();
-  RPCFrameDecoder& rxbuf = client->rxbuf;
+  RPCFrameDecoder& frame_decoder = client->frame_decoder;
 
   ssize_t rsize;
   do {
-    std::pair<char*, size_t> buf = rxbuf.GetRecvBuffer();
+    std::pair<char*, size_t> buf = frame_decoder.GetRecvBuffer();
     rsize = client->sock.Recv(buf.first, buf.second);
-    rxbuf.SetLastReadSize(rsize);
+    frame_decoder.SetLastReadSize(rsize);
     // TODO(primiano): Recv should return some different code to distinguish
     // EWOULDBLOCK from a generic error.
   } while (rsize > 0);
 
   for (;;) {
-    std::unique_ptr<RPCFrame> rpc_frame = rxbuf.GetRPCFrame();
+    std::unique_ptr<RPCFrame> rpc_frame = frame_decoder.GetRPCFrame();
     if (!rpc_frame)
       break;
-    OnReceivedRPCFrame(client_id, client, *frame);
+    OnReceivedRPCFrame(client_id, client, *rpc_frame);
   }
 
   if (rsize == 0)

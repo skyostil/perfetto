@@ -24,12 +24,6 @@
 #include "cpp_common/base.h"
 #include "protorpc/src/rpc_frame_decoder.h"
 
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define BYTE_SWAP_TO_LE32(x) (x)
-#else
-#error Unimplemented for big endian archs.
-#endif
-
 namespace perfetto {
 namespace protorpc {
 

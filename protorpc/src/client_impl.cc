@@ -19,8 +19,11 @@
 
 #include "protorpc/src/client_impl.h"
 
+#include <inttypes.h>
+
 #include "cpp_common/task_runner.h"
 #include "protorpc/host_handle.h"
+#include "protorpc/service_stub.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
@@ -39,13 +42,19 @@ std::unique_ptr<Client> Client::CreateInstance(const char* socket_name,
 ClientImpl::ClientImpl(const char* socket_name, TaskRunner* task_runner)
     : socket_name_(socket_name), task_runner_(task_runner) {}
 
-ClientImpl::~ClientImpl() = default;
+ClientImpl::~ClientImpl() {
+  if (sock_.fd() >= 0)
+    task_runner_->RemoveFileDescriptorWatch(sock_.fd());
+}
 
 bool ClientImpl::Connect() {
+  // TODO does Connect() work synchronously fine in non-blocking mode for a
+  // unix socket? Maybe this should also use a watch.
+  sock_.SetBlockingIOMode(false);
   if (!sock_.Connect(socket_name_))
     return false;
-  task_runner_->AddFileDescriptorWatch(sock_.fd(),
-                                       std::bind(&ClientImpl::OnDataAvailable));
+  task_runner_->AddFileDescriptorWatch(
+      sock_.fd(), std::bind(&ClientImpl::OnDataAvailable, this));
   return true;
 }
 
@@ -57,9 +66,9 @@ void ClientImpl::BindService(const std::string& service_name,
   RPCFrame::BindService* req = rpc_frame.mutable_msg_bind_service();
   req->set_service_name(service_name);
 
-  uint32_t payload_len = static_cast<uint32_t>(rpc_frame->ByteSize());
+  uint32_t payload_len = static_cast<uint32_t>(rpc_frame.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
-  if (!rpc_frame->SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
+  if (!rpc_frame.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
     DCHECK(false);
     task_runner_->PostTask(std::bind(callback, nullptr));
     return;
@@ -74,11 +83,81 @@ void ClientImpl::BindService(const std::string& service_name,
     task_runner_->PostTask(std::bind(callback, nullptr));
     return;
   }
-
-  queued_request_[request_id] = ...;
+  service_bindings_.emplace(service_name, ServiceBinding());
+  QueuedRequest qr;
+  qr.type = RPCFrame::kMsgBindService;
+  qr.service_name = service_name;
+  queued_request_.emplace(request_id, std::move(qr));
 }
 
-void OnDataAvailable() {}
+void ClientImpl::OnDataAvailable() {
+  ssize_t rsize;
+  do {
+    std::pair<char*, size_t> buf = frame_decoder.GetRecvBuffer();
+    rsize = sock_.Recv(buf.first, buf.second);
+    frame_decoder.SetLastReadSize(rsize);
+    // TODO(primiano): Recv should return some different code to distinguish
+    // EWOULDBLOCK from a generic error.
+  } while (rsize > 0);
+
+  for (;;) {
+    std::unique_ptr<RPCFrame> rpc_frame = frame_decoder.GetRPCFrame();
+    if (!rpc_frame)
+      break;
+
+    auto queued_request_it = queued_request_.find(rpc_frame->request_id());
+    if (queued_request_it == queued_request_.end()) {
+      DLOG("Invalid RPC, unknown req id %" PRIu64, rpc_frame->request_id());
+      continue;
+    }
+    QueuedRequest req = std::move(queued_request_it->second);
+
+    if (req.type != rpc_frame->msg_case()) {
+      // TODO if the reply id is not a kMsgBindServiceReply (the server would
+      // gbe utterly broken in this case, but still) we should NACK the pending
+      // callback.
+    }
+
+    switch (rpc_frame->msg_case()) {
+      case RPCFrame::kMsgBindServiceReply: {
+        const auto& reply = rpc_frame->msg_bind_service_reply();
+        auto binding_it = service_bindings_.find(req.service_name);
+        if (binding_it == service_bindings_.end()) {
+          DLOG("No binding requested for service %s", req.service_name.c_str());
+          continue;
+        }
+        ServiceBinding& binding = binding_it->second;
+        binding.valid = true;
+        binding.service_id = reply.service_id();
+        for (const auto& method : reply.methods()) {
+          ServiceBinding::Method& m = methods.emplace_back({});
+          if (!method.has_name() || method.name().empty() || method.id() <= 0) {
+            DLOG("Received invalid method \"%s\" -> %" PRIu32, method.name(),
+                 method.id());
+             continue;
+          }
+          m.name = method.name();
+          m.id = method.id();
+        }
+        
+        break;
+      }
+      case RPCFrame::kMsgInvokeMethodReply: {
+        break;
+      }
+      // These messages are only valid in the Client -> Host direction.
+      case RPCFrame::kMsgBindService:
+      case RPCFrame::kMsgInvokeMethod:
+      case RPCFrame::MSG_NOT_SET:
+        DLOG("Received invalid RPC frame %u", rpc_frame->msg_case());
+        return;
+    }
+  }
+}
+
+ClientImpl::ServiceBinding::ServiceBinding() = default;
+ClientImpl::ServiceBinding::Method::Method() = default;
+ClientImpl::QueuedRequest::QueuedRequest() = default;
 
 }  // namespace protorpc
 }  // namespace perfetto
