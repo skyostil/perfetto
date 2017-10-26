@@ -20,8 +20,13 @@ namespace protorpc_test {
 
 GreeterServiceImpl::~GreeterServiceImpl() {}
 
-void GreeterServiceImpl::SayHello(HelloRequest req, HelloReply reply) {
+void GreeterServiceImpl::SayHello(GreeterRequest req, GreeterReply reply) {
   reply->set_message("hello " + req->name());
+  reply.Send();
+}
+
+void GreeterServiceImpl::SayGoodbye(GreeterRequest req, GreeterReply reply) {
+  reply->set_message("goodbye " + req->name());
   reply.Send();
 }
 

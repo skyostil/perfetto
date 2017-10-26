@@ -32,11 +32,16 @@ class ServiceReplyBase;
 class ServiceDescriptor {
  public:
   struct Method {
+    const char* name;
+
+    using DecoderFunc = std::unique_ptr<ProtoMessage> (*)(const std::string&);
+    DecoderFunc decoder;
+
+    using NewReplyFunc = std::unique_ptr<ProtoMessage> (*)(void);
+    NewReplyFunc new_reply_obj;
+
     using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
-    std::string name;
-    std::function<std::unique_ptr<ProtoMessage>(const std::string&)> decoder;
-    std::function<std::unique_ptr<ProtoMessage>()> new_reply_obj;
-    MethodPtr function = nullptr;
+    MethodPtr function;
   };
   ServiceDescriptor() = default;
   ServiceDescriptor(ServiceDescriptor&&) noexcept = default;

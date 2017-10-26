@@ -14,30 +14,33 @@
  * limitations under the License.
  */
 
-#ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
-#define PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
+#ifndef PROTORPC_INCLUDE_PROTORPC_CLIENT_H_
+#define PROTORPC_INCLUDE_PROTORPC_CLIENT_H_
 
-#include <string>
-#include <vector>
+#include <functional>
+#include <memory>
 
 #include "protorpc/basic_types.h"
 
 namespace perfetto {
+
+class TaskRunner;
+class ServiceStub;
+
 namespace protorpc {
 
-class ServiceDescriptor;
-
-class Service {
+class Client {
  public:
-  virtual ~Service() = default;
-  virtual ServiceDescriptor GetDescriptor() = 0;
+  static std::unique_ptr<Client> CreateInstance(const char* socket_name,
+                                                TaskRunner*);
+  virtual ~Client() = default;
 
- private:
-  //  RPCService(const RPCService&) = delete;
-  //  RPCService& operator=(const RPCService&) = delete;
+  using BindServiceCallback = std::function<void(std::unique_ptr<ServiceStub>)>;
+  void BindService(const std::string& service_name, BindServiceCallback);
+
 };
 
 }  // namespace protorpc
 }  // namespace perfetto
 
-#endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
+#endif  // PROTORPC_INCLUDE_PROTORPC_CLIENT_H_

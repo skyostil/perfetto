@@ -40,7 +40,7 @@ namespace perfetto {
 // test/test_task_runner.h.
 class TaskRunner {
  public:
-  virtual ~TaskRunner() {}
+  virtual ~TaskRunner() = default;
 
   virtual void PostTask(std::function<void()>) = 0;
   virtual void AddFileDescriptorWatch(int fd, std::function<void()>) = 0;

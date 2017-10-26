@@ -24,8 +24,10 @@ source_set("protorpc") {
     ":wire_protocol",
   ]
   sources = [
+    "src/client_impl.cc",
     "src/host_handle.cc",
     "src/host_impl.cc",
+    "src/rpc_frame_decoder.cc",
     "src/service_reply.cc",
     "src/service_request.cc",
     "src/unix_socket.cc",
@@ -48,8 +50,11 @@ executable("protorpc_unittests") {
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
+    "//cpp_common/test:test_support",
   ]
   sources = [
+    "src/test/protorpc_unittest.cc",
+    "src/test/greeter_service-gen.cc",
     "src/test/greeter_service.cc",
     "src/unix_socket_unittest.cc",
   ]
@@ -57,7 +62,7 @@ executable("protorpc_unittests") {
 
 proto_library("test_protos") {
   sources = [
-    "src/test/helloworld.proto",
+    "src/test/greeter_service.proto",
   ]
   include_dirs = [ "include" ]
   proto_in_dir = "src/test"

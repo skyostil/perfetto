@@ -29,12 +29,7 @@
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_reply.h"
 #include "protorpc/service_request.h"
-
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define BYTE_SWAP_TO_LE32(x) (x)
-#else
-#error Unimplemented for big endian archs.
-#endif
+#include "protorpc/src/rpc_frame_decoder.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
@@ -54,11 +49,12 @@ HostImpl::~HostImpl() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
   for (HostHandle* handle : handles_)
     handle->clear_host();
-  task_runner_->RemoveFileDescriptorWatch(sock_.fd());
+  if (sock_.is_listening())
+    task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
 
 bool HostImpl::Start() {
-  if (sock_.Listen(socket_name_))
+  if (!sock_.Listen(socket_name_))
     return false;
   sock_.SetBlockingIOMode(false);
   task_runner_->AddFileDescriptorWatch(
@@ -90,37 +86,22 @@ void HostImpl::OnDataAvailable(ClientID client_id) {
   if (client_it == clients_.end())
     return;
   ClientConnection* client = client_it->second.get();
-
-  // TODO(primiano): this implementation is terribly inefficient as keeps
-  //  reallocating all the time to expand and shrink the buffer.
-  std::vector<char>& rxbuf = client->rxbuf;
+  RPCFrameDecoder& rxbuf = client->rxbuf;
 
   ssize_t rsize;
   do {
-    static const size_t kReadSize = 4096;
-    const size_t prev_size = rxbuf.size();
-    rxbuf.resize(prev_size + kReadSize);
-    rsize = client->sock.Recv(rxbuf.data() + prev_size, kReadSize);
-    rxbuf.resize(prev_size + std::max(0, static_cast<int>(rsize)));
+    std::pair<char*, size_t> buf = rxbuf.GetRecvBuffer();
+    rsize = client->sock.Recv(buf.first, buf.second);
+    rxbuf.SetLastReadSize(rsize);
     // TODO(primiano): Recv should return some different code to distinguish
     // EWOULDBLOCK from a generic error.
   } while (rsize > 0);
 
-  while (rxbuf.size() > sizeof(uint32_t)) {
-    uint32_t frame_size = 0;
-    memcpy(&frame_size, rxbuf.data(), sizeof(uint32_t));
-    frame_size = BYTE_SWAP_TO_LE32(frame_size);
-    if (rxbuf.size() < frame_size + sizeof(uint32_t))
+  for (;;) {
+    std::unique_ptr<RPCFrame> rpc_frame = rxbuf.GetRPCFrame();
+    if (!rpc_frame)
       break;
-    RPCFrame frame;
-    bool res = frame.ParseFromArray(rxbuf.data(), static_cast<int>(frame_size));
-    if (res) {
-      OnReceivedRPCFrame(client_id, client, frame);
-    } else {
-      DLOG("Received malformed frame. client:%" PRIu64 ", size: %" PRIu32,
-           client_id, frame_size);
-    }
-    rxbuf.erase(rxbuf.begin(), rxbuf.begin() + frame_size + sizeof(uint32_t));
+    OnReceivedRPCFrame(client_id, client, *frame);
   }
 
   if (rsize == 0)
@@ -243,22 +224,21 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
 
 void HostImpl::SendRPCFrame(ClientConnection* client,
                             std::unique_ptr<RPCFrame> reply) {
-  uint32_t reply_size = reply ? static_cast<uint32_t>(reply->ByteSize()) : 0;
-  std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + reply_size]);
+  uint32_t payload_len = reply ? static_cast<uint32_t>(reply->ByteSize()) : 0;
+  std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
   if (reply) {
-    if (!reply->SerializeToArray(buf.get() + sizeof(uint32_t),
-                                 reply_size - sizeof(uint32_t))) {
+    if (!reply->SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
       DCHECK(false);
-      reply_size = 0;
+      payload_len = 0;
     }
   }
-  uint32_t enc_size = BYTE_SWAP_TO_LE32(reply_size);
+  uint32_t enc_size = BYTE_SWAP_TO_LE32(payload_len);
   memcpy(buf.get(), &enc_size, sizeof(uint32_t));
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  client->sock.Send(buf.get(), sizeof(uint32_t) + reply_size);
+  client->sock.Send(buf.get(), sizeof(uint32_t) + payload_len);
 }
 
 void HostImpl::AddHandle(HostHandle* handle) {

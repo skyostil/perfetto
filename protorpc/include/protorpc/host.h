@@ -38,6 +38,8 @@ class Host {
 
   virtual bool Start() = 0;
 
+  // Once exposed the service cannot be unexposed. The Service instance is
+  // expect to stay alive until the Host is alive.
   virtual ServiceID ExposeService(ServiceDescriptor) = 0;
 
   virtual void ReplyToMethodInvocation(ClientID,

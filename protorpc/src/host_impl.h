@@ -30,6 +30,7 @@ namespace perfetto {
 namespace protorpc {
 
 class RPCFrame;
+class RPCFrameDecoder;
 
 class HostImpl : public Host {
  public:
@@ -52,7 +53,7 @@ class HostImpl : public Host {
   struct ClientConnection {
     ~ClientConnection();
     UnixSocket sock;
-    std::vector<char> rxbuf;
+    RPCFrameDecoder rxbuf;
   };
   HostImpl(const HostImpl&) = delete;
   HostImpl& operator=(const HostImpl&) = delete;

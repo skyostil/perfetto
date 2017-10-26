@@ -14,30 +14,20 @@
  * limitations under the License.
  */
 
-#ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
-#define PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
+syntax = "proto3";
+option optimize_for = LITE_RUNTIME;
 
-#include <string>
-#include <vector>
+package protorpc_test;
 
-#include "protorpc/basic_types.h"
+service Greeter {
+  rpc SayHello(GreeterRequest) returns (GreeterReply) {}
+  rpc SayGoodbye(GreeterRequest) returns (GreeterReply) {}
+}
 
-namespace perfetto {
-namespace protorpc {
+message GreeterRequest {
+  string name = 1;
+}
 
-class ServiceDescriptor;
-
-class Service {
- public:
-  virtual ~Service() = default;
-  virtual ServiceDescriptor GetDescriptor() = 0;
-
- private:
-  //  RPCService(const RPCService&) = delete;
-  //  RPCService& operator=(const RPCService&) = delete;
-};
-
-}  // namespace protorpc
-}  // namespace perfetto
-
-#endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
+message GreeterReply {
+  string message = 1;
+}

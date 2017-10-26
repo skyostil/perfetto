@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
-option optimize_for = LITE_RUNTIME;
+#ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_STUB_H_
+#define PROTORPC_INCLUDE_PROTORPC_SERVICE_STUB_H_
 
-package protorpc_test;
+#include "protorpc/basic_types.h"
 
-service Greeter {
-  rpc SayHello(HelloRequest) returns (HelloReply) {}
-}
+namespace perfetto {
+namespace protorpc {
 
-message HelloRequest {
-  string name = 1;
-}
+class Client;
 
-message HelloReply {
-  string message = 1;
-}
+class ServiceStub {
+ public:
+  virtual ~ServiceStub() = default;
+
+ private:
+   std::weak_ptr<Client> client_;
+};
+
+}  // namespace protorpc
+}  // namespace perfetto
+
+#endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_STUB_H_

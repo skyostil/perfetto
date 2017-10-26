@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "tracing/src/test/test_task_runner.h"
+#include "cpp_common/test/test_task_runner.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -78,14 +78,14 @@ void TestTaskRunner::PostTask(std::function<void()> closure) {
 
 void TestTaskRunner::AddFileDescriptorWatch(int fd,
                                             std::function<void()> callback) {
-  DCHECK(fd > 0);
+  DCHECK(fd >= 0);
   DCHECK(watched_fds_.count(fd) == 0);
   watched_fds_.emplace(fd, std::move(callback));
   FD_SET(fd, &fd_set_);
 }
 
 void TestTaskRunner::RemoveFileDescriptorWatch(int fd) {
-  DCHECK(fd > 0);
+  DCHECK(fd >= 0);
   DCHECK(watched_fds_.count(fd) == 1);
   watched_fds_.erase(fd);
   FD_CLR(fd, &fd_set_);

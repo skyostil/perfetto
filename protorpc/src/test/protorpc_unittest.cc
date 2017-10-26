@@ -14,30 +14,33 @@
  * limitations under the License.
  */
 
-#ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
-#define PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
+#include "cpp_common/test/test_task_runner.h"
+#include "protorpc/host.h"
+#include "protorpc/src/test/greeter_service.h"
 
-#include <string>
-#include <vector>
-
-#include "protorpc/basic_types.h"
+#include "gtest/gtest.h"
 
 namespace perfetto {
 namespace protorpc {
+namespace {
 
-class ServiceDescriptor;
+const char kSocketName[] = "/tmp/test_protorpc";
 
-class Service {
- public:
-  virtual ~Service() = default;
-  virtual ServiceDescriptor GetDescriptor() = 0;
-
- private:
-  //  RPCService(const RPCService&) = delete;
-  //  RPCService& operator=(const RPCService&) = delete;
+class ProtoRPCTest : public ::testing::Test {
+ protected:
+  void SetUp() override { unlink(kSocketName); }
+  void TearDown() override { unlink(kSocketName); }
 };
 
+TEST_F(ProtoRPCTest, GreeterService) {
+  TestTaskRunner task_runner;
+  protorpc_test::GreeterServiceImpl svc;
+  std::unique_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
+  ASSERT_TRUE(host->ExposeService(svc.GetDescriptor()));
+  host->Start();
+  task_runner.RunUntilIdle();
+}
+
+}  // namespace
 }  // namespace protorpc
 }  // namespace perfetto
-
-#endif  // PROTORPC_INCLUDE_PROTORPC_SERVICE_H_

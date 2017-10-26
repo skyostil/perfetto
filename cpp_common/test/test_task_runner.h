@@ -23,7 +23,7 @@
 #include <list>
 #include <map>
 
-#include "tracing/core/task_runner.h"
+#include "cpp_common/task_runner.h"
 
 namespace perfetto {
 

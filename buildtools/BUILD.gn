@@ -41,7 +41,6 @@ config("googletest_config") {
     "-Wno-unknown-warning-option",
     "-Wno-used-but-marked-unused",
     "-Wno-zero-as-null-pointer-constant",
-    "-Wno-weak-vtables",
   ]
 }
 
@@ -102,9 +101,6 @@ config("protobuf_gen_config") {
     "-Wno-unknown-warning-option",
     "-Wno-zero-as-null-pointer-constant",
   ]
-  if (is_clang) {
-    cflags += [ "-Wno-weak-vtables" ]
-  }
 }
 
 # Configuration used to build libprotobuf_* and the protoc compiler.
@@ -439,7 +435,6 @@ config("benchmark_config") {
   cflags = [
     "-Wno-global-constructors",
     "-Wno-covered-switch-default",
-    "-Wno-weak-vtables",
   ]
 }
 
