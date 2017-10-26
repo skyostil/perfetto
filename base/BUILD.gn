@@ -12,23 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import subprocess
-import sys
+source_set("base") {
+  sources = [
+    "build_config.h",
+    "logging.h",
+    "scoped_file.h",
+    "task_runner.h",
+    "utils.h",
+  ]
+}
 
-def main():
-  res = subprocess.check_output(['clang', '-print-search-dirs'])
-  for line in res.splitlines():
-    if not line.startswith('libraries:'):
-      continue
-    libs = line.split('=', 1)[1].split(':')
-    for lib in libs:
-      if '/clang/' not in lib or not os.path.isdir(lib + '/lib'):
-        continue
-      print os.path.abspath(lib)
-      return 0
-  print 'Could not find the LLVM lib dir'
-  return 1
+source_set("test_support") {
+  testonly = true
+  deps += [ ":base" ]
+  sources = [
+    "test/test_task_runner.cc",
+    "test/test_task_runner.h",
+  ]
+}
 
-if __name__ == '__main__':
-  sys.exit(main())
+executable("base_unittests") {
+  testonly = true
+  deps += [
+    ":base",
+    ":test_support",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
+  ]
+  sources = [
+    "scoped_file_unittest.cc",
+    "utils_unittest.cc",
+  ]
+}

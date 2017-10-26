@@ -12,24 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-executable("libtracing_unittests") {
+config("ftrace_reader_config") {
+  include_dirs = [ "include" ]
+}
+
+executable("ftrace_reader_unittests") {
   testonly = true
   deps += [
+    ":ftrace_reader",
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
   ]
   sources = [
-    "hello_world_unittest.cc",
+    "src/ftrace_cpu_reader_unittest.cc",
   ]
 }
 
-executable("libtracing_benchmarks") {
-  testonly = true
+executable("ftrace_reader_demo") {
+  sources = [
+    "main.cc",
+  ]
+  deps += [ ":ftrace_reader" ]
+}
+
+source_set("ftrace_reader") {
+  all_dependent_configs = [ ":ftrace_reader_config" ]
   deps += [
-    "//buildtools:benchmark",
+    "//protozero",
   ]
   sources = [
-    "hello_world_benchmark.cc",
+    "include/ftrace_reader/ftrace_cpu_reader.h",
+    "src/ftrace_cpu_reader.cc",
   ]
 }
