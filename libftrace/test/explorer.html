@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-python -m webbrowser -t "http://localhost:8000/libftrace/test/explorer.html"
+cd $(dirname $0)
+python -m webbrowser -t "http://localhost:8000/$(basename $0)"
 python -m SimpleHTTPServer
 
 <<-EOF
@@ -107,9 +108,7 @@ input {
 }
 
 </style>
-<!-- https://github.com/MithrilJS/mithril.js - MIT  -->
 <script src="https://unpkg.com/mithril"></script>
-<!-- https://github.com/kpdecker/jsdiff - BSD 3-clause -->
 <script src="http://unpkg.com/diff"></script>
 
 <div id="content"></div>

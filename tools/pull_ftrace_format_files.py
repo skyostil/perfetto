@@ -107,13 +107,10 @@ def pull_format_files(serial, output_directory):
 
 
 # Produces output of the form: prefix_android_seed_N2F62_3.10.49
-def get_output_directory(prefix=None):
-  def clean(s):
-    return s.replace('\n', '').replace('\r', '')
-
-  build_id = clean(adb('shell', 'getprop', 'ro.build.id'))
-  product = clean(adb('shell', 'getprop', 'ro.build.product'))
-  kernel = clean(adb('shell', 'uname', '-r').split('-')[0])
+def get_output_directory(prefix=None, serial=None):
+  build_id = adb('shell', 'getprop', 'ro.build.id', serial=serial).strip()
+  product = adb('shell', 'getprop', 'ro.build.product', serial=serial).strip()
+  kernel = adb('shell', 'uname', '-r', serial=serial).split('-')[0].strip()
   parts = ['android', product, build_id, kernel]
   if prefix:
     parts = [prefix] + parts
@@ -132,7 +129,7 @@ def main():
   serial = args.serial
 
   serial = ensure_single_device(serial)
-  output_directory = get_output_directory(prefix)
+  output_directory = get_output_directory(prefix, serial)
 
   ensure_output_directory_empty(output_directory)
   pull_format_files(serial, output_directory)
