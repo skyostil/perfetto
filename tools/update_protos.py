@@ -26,7 +26,7 @@
 # ./tools/update_protos.py
 #    out/linux/ftrace_proto_gen
 #   libftrace/test/data/android_seed_N2F62_3.10.49
-#   protos
+#   protos/ftrace
 #   --whitelist tools/ftrace_proto_gen/event_whitelist
 
 
