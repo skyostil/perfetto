@@ -26,6 +26,7 @@
 
 #include "cpp_common/task_runner.h"
 #include "protorpc/host_handle.h"
+#include "protorpc/service.h"
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_reply.h"
 #include "protorpc/service_request.h"
@@ -112,45 +113,41 @@ void HostImpl::OnReceivedRPCFrame(ClientID client_id,
                                   const RPCFrame& req_frame) {
   std::unique_ptr<RPCFrame> reply_frame(new RPCFrame());
   reply_frame->set_request_id(req_frame.request_id());
+  reply_frame->set_reply_success(false);
 
   switch (req_frame.msg_case()) {
     case RPCFrame::kMsgBindService: {
       const RPCFrame::BindService& req = req_frame.msg_bind_service();
       auto* reply = reply_frame->mutable_msg_bind_service_reply();
-      reply->set_success(false);
-      const ServiceID service_id = GetServiceByName(req.service_name());
-      if (!service_id)
+      const ExposedService* service = GetServiceByName(req.service_name());
+      if (!service)
         break;
-
-      DCHECK(services_.count(service_id));
-      const ServiceDescriptor& desc = services_[service_id];
-      reply->set_success(true);
-      reply->set_service_id(service_id);
-      uint32_t method_id = 0;
-      for (const auto& method_it : desc.methods) {
+      reply_frame->set_reply_success(true);
+      reply->set_service_id(service->id);
+      for (const auto& method_it : service->instance->GetDescriptor().methods) {
         RPCFrame::BindServiceReply::Method* method = reply->add_methods();
-        method->set_name(method_it.name);
-        method->set_id(++method_id);
+        method->set_name(method_it.second.name);
+        method->set_id(method_it.first);
       }
       break;
     }
     case RPCFrame::kMsgInvokeMethod: {
       const RPCFrame::InvokeMethod& req = req_frame.msg_invoke_method();
       auto* reply = reply_frame->mutable_msg_invoke_method_reply();
-      reply->set_success(false);
+      reply_frame->set_reply_success(true);
       auto svc_it = services_.find(req.service_id());
       if (svc_it == services_.end())
         break;
 
-      // Note: method_id starts from 1.
-      ServiceDescriptor& svc = svc_it->second;
+      const ServiceDescriptor& svc = svc_it->second.instance->GetDescriptor();
       const auto& methods = svc.methods;
       if (req.method_id() <= 0 || req.method_id() > methods.size())
         break;
 
-      const ServiceDescriptor::Method& method = methods[req.method_id() - 1];
-      std::unique_ptr<ProtoMessage> in_args = method.decoder(req.args_proto());
-      if (!in_args)
+      // TODO find here;
+      // const ServiceDescriptor::Method& method = methods[req.method_id()];
+      // std::unique_ptr<ProtoMessage> in_args = method.decoder(req.args_proto());
+      // if (!in_args)
         break;
 
       ((*svc.service).*(method.function))(
@@ -180,22 +177,23 @@ void HostImpl::OnClientDisconnect(ClientID client_id) {
   clients_.erase(client_id);
 }
 
-ServiceID HostImpl::ExposeService(ServiceDescriptor desc) {
+bool HostImpl::ExposeService(Service* service) {
+  const ServiceDescriptor& desc = service->GetDescriptor();
   if (GetServiceByName(desc.service_name)) {
     DLOG("Duplicate ExposeService(): %s", desc.service_name.c_str());
-    return 0;
+    return;
   }
   ServiceID sid = ++last_service_id_;
-  services_.emplace(sid, std::move(desc));
-  return sid;
+  services_.emplace(sid, service);
 }
 
-ServiceID HostImpl::GetServiceByName(const std::string& name) {
+const HostImpl::ExposedService* HostImpl::GetServiceByName(
+    const std::string& name) {
   for (const auto& it : services_) {
-    if (it.second.service_name == name)
-      return it.first;
+    if (it.second.name == name)
+      return &it.second;
   }
-  return 0;
+  return nullptr;
 }
 
 void HostImpl::ReplyToMethodInvocation(ClientID client_id,
@@ -209,12 +207,12 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
   std::unique_ptr<RPCFrame> reply_frame(new RPCFrame());
   reply_frame->set_request_id(request_id);
   auto* reply = reply_frame->mutable_msg_invoke_method_reply();
-  reply->set_success(!!args);
+  reply_frame->set_reply_success(!!args);
   reply->set_eof(true);  // TODO(primiano): support streaming replies.
   if (args) {
     std::string reply_proto;
     if (!args->SerializeToString(&reply_proto)) {
-      reply->set_success(false);
+      reply_frame->set_reply_success(false);
       reply->set_reply_proto(reply_proto);
     }
   }

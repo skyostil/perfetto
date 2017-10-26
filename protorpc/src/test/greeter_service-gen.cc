@@ -27,18 +27,18 @@
 
 #include <memory>
 
+using ::perfetto::protorpc::ServiceDescriptor;
+
 namespace protorpc_test {
 
-using ::perfetto::protorpc::ServiceDescriptor;
-Greeter::Service::~Service() = default;
+namespace {
 
-ServiceDescriptor Greeter::Service::GetDescriptor() {
-  ServiceDescriptor desc;
-  desc.service_name = "Greeter";
-  desc.service = this;
+ServiceDescriptor* CreateDescriptor() {
+  ServiceDescriptor* desc = new ServiceDescriptor();
+  desc->service_name = "Greeter";
 
   // rpc SayHello(GreeterRequest) returns (GreeterReply) {}
-  desc.methods.emplace_back(ServiceDescriptor::Method{
+  desc->methods.emplace_back(ServiceDescriptor::Method{
       /* method_name */ "SayHello",
       /* decoder */
       [](const std::string& proto_data) {
@@ -58,9 +58,9 @@ ServiceDescriptor Greeter::Service::GetDescriptor() {
       reinterpret_cast<ServiceDescriptor::Method::MethodPtr>(
           &Greeter::Service::SayHello)});
 
-  // rpc SayGoodbye(GreeterRequest) returns (GreeterReply) {}
-  desc.methods.emplace_back(ServiceDescriptor::Method{
-      /* method_name */ "SayGoodbye",
+  // rpc WaveGoodBye(GreeterRequest) returns (GreeterReply) {}
+  desc->methods.emplace_back(ServiceDescriptor::Method{
+      /* method_name */ "WaveGoodBye",
       /* decoder */
       [](const std::string& proto_data) {
         std::unique_ptr<::protorpc_test::GreeterRequest> proto_obj(
@@ -77,9 +77,50 @@ ServiceDescriptor Greeter::Service::GetDescriptor() {
       },
       /* function */
       reinterpret_cast<ServiceDescriptor::Method::MethodPtr>(
-          &Greeter::Service::SayGoodbye)});
+          &Greeter::Service::WaveGoodBye)});
 
   return desc;
+}
+
+}  // namespace
+
+// static
+const ServiceDescriptor& Greeter::GetDescriptor() {
+  static ServiceDescriptor* lazily_initialized_descriptor = CreateDescriptor();
+  return *lazily_initialized_descriptor;
+}
+
+// Service methods.
+Greeter::Service::~Service() = default;
+
+const ServiceDescriptor& Greeter::Service::GetDescriptor() {
+  return Greeter::GetDescriptor();
+}
+
+// ServiceProxy methods.
+Greeter::ServiceProxy::ServiceProxy(
+    std::weak_ptr<::perfetto::protorpc::ServiceProxy> weak_ptr_self,
+    std::weak_ptr<::perfetto::protorpc::Client> client,
+    ::perfetto::protorpc::ServiceID service_id,
+    std::map<std::string, ::perfetto::protorpc::MethodID> remote_method_ids)
+    : ::perfetto::protorpc::ServiceProxy(weak_ptr_self,
+                                         client,
+                                         service_id,
+                                         remote_method_ids) {}
+Greeter::ServiceProxy::~ServiceProxy() = default;
+
+const ServiceDescriptor& Greeter::ServiceProxy::GetDescriptor() {
+  return Greeter::GetDescriptor();
+}
+
+void Greeter::ServiceProxy::SayHello(GreeterRequest* req,
+                                     GreeterReplyCallback callback) {
+  BeginInvoke<GreeterReply>("SayHello", req, std::move(callback));
+}
+
+void Greeter::ServiceProxy::WaveGoodBye(GreeterRequest* req,
+                                        GreeterReplyCallback callback) {
+  BeginInvoke<GreeterReply>("WaveGoodBye", req, std::move(callback));
 }
 
 }  // namespace protorpc_test

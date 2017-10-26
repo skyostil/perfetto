@@ -23,7 +23,8 @@
 
 #include "cpp_common/task_runner.h"
 #include "protorpc/host_handle.h"
-#include "protorpc/service_stub.h"
+#include "protorpc/method_invocation_reply.h"
+#include "protorpc/service_proxy.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
@@ -58,20 +59,58 @@ bool ClientImpl::Connect() {
   return true;
 }
 
-void ClientImpl::BindService(const std::string& service_name,
-                             BindServiceCallback callback) {
+void ClientImpl::BindServiceGeneric(
+    const std::string& service_name,
+    std::function<void(std::shared_ptr<ServiceProxy>)> callback) {
   RequestID request_id = ++last_request_id_;
   RPCFrame rpc_frame;
   rpc_frame.set_request_id(request_id);
   RPCFrame::BindService* req = rpc_frame.mutable_msg_bind_service();
   req->set_service_name(service_name);
+  if (!SendRPCFrame(rpc_frame)) {
+    DLOG("Failed BindService(%s)", service_name.c_str());
+    task_runner_->PostTask(std::bind(callback, nullptr));
+    return;
+  }
+  QueuedRequest qr;
+  qr.type = RPCFrame::kMsgBindService;
+  qr.request_id = request_id;
+  qr.service_name = service_name;
+  qr.bind_callback = std::move(callback);
+  queued_requests_.emplace(request_id, std::move(qr));
+}
 
+RequestID ClientImpl::BeginInvoke(
+    ServiceID service_id,
+    MethodID method_id,
+    ProtoMessage* method_args,
+    const std::weak_ptr<ServiceProxy>& service_proxy) {
+  std::string args_proto;
+  RequestID request_id = ++last_request_id_;
+  RPCFrame rpc_frame;
+  rpc_frame.set_request_id(request_id);
+  RPCFrame::InvokeMethod* req = rpc_frame.mutable_msg_invoke_method();
+  req->set_service_id(service_id);
+  req->set_method_id(method_id);
+  bool did_serialize = method_args->SerializeToString(&args_proto);
+  req->set_args_proto(args_proto);
+  if (!did_serialize || !SendRPCFrame(rpc_frame)) {
+    return 0;
+  }
+  QueuedRequest qr;
+  qr.type = RPCFrame::kMsgInvokeMethod;
+  qr.method_id = method_id;
+  qr.service_proxy = service_proxy;
+  queued_requests_.emplace(request_id, std::move(qr));
+  return request_id;
+}
+
+bool ClientImpl::SendRPCFrame(const RPCFrame& rpc_frame) {
   uint32_t payload_len = static_cast<uint32_t>(rpc_frame.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
   if (!rpc_frame.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
     DCHECK(false);
-    task_runner_->PostTask(std::bind(callback, nullptr));
-    return;
+    return false;
   }
   uint32_t enc_size = BYTE_SWAP_TO_LE32(payload_len);
   memcpy(buf.get(), &enc_size, sizeof(uint32_t));
@@ -79,15 +118,10 @@ void ClientImpl::BindService(const std::string& service_name,
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  if (!sock_.Send(buf.get(), sizeof(uint32_t) + payload_len)) {
-    task_runner_->PostTask(std::bind(callback, nullptr));
-    return;
-  }
-  service_bindings_.emplace(service_name, ServiceBinding());
-  QueuedRequest qr;
-  qr.type = RPCFrame::kMsgBindService;
-  qr.service_name = service_name;
-  queued_request_.emplace(request_id, std::move(qr));
+  if (!sock_.Send(buf.get(), sizeof(uint32_t) + payload_len))
+    return false;
+
+  return true;
 }
 
 void ClientImpl::OnDataAvailable() {
@@ -104,55 +138,77 @@ void ClientImpl::OnDataAvailable() {
     std::unique_ptr<RPCFrame> rpc_frame = frame_decoder.GetRPCFrame();
     if (!rpc_frame)
       break;
+    OnRPCFrameReceived(*rpc_frame);
+  }
+}
 
-    auto queued_request_it = queued_request_.find(rpc_frame->request_id());
-    if (queued_request_it == queued_request_.end()) {
-      DLOG("Invalid RPC, unknown req id %" PRIu64, rpc_frame->request_id());
-      continue;
-    }
-    QueuedRequest req = std::move(queued_request_it->second);
+void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
+  auto queued_requests_it = queued_requests_.find(rpc_frame.request_id());
+  if (queued_requests_it == queued_requests_.end()) {
+    DLOG("OnRPCFrameReceived() unknown req %" PRIu64, rpc_frame.request_id());
+    return;
+  }
+  QueuedRequest req = std::move(queued_requests_it->second);
+  queued_requests_.erase(queued_requests_it);
+  req.succeeded = rpc_frame.reply_success();
 
-    if (req.type != rpc_frame->msg_case()) {
-      // TODO if the reply id is not a kMsgBindServiceReply (the server would
-      // gbe utterly broken in this case, but still) we should NACK the pending
-      // callback.
-    }
+  if (req.type != rpc_frame.msg_case()) {
+    DLOG(
+        "The server is drunk. We requestes msg_type=%d but received "
+        "msg_type=%d in reply for request_id=%" PRIu64,
+        req.type, rpc_frame.msg_case(), rpc_frame.request_id());
+    req.succeeded = false;
+  }
 
-    switch (rpc_frame->msg_case()) {
-      case RPCFrame::kMsgBindServiceReply: {
-        const auto& reply = rpc_frame->msg_bind_service_reply();
-        auto binding_it = service_bindings_.find(req.service_name);
-        if (binding_it == service_bindings_.end()) {
-          DLOG("No binding requested for service %s", req.service_name.c_str());
-          continue;
-        }
-        ServiceBinding& binding = binding_it->second;
-        binding.valid = true;
-        binding.service_id = reply.service_id();
-        for (const auto& method : reply.methods()) {
-          ServiceBinding::Method& m = methods.emplace_back({});
-          if (!method.has_name() || method.name().empty() || method.id() <= 0) {
-            DLOG("Received invalid method \"%s\" -> %" PRIu32, method.name(),
-                 method.id());
-             continue;
-          }
-          m.name = method.name();
-          m.id = method.id();
-        }
-        
-        break;
-      }
-      case RPCFrame::kMsgInvokeMethodReply: {
-        break;
-      }
+  switch (req.type) {
+    case RPCFrame::kMsgBindServiceReply:
+      OnBindServiceReply(std::move(req), rpc_frame.msg_bind_service_reply());
+      break;
+    case RPCFrame::kMsgInvokeMethodReply: {
+      OnInvokeMethodReply(std::move(req), rpc_frame.msg_invoke_method_reply());
+      break;
       // These messages are only valid in the Client -> Host direction.
       case RPCFrame::kMsgBindService:
       case RPCFrame::kMsgInvokeMethod:
       case RPCFrame::MSG_NOT_SET:
-        DLOG("Received invalid RPC frame %u", rpc_frame->msg_case());
+        DLOG("Received invalid RPC frame %u", rpc_frame.msg_case());
         return;
     }
   }
+}
+
+void ClientImpl::OnBindServiceReply(QueuedRequest req,
+                                    const RPCFrame::BindServiceReply& reply) {
+  if (req.succeeded) {
+    DLOG("Failed to bind Service \"%s\"", req.service_name.c_str());
+    task_runner_->PostTask(std::bind(req.bind_callback, nullptr));
+    return;
+  }
+  std::map<std::string, MethodID> methods;
+  for (const auto& method : reply.methods()) {
+    if (method.name().empty() || method.id() <= 0) {
+      DLOG("OnBindServiceReply() invalid method \"%s\" -> %" PRIu32,
+           method.name().c_str(), method.id());
+      continue;
+    }
+    methods[method.name()] = method.id();
+  }
+  std::shared_ptr<ServiceProxy> service_proxy(
+      new ServiceProxy(this, reply.service_id(), std::move(methods)));
+  DCHECK(req.bind_callback);
+  task_runner_->PostTask(
+      std::bind(req.bind_callback, std::move(service_proxy)));
+}
+
+void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
+                                     const RPCFrame::InvokeMethodReply& reply) {
+  DCHECK(req.invoke_callback);
+  bool success = req.succeeded;
+  bool decoded = reply.reply_proto();
+  success = decoded ? success : false;
+  MethodInvocationReplyBase reply_arg(success, reply.eof(), reply_proto);
+  task_runner_->PostTask(
+      EndInvokeClosure(req.service_proxy, req.request_id, success));
 }
 
 ClientImpl::ServiceBinding::ServiceBinding() = default;

@@ -21,7 +21,6 @@
 
 #include "protorpc/basic_types.h"
 
-
 // TODO kill and use std::weak_ptr
 
 namespace perfetto {

@@ -25,7 +25,7 @@ void GreeterServiceImpl::SayHello(GreeterRequest req, GreeterReply reply) {
   reply.Send();
 }
 
-void GreeterServiceImpl::SayGoodbye(GreeterRequest req, GreeterReply reply) {
+void GreeterServiceImpl::WaveGoodBye(GreeterRequest req, GreeterReply reply) {
   reply->set_message("goodbye " + req->name());
   reply.Send();
 }

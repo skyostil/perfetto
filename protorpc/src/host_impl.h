@@ -39,7 +39,7 @@ class HostImpl : public Host {
 
   // Host implementation.
   bool Start() override;
-  ServiceID ExposeService(ServiceDescriptor) override;
+  bool ExposeService(Service*) override;
 
   // reply == nullptr means abort.
   void ReplyToMethodInvocation(ClientID,
@@ -55,6 +55,11 @@ class HostImpl : public Host {
     UnixSocket sock;
     RPCFrameDecoder frame_decoder;
   };
+  struct ExposedService {
+    Service* instance;
+    ServiceID id;
+    std::string name;
+  };
   HostImpl(const HostImpl&) = delete;
   HostImpl& operator=(const HostImpl&) = delete;
 
@@ -63,13 +68,13 @@ class HostImpl : public Host {
   void OnDataAvailable(ClientID);
   void OnClientDisconnect(ClientID);
   void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
-  ServiceID GetServiceByName(const std::string&);
+  const ExposedService* GetServiceByName(const std::string&);
   void SendRPCFrame(ClientConnection*, std::unique_ptr<RPCFrame>);
 
   const char* const socket_name_;
   TaskRunner* const task_runner_;
   std::set<HostHandle*> handles_;
-  std::map<ServiceID, ServiceDescriptor> services_;
+  std::map<ServiceID, ExposedService> services_;
   UnixSocket sock_;  // The listening socket.
   std::map<ClientID, std::unique_ptr<ClientConnection>> clients_;
   ServiceID last_service_id_ = 0;

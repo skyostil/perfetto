@@ -21,7 +21,9 @@ package perfetto.protorpc;
 
 message RPCFrame {
   // Client -> Host messages.
-  message BindService { string service_name = 1; }
+  message BindService {
+    string service_name = 1;
+  }
 
   message InvokeMethod {
     int32 service_id = 1;
@@ -35,22 +37,26 @@ message RPCFrame {
       int32 id = 1;
       string name = 2;
     }
-    bool success = 1;
-    int32 service_id = 2;
-    repeated Method methods = 3;
+    int32 service_id = 1;
+    repeated Method methods = 2;
   }
 
   message InvokeMethodReply {
-    bool success = 1;
-    bool eof = 2;           // only for streaming RPCs.
-    bytes reply_proto = 3;  // proto-encoded response value.
+    bool eof = 1;           // only for streaming RPCs.
+    bytes reply_proto = 2;  // proto-encoded response value.
   }
 
+  // The client is expected to send requests with monotonically increasing
+  // request_id. The host will just match the request_id sent from the client.
   uint64 request_id = 1;
+
+  // Only for Host -> Client replies. Not set in Client -> Host requests.
+  bool reply_success = 2;
+
   oneof msg {
-    BindService msg_bind_service = 2;
-    BindServiceReply msg_bind_service_reply = 3;
-    InvokeMethod msg_invoke_method = 4;
-    InvokeMethodReply msg_invoke_method_reply = 5;
+    BindService msg_bind_service = 3;
+    BindServiceReply msg_bind_service_reply = 4;
+    InvokeMethod msg_invoke_method = 5;
+    InvokeMethodReply msg_invoke_method_reply = 6;
   }
 };

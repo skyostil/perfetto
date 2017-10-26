@@ -21,7 +21,7 @@ package protorpc_test;
 
 service Greeter {
   rpc SayHello(GreeterRequest) returns (GreeterReply) {}
-  rpc SayGoodbye(GreeterRequest) returns (GreeterReply) {}
+  rpc WaveGoodBye(GreeterRequest) returns (GreeterReply) {}
 }
 
 message GreeterRequest {

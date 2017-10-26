@@ -28,7 +28,7 @@ class TaskRunner;
 namespace protorpc {
 
 class HostHandle;
-class ServiceDescriptor;
+class Service;
 
 class Host {
  public:
@@ -40,7 +40,7 @@ class Host {
 
   // Once exposed the service cannot be unexposed. The Service instance is
   // expect to stay alive until the Host is alive.
-  virtual ServiceID ExposeService(ServiceDescriptor) = 0;
+  virtual bool ExposeService(Service*) = 0;
 
   virtual void ReplyToMethodInvocation(ClientID,
                                        RequestID,

@@ -23,6 +23,7 @@
 #include "protorpc/src/unix_socket.h"
 
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace perfetto {
@@ -39,37 +40,45 @@ class ClientImpl : public Client {
   bool Connect();
 
   // Client implementation.
-  void BindService(const std::string& service_name, BindServiceCallback) override;
+  void BindServiceGeneric(
+      const std::string& service_name,
+      std::function<void(std::shared_ptr<ServiceProxy>)>) override;
+
+  RequestID BeginInvoke(ServiceID,
+                        MethodID,
+                        ProtoMessage*,
+                        const std::weak_ptr<ServiceProxy>&) override;
 
  private:
-  struct ServiceBinding {
-    struct Method {
-      Method();
-      std::string name;
-      uint32_t id = 0;
-    };
-    ServiceBinding();
-    bool valid = false;
-    ServiceID service_id = 0;
-    std::vector<Method> methods;
-  };
   struct QueuedRequest {
     QueuedRequest();
     int type = 0;  // From RPCFrame::msg_case() (see wire_protocol.proto).
-    std::string service_name;  // only for type == kMsgBindService.
+    RequestID request_id = 0;
+    bool succeeded = false;
+
+    // only for type == kMsgBindService.
+    std::string service_name;
+    std::function<void(std::shared_ptr<ServiceProxy>)> bind_callback;
+
+    // only for type == kMsgInvokeMethod.
+    MethodID method_id;
+    std::weak_ptr<ServiceProxy> service_proxy;
   };
   ClientImpl(const ClientImpl&) = delete;
   ClientImpl& operator=(const ClientImpl&) = delete;
 
+  bool SendRPCFrame(const RPCFrame&);
   void OnDataAvailable();
+  void OnRPCFrameReceived(const RPCFrame&);
+  void OnBindServiceReply(QueuedRequest, const RPCFrame::BindServiceReply&);
+  void OnInvokeMethodReply(QueuedRequest, const RPCFrame::InvokeMethodReply&);
 
   const char* const socket_name_;
   TaskRunner* const task_runner_;
   UnixSocket sock_;
   RequestID last_request_id_ = 0;
   RPCFrameDecoder frame_decoder;
-  std::map<RequestID, QueuedRequest> queued_request_;
-  std::map<std::string, ServiceBinding> service_bindings_;
+  std::map<RequestID, QueuedRequest> queued_requests_;
 };
 
 }  // namespace protorpc

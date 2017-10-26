@@ -36,7 +36,7 @@ TEST_F(ProtoRPCTest, GreeterService) {
   TestTaskRunner task_runner;
   protorpc_test::GreeterServiceImpl svc;
   std::unique_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
-  ASSERT_TRUE(host->ExposeService(svc.GetDescriptor()));
+  ASSERT_TRUE(host->ExposeService(&svc));
   host->Start();
   task_runner.RunUntilIdle();
 }

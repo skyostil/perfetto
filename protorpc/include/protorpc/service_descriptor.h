@@ -36,7 +36,7 @@ class ServiceDescriptor {
   struct Method {
     const char* name;
 
-    using DecoderFunc = std::unique_ptr<ProtoMessage> (*)(const std::string&);
+    using DecoderFunc = std::unique_ptr<ProtoMessage> (*)(const std::string& /* proto_data_in */);
     DecoderFunc decoder;
 
     using NewReplyFunc = std::unique_ptr<ProtoMessage> (*)(void);
@@ -45,17 +45,12 @@ class ServiceDescriptor {
     using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
     MethodPtr function;
   };
-  ServiceDescriptor() = default;
-  ServiceDescriptor(ServiceDescriptor&&) noexcept = default;
-  ServiceDescriptor& operator=(ServiceDescriptor&&) = default;
-
-  Service* service = nullptr;
   std::string service_name;
-  std::vector<Method> methods;
 
- private:
-  ServiceDescriptor(const ServiceDescriptor&) = delete;
-  ServiceDescriptor& operator=(const ServiceDescriptor&) = delete;
+  // Note that methods order is not stable. Client and Host might have different
+  // method numbers, depending on their versions, so the Client can't just rely
+  // on the indexes and has to keep a translation map locally, see ServiceProxy.
+  std::vector<Method> methods;
 };
 
 }  // namespace protorpc

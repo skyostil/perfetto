@@ -17,24 +17,16 @@
 #ifndef PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
 #define PROTORPC_INCLUDE_PROTORPC_SERVICE_H_
 
-#include <string>
-#include <vector>
-
-#include "protorpc/basic_types.h"
-
 namespace perfetto {
 namespace protorpc {
 
 class ServiceDescriptor;
 
+// TODO do we need this class at all?
 class Service {
  public:
   virtual ~Service() = default;
-  virtual ServiceDescriptor GetDescriptor() = 0;
-
- private:
-  //  RPCService(const RPCService&) = delete;
-  //  RPCService& operator=(const RPCService&) = delete;
+  virtual const ServiceDescriptor& GetDescriptor() = 0;
 };
 
 }  // namespace protorpc

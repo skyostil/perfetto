@@ -28,6 +28,7 @@ source_set("protorpc") {
     "src/host_handle.cc",
     "src/host_impl.cc",
     "src/rpc_frame_decoder.cc",
+    "src/service_proxy.cc",
     "src/service_reply.cc",
     "src/service_request.cc",
     "src/unix_socket.cc",
@@ -53,9 +54,9 @@ executable("protorpc_unittests") {
     "//cpp_common/test:test_support",
   ]
   sources = [
-    "src/test/protorpc_unittest.cc",
     "src/test/greeter_service-gen.cc",
     "src/test/greeter_service.cc",
+    "src/test/protorpc_unittest.cc",
     "src/unix_socket_unittest.cc",
   ]
 }

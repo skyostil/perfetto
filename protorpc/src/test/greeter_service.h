@@ -29,7 +29,7 @@ class GreeterServiceImpl : public Greeter::Service {
  public:
   ~GreeterServiceImpl() override;
   void SayHello(GreeterRequest, GreeterReply) override;
-  void SayGoodbye(GreeterRequest, GreeterReply) override;
+  void WaveGoodBye(GreeterRequest, GreeterReply) override;
 };
 
 }  // namespace protorpc_test

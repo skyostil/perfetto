@@ -27,7 +27,7 @@ namespace perfetto {
 class TaskRunner;
 
 namespace protorpc {
-class ServiceStub;
+class ServiceProxy;
 
 class Client {
  public:
@@ -35,9 +35,22 @@ class Client {
                                                 TaskRunner*);
   virtual ~Client() = default;
 
-  using BindServiceCallback = std::function<void(std::unique_ptr<ServiceStub>)>;
-  virtual void BindService(const std::string& service_name, BindServiceCallback) = 0;
+  template <typename T>
+  void BindService(const std::string& service_name,
+                   std::function<void(std::shared_ptr<T>)> callback) {
+    static_assert(std::is_base_of<ServiceProxy, T>::value,
+                  "T must derive ServiceProxy");
+    BindServiceGeneric(service_name, callback);
+  }
 
+  virtual void BindServiceGeneric(
+      const std::string& service_name,
+      std::function<void(std::shared_ptr<ServiceProxy>)>) = 0;
+
+  virtual RequestID BeginInvoke(ServiceID,
+                                MethodID remote_method_id,
+                                ProtoMessage*,
+                                const std::weak_ptr<ServiceProxy>&) = 0;
 };
 
 }  // namespace protorpc
