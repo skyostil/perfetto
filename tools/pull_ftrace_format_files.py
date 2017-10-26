@@ -34,7 +34,7 @@ def adb(*cmd, **kwargs):
   if serial:
     prefix += ['-s', serial]
   cmd = prefix + list(cmd)
-  output = subprocess.check_output(cmd)
+  output = subprocess.check_output(cmd).replace('\r', '')
   return output
 
 
@@ -108,9 +108,12 @@ def pull_format_files(serial, output_directory):
 
 # Produces output of the form: prefix_android_seed_N2F62_3.10.49
 def get_output_directory(prefix=None):
-  build_id = adb('shell', 'getprop', 'ro.build.id').replace('\n', '')
-  product = adb('shell', 'getprop', 'ro.build.product').replace('\n', '')
-  kernel = adb('shell', 'uname', '-r').split('-')[0]
+  def clean(s):
+    return s.replace('\n', '').replace('\r', '')
+
+  build_id = clean(adb('shell', 'getprop', 'ro.build.id'))
+  product = clean(adb('shell', 'getprop', 'ro.build.product'))
+  kernel = clean(adb('shell', 'uname', '-r').split('-')[0])
   parts = ['android', product, build_id, kernel]
   if prefix:
     parts = [prefix] + parts
