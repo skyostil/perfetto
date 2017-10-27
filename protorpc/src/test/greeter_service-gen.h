@@ -35,11 +35,13 @@ using DeferredGreeterReply = ::perfetto::protorpc::Deferred<GreeterReplyMsg>;
 
 class Greeter : public ::perfetto::protorpc::Service {
  public:
-  static const ::perfetto::protorpc::ServiceDescriptor& GetDescriptor();
-
   virtual ~Greeter();
+
   virtual void SayHello(const GreeterRequestMsg&, DeferredGreeterReply) = 0;
   virtual void WaveGoodBye(const GreeterRequestMsg&, DeferredGreeterReply) = 0;
+
+  // Service implementation.
+  const ::perfetto::protorpc::ServiceDescriptor& GetDescriptor() override;
 };
 
 class GreeterProxy : public ::perfetto::protorpc::ServiceProxy {

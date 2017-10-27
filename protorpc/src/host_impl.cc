@@ -25,7 +25,6 @@
 #include <utility>
 
 #include "cpp_common/task_runner.h"
-#include "protorpc/deferred.h"
 #include "protorpc/service.h"
 #include "protorpc/service_descriptor.h"
 
@@ -38,7 +37,7 @@ namespace protorpc {
 std::shared_ptr<Host> Host::CreateInstance(const char* socket_name,
                                            TaskRunner* task_runner) {
   std::shared_ptr<HostImpl> host(new HostImpl(socket_name, task_runner));
-  host->set_weak_ptr(std::weak_ptr<Host>(host));
+  host->set_weak_ptr(std::weak_ptr<HostImpl>(host));
   return host;
 }
 
@@ -73,13 +72,25 @@ void HostImpl::OnNewConnection() {
     // TODO(primiano): careful with Send() and non-blocking mode.
     cli_sock.SetBlockingIOMode(false);
     std::unique_ptr<ClientConnection> client(new ClientConnection());
-    client->sock = std::move(cli_sock);
     ClientID client_id = ++last_client_id_;
+    client->id = client_id;
+    client->sock = std::move(cli_sock);
     clients_[client_id] = std::move(client);
     // TODO use the weak ptr.
     task_runner_->AddFileDescriptorWatch(
         cli_sock_fd, std::bind(&HostImpl::OnDataAvailable, this, client_id));
   }
+}
+
+void HostImpl::OnClientDisconnect(ClientID client_id) {
+  auto client_it = clients_.find(client_id);
+  if (client_it == clients_.end() || client_it->second->sock.fd() < 0) {
+    DCHECK(false);
+    return;
+  }
+  DLOG("[protorpc::HostImpl] Client %" PRIu64 " disconnected", client_id);
+  task_runner_->RemoveFileDescriptorWatch(client_it->second->sock.fd());
+  clients_.erase(client_id);
 }
 
 bool HostImpl::ExposeService(const std::shared_ptr<Service>& service) {
@@ -172,7 +183,8 @@ void HostImpl::OnInvokeMethod(ClientConnection* client,
                               const RPCFrame& req_frame) {
   const RPCFrame::InvokeMethod& req = req_frame.msg_invoke_method();
   RPCFrame reply_frame;
-  reply_frame.set_request_id(req_frame.request_id());
+  RequestID request_id = req_frame.request_id();
+  reply_frame.set_request_id(request_id);
   reply_frame.set_reply_success(false);
   auto svc_it = services_.find(req.service_id());
   if (svc_it == services_.end())
@@ -186,34 +198,32 @@ void HostImpl::OnInvokeMethod(ClientConnection* client,
 
   // TODO check whether this is correct.
   const ServiceDescriptor::Method& method = methods[req.method_id() - 1];
-  std::unique_ptr<ProtoMessage> req_args(method.request_proto_decoder(req.args_proto()));
+  std::unique_ptr<ProtoMessage> req_args(
+      method.request_proto_decoder(req.args_proto()));
   if (!req_args)
     return SendRPCFrame(client, reply_frame);
 
   // TODO here the descriptor or the impl should tell if has_more (for
   // streaming reply). for now hard-coding it to false.
-  // HERE we need a callback
-  Deferred<ProtoMessage> reply(method.reply_proto_factory(), false, nullptr);
+
+  Deferred<ProtoMessage> reply_handler(method.reply_proto_factory());
+  std::weak_ptr<HostImpl> weak_ptr;
+  ClientID client_id = client->id;
+  reply_handler.Bind(
+      [weak_ptr, client_id, request_id](Deferred<ProtoMessage> reply) {
+        std::shared_ptr<HostImpl> host = weak_ptr.lock();
+        if (host)
+          return;  // The host is gone in the meantime.
+        host->ReplyToMethodInvocation(client_id, request_id, std::move(reply));
+      });
 
   // TODO post on task runner.
-  method.invoker(service, *req_args, std::move(reply));
+  method.invoker(service, *req_args, std::move(reply_handler));
 }
-
-void HostImpl::OnClientDisconnect(ClientID client_id) {
-  auto client_it = clients_.find(client_id);
-  if (client_it == clients_.end() || client_it->second->sock.fd() < 0) {
-    DCHECK(false);
-    return;
-  }
-  DLOG("[protorpc::HostImpl] Client %" PRIu64 " disconnected", client_id);
-  task_runner_->RemoveFileDescriptorWatch(client_it->second->sock.fd());
-  clients_.erase(client_id);
-}
-
 
 void HostImpl::ReplyToMethodInvocation(ClientID client_id,
                                        RequestID request_id,
-                                       std::unique_ptr<ProtoMessage> args) {
+                                       Deferred<ProtoMessage> reply) {
   auto client_it = clients_.find(client_id);
   if (client_it == clients_.end())
     return;  // client has disconnected by the time the reply came back.
@@ -221,21 +231,21 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
   ClientConnection* client = client_it->second.get();
   RPCFrame reply_frame;
   reply_frame.set_request_id(request_id);
-  auto* reply = reply_frame.mutable_msg_invoke_method_reply();
-  reply_frame.set_reply_success(!!args);
-  reply->set_eof(true);  // TODO(primiano): support streaming replies.
-  if (args) {
+  reply_frame.set_reply_success(false);
+
+  auto* reply_frame_data = reply_frame.mutable_msg_invoke_method_reply();
+  reply_frame_data->set_has_more(reply.has_more());
+  if (reply.success()) {
     std::string reply_proto;
-    if (!args->SerializeToString(&reply_proto)) {
-      reply_frame.set_reply_success(false);
-      reply->set_reply_proto(reply_proto);
+    if (reply->SerializeToString(&reply_proto)) {
+      reply_frame.set_reply_success(true);
+      reply_frame_data->set_reply_proto(reply_proto);
     }
   }
   SendRPCFrame(client, reply_frame);
 }
 
-void HostImpl::SendRPCFrame(ClientConnection* client,
-                            const RPCFrame& reply) {
+void HostImpl::SendRPCFrame(ClientConnection* client, const RPCFrame& reply) {
   uint32_t payload_len = static_cast<uint32_t>(reply.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
   if (!reply.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {

@@ -218,7 +218,7 @@ void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
       }
     }
   }
-  service_proxy->EndInvoke(req.request_id, nullptr, reply.eof());
+  service_proxy->EndInvoke(req.request_id, nullptr, reply.has_more());
 }
 
 ClientImpl::QueuedRequest::QueuedRequest() = default;

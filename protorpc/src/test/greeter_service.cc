@@ -24,14 +24,14 @@ void GreeterServiceImpl::SayHello(
   const GreeterRequestMsg& req,
   DeferredGreeterReply reply) {
   reply->set_message("hello " + req.name());
-  reply->Resolve();
+  reply.Resolve();
 }
 
 void GreeterServiceImpl::WaveGoodBye(
   const GreeterRequestMsg& req,
   DeferredGreeterReply reply) {
   reply->set_message("goodbye " + req.name());
-  reply->Resolve();
+  reply.Resolve();
 }
 
 

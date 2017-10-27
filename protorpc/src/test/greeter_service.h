@@ -28,8 +28,8 @@ namespace protorpc_test {
 class GreeterServiceImpl : public Greeter {
  public:
   ~GreeterServiceImpl() override;
-  void SayHello(const GreeterRequestMsg&, GreeterReplyMsg) override;
-  void WaveGoodBye(const GreeterRequestMsg&, GreeterReplyMsg) override;
+  void SayHello(const GreeterRequestMsg&, DeferredGreeterReply) override;
+  void WaveGoodBye(const GreeterRequestMsg&, DeferredGreeterReply) override;
 };
 
 }  // namespace protorpc_test

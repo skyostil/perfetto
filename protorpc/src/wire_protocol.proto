@@ -42,7 +42,7 @@ message RPCFrame {
   }
 
   message InvokeMethodReply {
-    bool eof = 1;           // only for streaming RPCs.
+    bool has_more = 1;      // only for streaming RPCs.
     bytes reply_proto = 2;  // proto-encoded response value.
   }
 

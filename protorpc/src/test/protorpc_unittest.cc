@@ -34,9 +34,9 @@ class ProtoRPCTest : public ::testing::Test {
 
 TEST_F(ProtoRPCTest, GreeterService) {
   TestTaskRunner task_runner;
-  protorpc_test::GreeterServiceImpl svc;
-  std::unique_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
-  ASSERT_TRUE(host->ExposeService(&svc));
+  std::shared_ptr<protorpc_test::GreeterServiceImpl> svc(new protorpc_test::GreeterServiceImpl());
+  std::shared_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
+  ASSERT_TRUE(host->ExposeService(svc));
   host->Start();
   task_runner.RunUntilIdle();
 }

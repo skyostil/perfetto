@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "cpp_common/task_runner.h"
+#include "protorpc/deferred.h"
 #include "protorpc/host.h"
 #include "protorpc/src/rpc_frame_decoder.h"
 #include "protorpc/src/unix_socket.h"
@@ -37,20 +38,16 @@ class HostImpl : public Host {
   HostImpl(const char* socket_name, TaskRunner*);
   ~HostImpl() override;
 
-  void set_weak_ptr(const std::weak_ptr<Host>& ptr) { weak_ptr_ = ptr; }
+  void set_weak_ptr(const std::weak_ptr<HostImpl>& ptr) { weak_ptr_ = ptr; }
 
   // Host implementation.
   bool Start() override;
   bool ExposeService(const std::shared_ptr<Service>&) override;
 
-  // reply == nullptr means abort.
-  void ReplyToMethodInvocation(ClientID,
-                               RequestID,
-                               std::unique_ptr<ProtoMessage>) override;
-
  private:
   struct ClientConnection {
     ~ClientConnection();
+    ClientID id;
     UnixSocket sock;
     RPCFrameDecoder frame_decoder;
   };
@@ -69,11 +66,14 @@ class HostImpl : public Host {
   void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
   void OnBindService(ClientConnection*, const RPCFrame&);
   void OnInvokeMethod(ClientConnection*, const RPCFrame&);
+  void ReplyToMethodInvocation(ClientID,
+                               RequestID,
+                               Deferred<ProtoMessage>);
 
   const ExposedService* GetServiceByName(const std::string&);
   void SendRPCFrame(ClientConnection*, const RPCFrame&);
 
-  std::weak_ptr<Host> weak_ptr_;
+  std::weak_ptr<HostImpl> weak_ptr_;
   const char* const socket_name_;
   TaskRunner* const task_runner_;
   std::map<ServiceID, ExposedService> services_;

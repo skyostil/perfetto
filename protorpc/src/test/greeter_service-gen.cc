@@ -86,20 +86,24 @@ ServiceDescriptor* CreateDescriptor() {
   return desc;
 }
 
-}  // namespace
-
-// static
-const ServiceDescriptor& Greeter::GetDescriptor() {
+const ServiceDescriptor& GetDescriptorLazy() {
   static ServiceDescriptor* lazily_initialized_descriptor = CreateDescriptor();
   return *lazily_initialized_descriptor;
 }
 
+}  // namespace
+
+
 Greeter::~Greeter() = default;
+
+const ServiceDescriptor& Greeter::GetDescriptor() {
+  return GetDescriptorLazy();
+}
 
 GreeterProxy::~GreeterProxy() = default;
 
 const ServiceDescriptor& GreeterProxy::GetDescriptor() {
-  return Greeter::GetDescriptor();
+  return GetDescriptorLazy();
 }
 
 void GreeterProxy::SayHello(const GreeterRequestMsg& request,
