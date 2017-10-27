@@ -45,16 +45,16 @@ ClientImpl::ClientImpl(const char* socket_name, TaskRunner* task_runner)
     : socket_name_(socket_name), task_runner_(task_runner) {}
 
 ClientImpl::~ClientImpl() {
-  if (sock_.fd() >= 0)
+  if (sock_.is_connected())  // Not 100% correct, what if got disconnected. but also can't just use the fd >= 0.
     task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
 
 bool ClientImpl::Connect() {
   // TODO does Connect() work synchronously fine in non-blocking mode for a
   // unix socket? Maybe this should also use a watch.
-  sock_.SetBlockingIOMode(false);
   if (!sock_.Connect(socket_name_))
     return false;
+  sock_.SetBlockingIOMode(false);
   task_runner_->AddFileDescriptorWatch(
       sock_.fd(), std::bind(&ClientImpl::OnDataAvailable, this));
   return true;

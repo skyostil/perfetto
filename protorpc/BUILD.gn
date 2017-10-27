@@ -52,7 +52,7 @@ executable("protorpc_unittests") {
   ]
   sources = [
     "src/test/greeter_service-gen.cc",
-    "src/test/greeter_service.cc",
+    "src/test/greeter_impl.cc",
     "src/test/protorpc_unittest.cc",
     "src/unix_socket_unittest.cc",
   ]

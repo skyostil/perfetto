@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#include "cpp_common/base.h"
 #include "cpp_common/test/test_task_runner.h"
 #include "protorpc/host.h"
-#include "protorpc/src/test/greeter_service.h"
+#include "protorpc/src/test/greeter_impl.h"
+#include "protorpc/client.h"
+#include "protorpc/host.h"
 
 #include "gtest/gtest.h"
 
@@ -24,21 +27,34 @@ namespace perfetto {
 namespace protorpc {
 namespace {
 
+using protorpc_test::Greeter;
+using protorpc_test::GreeterImpl;
+using protorpc_test::GreeterProxy;
+
 const char kSocketName[] = "/tmp/test_protorpc";
 
 class ProtoRPCTest : public ::testing::Test {
  protected:
-  void SetUp() override { unlink(kSocketName); }
+  // void SetUp() override { unlink(kSocketName); }
   void TearDown() override { unlink(kSocketName); }
 };
 
-TEST_F(ProtoRPCTest, GreeterService) {
+TEST_F(ProtoRPCTest, GreeterHost) {
   TestTaskRunner task_runner;
-  std::shared_ptr<protorpc_test::GreeterServiceImpl> svc(new protorpc_test::GreeterServiceImpl());
+  std::shared_ptr<GreeterImpl> svc(new GreeterImpl());
   std::shared_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
   ASSERT_TRUE(host->ExposeService(svc));
   host->Start();
-  task_runner.RunUntilIdle();
+  task_runner.Run();
+}
+
+TEST_F(ProtoRPCTest, GreeterClient) {
+  TestTaskRunner task_runner;
+  std::shared_ptr<Client> client(Client::CreateInstance(kSocketName, &task_runner));
+  DCHECK(client);
+  std::shared_ptr<GreeterProxy> svc_proxy(new GreeterProxy());
+  client->BindService(svc_proxy);
+  task_runner.Run();
 }
 
 }  // namespace
