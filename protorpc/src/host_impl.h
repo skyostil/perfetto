@@ -41,7 +41,7 @@ class HostImpl : public Host {
 
   // Host implementation.
   bool Start() override;
-  bool ExposeService(std::shared_ptr<Service>) override;
+  bool ExposeService(const std::shared_ptr<Service>&) override;
 
   // reply == nullptr means abort.
   void ReplyToMethodInvocation(ClientID,
@@ -55,7 +55,7 @@ class HostImpl : public Host {
     RPCFrameDecoder frame_decoder;
   };
   struct ExposedService {
-    Service* instance;
+    std::shared_ptr<Service> instance;
     ServiceID id;
     std::string name;
   };
@@ -67,15 +67,11 @@ class HostImpl : public Host {
   void OnDataAvailable(ClientID);
   void OnClientDisconnect(ClientID);
   void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
-  void OnBindService(ClientConnection*,
-                     const RPCFrame::BindService&,
-                     std::unique_ptr<RPCFrame>);
-  void OnInvokeMethod(ClientConnection*,
-                      const RPCFrame::InvokeMethod&,
-                      std::unique_ptr<RPCFrame>);
+  void OnBindService(ClientConnection*, const RPCFrame&);
+  void OnInvokeMethod(ClientConnection*, const RPCFrame&);
 
   const ExposedService* GetServiceByName(const std::string&);
-  void SendRPCFrame(ClientConnection*, std::unique_ptr<RPCFrame>);
+  void SendRPCFrame(ClientConnection*, const RPCFrame&);
 
   std::weak_ptr<Host> weak_ptr_;
   const char* const socket_name_;

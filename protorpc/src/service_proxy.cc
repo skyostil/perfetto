@@ -21,7 +21,6 @@
 #include "cpp_common/base.h"
 #include "google/protobuf/message_lite.h"
 #include "protorpc/client.h"
-#include "protorpc/method_invocation_reply.h"
 #include "protorpc/service_descriptor.h"
 
 namespace perfetto {
@@ -41,10 +40,10 @@ void ServiceProxy::InitializeBinding(
   remote_method_ids_ = std::move(remote_method_ids);
 }
 
-void ServiceProxy::BeginInvokeGeneric(
-    const std::string& method_name,
-    ProtoMessage* method_args,
-    std::function<void(MethodInvocationReply<ProtoMessage>)> callback) {
+void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
+                                      const ProtoMessage& request,
+                                      Deferred<ProtoMessage> reply) {
+  // |reply| will auto-resolve if it gets out of scope early.
   if (!connected()) {
     DCHECK(false);
     return;
@@ -52,30 +51,31 @@ void ServiceProxy::BeginInvokeGeneric(
   auto remote_method_it = remote_method_ids_.find(method_name);
   std::shared_ptr<Client> client = client_.lock();
   RequestID request_id = 0;
-  if (remote_method_it != remote_method_ids_.end() && client)
+  if (client && remote_method_it != remote_method_ids_.end())
     request_id =
         client->BeginInvoke(service_id_, method_name, remote_method_it->second,
-                            method_args, weak_ptr_self_);
-  if (!request_id) {
-    callback(MethodInvocationReply<ProtoMessage>(nullptr, true /*eof*/));
+                            request, weak_ptr_self_);
+  if (!request_id)
     return;
-  }
   DCHECK(pending_callbacks_.count(request_id) == 0);
-  pending_callbacks_.emplace(request_id, std::move(callback));
+  pending_callbacks_.emplace(request_id, std::move(reply));
 }
 
 void ServiceProxy::EndInvoke(RequestID request_id,
                              std::unique_ptr<ProtoMessage> result,
-                             bool eof) {
+                             bool has_more) {
   auto callback_it = pending_callbacks_.find(request_id);
   if (callback_it == pending_callbacks_.end()) {
     DCHECK(false);
     return;
   }
-  MethodInvocationReply<ProtoMessage> callback_result(std::move(result), eof);
-  auto callback = std::move(callback_it->second);
+  Deferred<ProtoMessage> reply(std::move(callback_it->second));
+  reply.set_msg(std::move(result));
+  reply.set_has_more(has_more);
+  // TODO how do we handle streaming responses (when has_more == true)? Who
+  // rebinds the callback? Maybe we should keep it around?
   pending_callbacks_.erase(callback_it);
-  callback(std::move(callback_result));
+  return reply.Resolve();
 }
 
 void ServiceProxy::OnConnect() {}

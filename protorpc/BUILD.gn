@@ -28,8 +28,6 @@ source_set("protorpc") {
     "src/host_impl.cc",
     "src/rpc_frame_decoder.cc",
     "src/service_proxy.cc",
-    "src/service_reply.cc",
-    "src/service_request.cc",
     "src/unix_socket.cc",
   ]
 }

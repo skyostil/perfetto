@@ -44,8 +44,8 @@ class ClientImpl : public Client {
 
   RequestID BeginInvoke(ServiceID,
                         const std::string& method_name,
-                        MethodID,
-                        ProtoMessage*,
+                        MethodID remote_method_id,
+                        const ProtoMessage&,
                         const std::weak_ptr<ServiceProxy>&) override;
 
   void set_weak_ptr(const std::weak_ptr<Client>& wp) { weak_ptr_self_ = wp; }

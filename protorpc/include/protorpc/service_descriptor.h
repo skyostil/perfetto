@@ -23,28 +23,29 @@
 #include <vector>
 
 #include "protorpc/basic_types.h"
+#include "protorpc/deferred.h"
 
 namespace perfetto {
 namespace protorpc {
 
 class Service;
-class ServiceRequestBase;
-class ServiceReplyBase;
-class ServiceProxy;
 
 class ServiceDescriptor {
  public:
   struct Method {
     const char* name;
 
-    using DecoderFunc = std::unique_ptr<ProtoMessage> (*)(const std::string& /* proto_data_in */);
-    DecoderFunc decoder;
+    using DecoderFunc = std::unique_ptr<ProtoMessage> (*)(const std::string&);
+    DecoderFunc request_proto_decoder;
+    DecoderFunc reply_proto_decoder;
 
     using NewReplyFunc = std::unique_ptr<ProtoMessage> (*)(void);
-    NewReplyFunc new_reply_obj;
+    NewReplyFunc reply_proto_factory;
 
-    using MethodPtr = void (Service::*)(ServiceRequestBase, ServiceReplyBase);
-    MethodPtr function;
+    using InvokerFunc = void (*)(Service*,
+                                 const ProtoMessage&,
+                                 Deferred<ProtoMessage>);
+    InvokerFunc invoker;
   };
 
   std::string service_name;

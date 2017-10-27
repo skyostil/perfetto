@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-// TODO(primiano): protobuf leaks CHECK macro, sigh.
+// TODO(primiano): protobuf leaks CHECK macro, sigh. switch us to PERFETTO_CHECK
+// and put this header back down.
 #include "wire_protocol.pb.h"
 
 #include "protorpc/src/client_impl.h"
@@ -22,8 +23,6 @@
 #include <inttypes.h>
 
 #include "cpp_common/task_runner.h"
-#include "protorpc/host_handle.h"
-#include "protorpc/method_invocation_reply.h"
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_proxy.h"
 
@@ -86,7 +85,7 @@ RequestID ClientImpl::BeginInvoke(
     ServiceID service_id,
     const std::string& method_name,
     MethodID remote_method_id,
-    ProtoMessage* method_args,
+    const ProtoMessage& method_args,
     const std::weak_ptr<ServiceProxy>& service_proxy) {
   std::string args_proto;
   RequestID request_id = ++last_request_id_;
@@ -95,7 +94,7 @@ RequestID ClientImpl::BeginInvoke(
   RPCFrame::InvokeMethod* req = rpc_frame.mutable_msg_invoke_method();
   req->set_service_id(service_id);
   req->set_method_id(remote_method_id);
-  bool did_serialize = method_args->SerializeToString(&args_proto);
+  bool did_serialize = method_args.SerializeToString(&args_proto);
   req->set_args_proto(args_proto);
   if (!did_serialize || !SendRPCFrame(rpc_frame)) {
     return 0;
@@ -214,7 +213,7 @@ void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
     // TODO this could be optimized, stop doing method name string lookups.
     for (const auto& method : service_proxy->GetDescriptor().methods) {
       if (req.method_name == method.name) {
-        decoded_reply = method.decoder(reply.reply_proto());
+        decoded_reply = method.reply_proto_decoder(reply.reply_proto());
         break;
       }
     }

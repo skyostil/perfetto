@@ -31,15 +31,11 @@ class MessageLite;
 namespace perfetto {
 namespace protorpc {
 
-class ServiceProxy;
-class MethodInvocationReplyBase;
-
 using ProtoMessage = ::google::protobuf::MessageLite;
 using ServiceID = uint64_t;
 using MethodID = uint64_t;
 using ClientID = uint64_t;
 using RequestID = uint64_t;
-using MethodInvokeCallback = std::function<void(MethodInvocationReplyBase)>;
 
 }  // namespace protorpc
 }  // namespace perfetto

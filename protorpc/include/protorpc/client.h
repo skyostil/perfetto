@@ -40,7 +40,7 @@ class Client {
   virtual RequestID BeginInvoke(ServiceID,
                                 const std::string& method_name,
                                 MethodID remote_method_id,
-                                ProtoMessage*,
+                                const ProtoMessage&,
                                 const std::weak_ptr<ServiceProxy>&) = 0;
 };
 

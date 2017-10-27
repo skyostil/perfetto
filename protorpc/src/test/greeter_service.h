@@ -25,11 +25,11 @@
 // Deliberately using a namespace != protorpc to spot subtle namespace dep bugs.
 namespace protorpc_test {
 
-class GreeterServiceImpl : public Greeter::Service {
+class GreeterServiceImpl : public Greeter {
  public:
   ~GreeterServiceImpl() override;
-  void SayHello(GreeterRequest, GreeterReply) override;
-  void WaveGoodBye(GreeterRequest, GreeterReply) override;
+  void SayHello(const GreeterRequestMsg&, GreeterReplyMsg) override;
+  void WaveGoodBye(const GreeterRequestMsg&, GreeterReplyMsg) override;
 };
 
 }  // namespace protorpc_test

@@ -25,10 +25,9 @@
 #include <utility>
 
 #include "cpp_common/task_runner.h"
+#include "protorpc/deferred.h"
 #include "protorpc/service.h"
 #include "protorpc/service_descriptor.h"
-#include "protorpc/service_reply.h"
-#include "protorpc/service_request.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
@@ -83,6 +82,26 @@ void HostImpl::OnNewConnection() {
   }
 }
 
+bool HostImpl::ExposeService(const std::shared_ptr<Service>& service) {
+  const ServiceDescriptor& desc = service->GetDescriptor();
+  if (GetServiceByName(desc.service_name)) {
+    DLOG("Duplicate ExposeService(): %s", desc.service_name.c_str());
+    return false;
+  }
+  ServiceID sid = ++last_service_id_;
+  services_.emplace(sid, ExposedService{service, sid, desc.service_name});
+  return true;
+}
+
+const HostImpl::ExposedService* HostImpl::GetServiceByName(
+    const std::string& name) {
+  for (const auto& it : services_) {
+    if (it.second.name == name)
+      return &it.second;
+  }
+  return nullptr;
+}
+
 void HostImpl::OnDataAvailable(ClientID client_id) {
   auto client_it = clients_.find(client_id);
   if (client_it == clients_.end())
@@ -113,63 +132,71 @@ void HostImpl::OnDataAvailable(ClientID client_id) {
 void HostImpl::OnReceivedRPCFrame(ClientID client_id,
                                   ClientConnection* client,
                                   const RPCFrame& req_frame) {
-  std::unique_ptr<RPCFrame> reply_frame(new RPCFrame());
-  reply_frame->set_request_id(req_frame.request_id());
-  reply_frame->set_reply_success(false);
   if (req_frame.msg_case() == RPCFrame::kMsgBindService) {
-    return OnBindService(client, req_frame.msg_bind_service(),
-                         std::move(reply_frame));
-
-  } else if (req_frame.msg_case() == RPCFrame::kMsgBindService) {
-    return OnInvokeMethod(client, req_frame.msg_invoke_method(),
-                          std::move(reply_frame));
+    return OnBindService(client, req_frame);
+  } else if (req_frame.msg_case() == RPCFrame::kMsgInvokeMethod) {
+    return OnInvokeMethod(client, req_frame);
   }
   DLOG("Received invalid RPC frame %u from client %" PRIu64,
        req_frame.msg_case(), client_id);
-  SendRPCFrame(client, std::move(reply_frame));
+  RPCFrame reply_frame;
+  reply_frame.set_request_id(req_frame.request_id());
+  reply_frame.set_reply_success(false);
+  SendRPCFrame(client, reply_frame);
 }
 
 void HostImpl::OnBindService(ClientConnection* client,
-                             const RPCFrame::BindService& req,
-                             std::unique_ptr<RPCFrame> reply_frame) {
-  auto* reply = reply_frame->mutable_msg_bind_service_reply();
+                             const RPCFrame& req_frame) {
+  // Binding a service doesn't do anything fancy really. It just returns back
+  // the service id and the methods ids.
+  const RPCFrame::BindService& req = req_frame.msg_bind_service();
+  RPCFrame reply_frame;
+  reply_frame.set_request_id(req_frame.request_id());
+  reply_frame.set_reply_success(false);
+  auto* reply = reply_frame.mutable_msg_bind_service_reply();
   const ExposedService* service = GetServiceByName(req.service_name());
   if (service) {
-    reply_frame->set_reply_success(true);
+    reply_frame.set_reply_success(true);
     reply->set_service_id(service->id);
-    for (const auto& method_it : service->instance->GetDescriptor().methods) {
+    uint32_t method_id = 1;  // method ids start at 1.
+    for (const auto& desc_method : service->instance->GetDescriptor().methods) {
       RPCFrame::BindServiceReply::Method* method = reply->add_methods();
-      method->set_name(method_it.second.name);
-      method->set_id(method_it.first);
+      method->set_name(desc_method.name);
+      method->set_id(method_id++);
     }
   }
-  SendRPCFrame(client, std::move(reply_frame));
+  SendRPCFrame(client, reply_frame);
 }
 
 void HostImpl::OnInvokeMethod(ClientConnection* client,
-                              const RPCFrame::InvokeMethod& req,
-                              std::unique_ptr<RPCFrame> reply_frame) {
-  auto* reply = reply_frame->mutable_msg_invoke_method_reply();
-  reply_frame->set_reply_success(true);
+                              const RPCFrame& req_frame) {
+  const RPCFrame::InvokeMethod& req = req_frame.msg_invoke_method();
+  RPCFrame reply_frame;
+  reply_frame.set_request_id(req_frame.request_id());
+  reply_frame.set_reply_success(false);
   auto svc_it = services_.find(req.service_id());
   if (svc_it == services_.end())
-    break;
+    return SendRPCFrame(client, reply_frame);
 
-  const ServiceDescriptor& svc = svc_it->second.instance->GetDescriptor();
+  Service* service = svc_it->second.instance.get();
+  const ServiceDescriptor& svc = service->GetDescriptor();
   const auto& methods = svc.methods;
   if (req.method_id() <= 0 || req.method_id() > methods.size())
-    break;
+    return SendRPCFrame(client, reply_frame);
 
-  // TODO find here;
-  // const ServiceDescriptor::Method& method = methods[req.method_id()];
-  // std::unique_ptr<ProtoMessage> in_args =
-  // method.decoder(req.args_proto()); if (!in_args)
-  break;
+  // TODO check whether this is correct.
+  const ServiceDescriptor::Method& method = methods[req.method_id() - 1];
+  std::unique_ptr<ProtoMessage> req_args(method.request_proto_decoder(req.args_proto()));
+  if (!req_args)
+    return SendRPCFrame(client, reply_frame);
 
-  ((*svc.service).*(method.function))(
-      ServiceRequestBase(std::move(in_args)),
-      ServiceReplyBase(client_id, req_frame.request_id(), HostHandle(this),
-                       method.new_reply_obj()));
+  // TODO here the descriptor or the impl should tell if has_more (for
+  // streaming reply). for now hard-coding it to false.
+  // HERE we need a callback
+  Deferred<ProtoMessage> reply(method.reply_proto_factory(), false, nullptr);
+
+  // TODO post on task runner.
+  method.invoker(service, *req_args, std::move(reply));
 }
 
 void HostImpl::OnClientDisconnect(ClientID client_id) {
@@ -183,24 +210,6 @@ void HostImpl::OnClientDisconnect(ClientID client_id) {
   clients_.erase(client_id);
 }
 
-bool HostImpl::ExposeService(Service* service) {
-  const ServiceDescriptor& desc = service->GetDescriptor();
-  if (GetServiceByName(desc.service_name)) {
-    DLOG("Duplicate ExposeService(): %s", desc.service_name.c_str());
-    return;
-  }
-  ServiceID sid = ++last_service_id_;
-  services_.emplace(sid, service);
-}
-
-const HostImpl::ExposedService* HostImpl::GetServiceByName(
-    const std::string& name) {
-  for (const auto& it : services_) {
-    if (it.second.name == name)
-      return &it.second;
-  }
-  return nullptr;
-}
 
 void HostImpl::ReplyToMethodInvocation(ClientID client_id,
                                        RequestID request_id,
@@ -210,30 +219,28 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
     return;  // client has disconnected by the time the reply came back.
 
   ClientConnection* client = client_it->second.get();
-  std::unique_ptr<RPCFrame> reply_frame(new RPCFrame());
-  reply_frame->set_request_id(request_id);
-  auto* reply = reply_frame->mutable_msg_invoke_method_reply();
-  reply_frame->set_reply_success(!!args);
+  RPCFrame reply_frame;
+  reply_frame.set_request_id(request_id);
+  auto* reply = reply_frame.mutable_msg_invoke_method_reply();
+  reply_frame.set_reply_success(!!args);
   reply->set_eof(true);  // TODO(primiano): support streaming replies.
   if (args) {
     std::string reply_proto;
     if (!args->SerializeToString(&reply_proto)) {
-      reply_frame->set_reply_success(false);
+      reply_frame.set_reply_success(false);
       reply->set_reply_proto(reply_proto);
     }
   }
-  SendRPCFrame(client, std::move(reply_frame));
+  SendRPCFrame(client, reply_frame);
 }
 
 void HostImpl::SendRPCFrame(ClientConnection* client,
-                            std::unique_ptr<RPCFrame> reply) {
-  uint32_t payload_len = reply ? static_cast<uint32_t>(reply->ByteSize()) : 0;
+                            const RPCFrame& reply) {
+  uint32_t payload_len = static_cast<uint32_t>(reply.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
-  if (reply) {
-    if (!reply->SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
-      DCHECK(false);
-      payload_len = 0;
-    }
+  if (!reply.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
+    DCHECK(false);
+    payload_len = 0;
   }
   uint32_t enc_size = BYTE_SWAP_TO_LE32(payload_len);
   memcpy(buf.get(), &enc_size, sizeof(uint32_t));
@@ -242,14 +249,6 @@ void HostImpl::SendRPCFrame(ClientConnection* client,
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
   client->sock.Send(buf.get(), sizeof(uint32_t) + payload_len);
-}
-
-void HostImpl::AddHandle(HostHandle* handle) {
-  handles_.insert(handle);
-}
-
-void HostImpl::RemoveHandle(HostHandle* handle) {
-  handles_.erase(handle);
 }
 
 HostImpl::ClientConnection::~ClientConnection() = default;

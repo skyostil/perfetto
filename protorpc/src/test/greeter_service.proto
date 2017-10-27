@@ -20,14 +20,14 @@ option optimize_for = LITE_RUNTIME;
 package protorpc_test;
 
 service Greeter {
-  rpc SayHello(GreeterRequest) returns (GreeterReply) {}
-  rpc WaveGoodBye(GreeterRequest) returns (GreeterReply) {}
+  rpc SayHello(GreeterRequestMsg) returns (GreeterReplyMsg) {}
+  rpc WaveGoodBye(GreeterRequestMsg) returns (GreeterReplyMsg) {}
 }
 
-message GreeterRequest {
+message GreeterRequestMsg {
   string name = 1;
 }
 
-message GreeterReply {
+message GreeterReplyMsg {
   string message = 1;
 }
