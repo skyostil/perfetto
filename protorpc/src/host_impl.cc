@@ -62,6 +62,8 @@ bool HostImpl::Start() {
 }
 
 void HostImpl::OnNewConnection() {
+  DLOG("[host_impl.cc] OnNewConnection()");
+
   UnixSocket cli_sock;
   while (sock_.Accept(&cli_sock)) {
     int cli_sock_fd = cli_sock.fd();
@@ -76,6 +78,7 @@ void HostImpl::OnNewConnection() {
     client->id = client_id;
     client->sock = std::move(cli_sock);
     clients_[client_id] = std::move(client);
+    DLOG("[host_impl.cc] New client %" PRIu64, client_id);
     // TODO use the weak ptr.
     task_runner_->AddFileDescriptorWatch(
         cli_sock_fd, std::bind(&HostImpl::OnDataAvailable, this, client_id));

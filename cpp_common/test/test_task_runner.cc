@@ -25,11 +25,9 @@
 
 namespace perfetto {
 
-TestTaskRunner::TestTaskRunner() {
-  FD_ZERO(&fd_set_);
-}
+TestTaskRunner::TestTaskRunner() = default;
 
-TestTaskRunner::~TestTaskRunner() {}
+TestTaskRunner::~TestTaskRunner() = default;
 
 void TestTaskRunner::Run() {
   while (RunUntilIdle()) {
@@ -43,7 +41,7 @@ bool TestTaskRunner::RunUntilIdle() {
     closure();
   }
 
-  int res = RunFileDescriptorWatches(1);
+  int res = RunFileDescriptorWatches(1000);
   if (res < 0)
     return false;
   return true;
@@ -53,16 +51,23 @@ bool TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
   struct timeval timeout;
   timeout.tv_usec = (timeout_ms % 1000) * 1000L;
   timeout.tv_sec = static_cast<time_t>(timeout_ms / 1000);
-  int res = select(FD_SETSIZE, &fd_set_, nullptr, nullptr, &timeout);
+  int max_fd = 0;
+  fd_set fds = {};
+  for (const auto& it : watched_fds_) {
+    FD_SET(it.first, &fds);
+    max_fd = std::max(max_fd, it.first);
+  }
+  int res = select(max_fd + 1, &fds, nullptr, nullptr, &timeout);
+
   if (res < 0) {
     perror("select() failed");
     return false;
   }
   if (res == 0)
     return true;  // timeout
-
-  for (int fd = 0; fd < FD_SETSIZE; ++fd) {
-    if (!FD_ISSET(fd, &fd_set_))
+  DLOG("wath");
+  for (int fd = 0; fd <= max_fd; ++fd) {
+    if (!FD_ISSET(fd, &fds))
       continue;
     auto fd_and_callback = watched_fds_.find(fd);
     DCHECK(fd_and_callback != watched_fds_.end());
@@ -81,14 +86,12 @@ void TestTaskRunner::AddFileDescriptorWatch(int fd,
   DCHECK(fd >= 0);
   DCHECK(watched_fds_.count(fd) == 0);
   watched_fds_.emplace(fd, std::move(callback));
-  FD_SET(fd, &fd_set_);
 }
 
 void TestTaskRunner::RemoveFileDescriptorWatch(int fd) {
   DCHECK(fd >= 0);
   DCHECK(watched_fds_.count(fd) == 1);
   watched_fds_.erase(fd);
-  FD_CLR(fd, &fd_set_);
 }
 
 }  // namespace perfetto

@@ -51,7 +51,6 @@ class TestTaskRunner : public TaskRunner {
 
   std::list<std::function<void()>> task_queue_;
   std::map<int, std::function<void()>> watched_fds_;
-  fd_set fd_set_;
 };
 
 }  // namespace perfetto
