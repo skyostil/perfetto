@@ -25,7 +25,7 @@ executable("ftrace_reader_unittests") {
     "//buildtools:gtest_main",
   ]
   sources = [
-    "src/ftrace_unittest.cc",
+    "src/ftrace_cpu_reader_unittest.cc",
   ]
 }
 
