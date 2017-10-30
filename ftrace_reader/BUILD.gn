@@ -42,7 +42,7 @@ source_set("ftrace_reader") {
     "//protozero",
   ]
   sources = [
-    "include/ftrace_cpu_reader.h",
+    "include/ftrace_reader/ftrace_cpu_reader.h",
     "src/ftrace_cpu_reader.cc",
   ]
 }
