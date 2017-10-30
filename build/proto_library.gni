@@ -157,6 +157,8 @@ template("proto_library") {
 
     public_configs = [
       "//buildtools:protobuf_gen_config",
+      # TODO(skyostil): Parameterize this.
+      "//buildtools:grpc_gen_config",
       ":$config_name",
     ]
 

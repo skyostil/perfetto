@@ -83,6 +83,20 @@ BUILD_DEPS_HOST = [
    'all'
   ),
 
+  # gRPC
+  ('buildtools/grpc',
+   'https://github.com/grpc/grpc.git',
+   '3bfd78f353c5be1b932ba8e3edcc0e93c9130881',
+   'all'
+  ),
+
+  # zlib
+  ('buildtools/zlib',
+   'https://github.com/madler/zlib.git',
+   'cacf7f1d4e3d44d871b605da3b647f07d718623f',
+   'all'
+  ),
+
   # libc++ and libc++abi, for clang msan that require rebuilding the C++ lib
   # from sources. Keep the SHA1s in sync with Chrome's src/buildtools/DEPS.
   ('buildtools/libcxx',
