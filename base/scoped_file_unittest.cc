@@ -33,6 +33,7 @@ TEST(ScopedDir, CloseOutOfScope) {
   {
     ScopedDir scoped_dir(dir_handle);
     ASSERT_EQ(dir_handle, scoped_dir.get());
+    ASSERT_TRUE(scoped_dir);
   }
   ASSERT_NE(0, close(dir_handle_fd));  // Should fail when closing twice.
 }
@@ -43,6 +44,8 @@ TEST(ScopedFile, CloseOutOfScope) {
   {
     ScopedFile scoped_file(raw_fd);
     ASSERT_EQ(raw_fd, scoped_file.get());
+    ASSERT_EQ(raw_fd, *scoped_file);
+    ASSERT_TRUE(scoped_file);
   }
   ASSERT_NE(0, close(raw_fd));  // Should fail when closing twice.
 }
@@ -74,6 +77,8 @@ TEST(ScopedFile, MoveCtor) {
     ScopedFile scoped_file1(ScopedFile{raw_fd1});
     ScopedFile scoped_file2(std::move(scoped_file1));
     ASSERT_EQ(-1, scoped_file1.get());
+    ASSERT_EQ(-1, *scoped_file1);
+    ASSERT_FALSE(scoped_file1);
     ASSERT_EQ(raw_fd1, scoped_file2.get());
 
     scoped_file1.reset(raw_fd2);
@@ -93,6 +98,7 @@ TEST(ScopedFile, MoveAssignment) {
     ScopedFile scoped_file2(raw_fd2);
     scoped_file2 = std::move(scoped_file1);
     ASSERT_EQ(-1, scoped_file1.get());
+    ASSERT_FALSE(scoped_file1);
     ASSERT_EQ(raw_fd1, scoped_file2.get());
     ASSERT_NE(0, close(raw_fd2));
 
