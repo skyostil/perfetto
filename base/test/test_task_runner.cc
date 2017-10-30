@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include "tracing/src/test/test_task_runner.h"
+#include "base/test/test_task_runner.h"
 
 #include <stdio.h>
 #include <unistd.h>
 
-#include "cpp_common/base.h"
+#include "base/logging.h"
 
 // TODO: the current implementation quite hacky as it keeps waking up every 1ms.
 
 namespace perfetto {
+namespace base {
 
 TestTaskRunner::TestTaskRunner() {
   FD_ZERO(&fd_set_);
@@ -65,7 +66,7 @@ bool TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
     if (!FD_ISSET(fd, &fd_set_))
       continue;
     auto fd_and_callback = watched_fds_.find(fd);
-    DCHECK(fd_and_callback != watched_fds_.end());
+    PERFETTO_DCHECK(fd_and_callback != watched_fds_.end());
     fd_and_callback->second();
   }
   return true;
@@ -78,17 +79,18 @@ void TestTaskRunner::PostTask(std::function<void()> closure) {
 
 void TestTaskRunner::AddFileDescriptorWatch(int fd,
                                             std::function<void()> callback) {
-  DCHECK(fd > 0);
-  DCHECK(watched_fds_.count(fd) == 0);
+  PERFETTO_DCHECK(fd > 0);
+  PERFETTO_DCHECK(watched_fds_.count(fd) == 0);
   watched_fds_.emplace(fd, std::move(callback));
   FD_SET(fd, &fd_set_);
 }
 
 void TestTaskRunner::RemoveFileDescriptorWatch(int fd) {
-  DCHECK(fd > 0);
-  DCHECK(watched_fds_.count(fd) == 1);
+  PERFETTO_DCHECK(fd > 0);
+  PERFETTO_DCHECK(watched_fds_.count(fd) == 1);
   watched_fds_.erase(fd);
   FD_CLR(fd, &fd_set_);
 }
 
+}  // namespace base
 }  // namespace perfetto

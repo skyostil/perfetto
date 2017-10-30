@@ -20,10 +20,11 @@
 
 #include <limits>
 
-#include "cpp_common/base.h"
+#include "base/logging.h"
 
-#define CHECK_PTR_LE(a, b) \
-  CHECK(reinterpret_cast<uintptr_t>(a) <= reinterpret_cast<uintptr_t>(b))
+#define CHECK_PTR_LE(a, b)                         \
+  PERFETTO_CHECK(reinterpret_cast<uintptr_t>(a) <= \
+                 reinterpret_cast<uintptr_t>(b))
 
 namespace protozero {
 namespace proto_utils {
@@ -43,7 +44,7 @@ const uint8_t* ParseVarInt(const uint8_t* start,
   *value = 0;
   do {
     CHECK_PTR_LE(pos, end - 1);
-    DCHECK(shift < 64ull);
+    PERFETTO_DCHECK(shift < 64ull);
     *value |= static_cast<uint64_t>(*pos & 0x7f) << shift;
     shift += 7;
   } while (*pos++ & 0x80);
@@ -70,7 +71,7 @@ const uint8_t* ParseField(const uint8_t* start,
   pos = ParseVarInt(pos, end, &raw_field_id);
   raw_field_id >>= kFieldTypeNumBits;
 
-  DCHECK(raw_field_id <= std::numeric_limits<uint32_t>::max());
+  PERFETTO_DCHECK(raw_field_id <= std::numeric_limits<uint32_t>::max());
   *field_id = static_cast<uint32_t>(raw_field_id);
 
   switch (*field_type) {

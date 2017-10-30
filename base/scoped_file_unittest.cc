@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cpp_common/base.h"
+#include "base/scoped_file.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 namespace perfetto {
+namespace base {
 namespace {
 
 TEST(ScopedFD, CloseOutOfScope) {
@@ -104,4 +105,5 @@ TEST(ScopedFD, CloseFailureIsFatal) {
 }
 
 }  // namespace
+}  // namespace base
 }  // namespace perfetto

@@ -25,10 +25,13 @@
 
 namespace perfetto {
 
+namespace base {
+class TaskRunner;
+}  // namespace base
+
 class DataSourceConfig;
 class DataSourceDescriptor;
 class Producer;
-class TaskRunner;
 
 // The public API of the tracing Service business logic.
 //
@@ -75,7 +78,7 @@ class Service {
   // Implemented in src/core/service_impl.cc .
   static std::unique_ptr<Service> CreateInstance(
       std::unique_ptr<SharedMemory::Factory>,
-      TaskRunner*);
+      base::TaskRunner*);
 
   virtual ~Service() = default;
 

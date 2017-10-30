@@ -186,8 +186,9 @@ class ProtoZeroMessage {
   uint8_t nesting_depth_;
 
 #if PROTOZERO_ENABLE_HANDLE_DEBUGGING()
-  // When true, no more changes to the message are allowed. This is to DCHECK
-  // attempts of writing to a message which has been Finalize()-d.
+  // When true, no more changes to the message are allowed. This is to
+  // PERFETTO_DCHECK attempts of writing to a message which has been
+  // Finalize()-d.
   bool sealed_;
 
   ProtoZeroMessageHandleBase* handle_;
