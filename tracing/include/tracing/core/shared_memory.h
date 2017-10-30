@@ -23,20 +23,24 @@
 
 namespace perfetto {
 
-// Both this class and the Factory are subclassed by the transport layer
-// (e.g., src/unix_rpc). This is to allow it to attach platform specific fields
-// (e.g., a unix file descriptor) and do platform specific initialization.
+// An abstract interface that models the shared memory region shared between
+// Service and Producer. The concrete implementation of this is up to the
+// transport layer. This can be as simple as a malloc()-ed buffer, if both
+// Producer and Service are hosted in the same process, or some posix shared
+// memory for the out-of-process case (see src/unix_rpc).
+// Both this class and the Factory are subclassed by the transport layer, which
+// will attach platform specific fields to it (e.g., a unix file descriptor).
 class SharedMemory {
  public:
   class Factory {
    public:
-    virtual ~Factory() {}
+    virtual ~Factory() = default;
     virtual std::unique_ptr<SharedMemory> CreateSharedMemory(size_t) = 0;
   };
 
   // The transport layer is expected to tear down the resource associated to
   // this object region when destroyed.
-  virtual ~SharedMemory() {}
+  virtual ~SharedMemory() = default;
 
   virtual void* start() const = 0;
   virtual size_t size() const = 0;

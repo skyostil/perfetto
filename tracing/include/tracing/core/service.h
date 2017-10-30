@@ -30,35 +30,44 @@ class DataSourceDescriptor;
 class Producer;
 class TaskRunner;
 
-// The public API of the tracing service business logic.
+// The public API of the tracing Service business logic.
 //
 // Exposed to:
-//   1. The transport layer (e.g., src/unix_rpc/unix_service_host.cc),
-//      which forwards commands received from a remote producer or consumer to
-//     the actual service implementation.
-//   2. Tests.
+// 1. The transport layer (e.g., src/unix_rpc/unix_service_host.cc),
+//    which forwards commands received from a remote producer or consumer to
+//    the actual service implementation.
+// 2. Tests.
 //
 // Subclassed by:
 //   The service business logic in src/core/service_impl.cc.
 class Service {
  public:
-  // The interface exposed to producers.
+  // The API for the Producer port of the Service.
   // Subclassed by:
-  //   1. The service_impl.cc business logic when retuning it in response to
-  //      the ConnectProducer() method.
-  //   2. The transport layer (e.g., src/unix_rpc) when the producer and
-  //      the service don't talk locally but via some RPC mechanism.
+  // 1. The service_impl.cc business logic when returning it in response to
+  //    the ConnectProducer() method.
+  // 2. The transport layer (e.g., src/unix_rpc) when the producer and
+  //    the service don't talk locally but via some RPC mechanism.
   class ProducerEndpoint {
    public:
-    virtual ~ProducerEndpoint() {}
+    virtual ~ProducerEndpoint() = default;
 
+    // The same ID that is passed the producer via Producer::OnConnect().
     virtual ProducerID GetID() const = 0;
 
+    // Called by the Producer to (un)register data sources. The Services returns
+    // asynchronousy the ID for the data source.
+    // TODO(primiano): thinking twice there is no reason why the service choses
+    // ID rather than the Producer. Update in upcoming CLs.
     using RegisterDataSourceCallback = std::function<void(DataSourceID)>;
     virtual void RegisterDataSource(const DataSourceDescriptor&,
                                     RegisterDataSourceCallback) = 0;
     virtual void UnregisterDataSource(DataSourceID) = 0;
 
+    // Called by the Producer to signal acquisition and release of shared memory
+    // pages from the shared memory buffer shared between Service and Producer.
+    // A page is acquired before the Producer starts writing into that and
+    // released once full.
     virtual void NotifyPageAcquired(uint32_t page) = 0;
     virtual void NotifyPageReleased(uint32_t page) = 0;
   };  // class ProducerEndpoint.
@@ -68,9 +77,9 @@ class Service {
       std::unique_ptr<SharedMemory::Factory>,
       TaskRunner*);
 
-  virtual ~Service() {}
+  virtual ~Service() = default;
 
-  // Connects a Producer instance and obtains a ProducerInterface, which is
+  // Connects a Producer instance and obtains a ProducerEndpoint, which is
   // essentially a 1:1 channel between one Producer an the Service.
   // The caller has to guarantee that the Producer will be alive as long as
   // the returned ProducerEndpoint is alive.
