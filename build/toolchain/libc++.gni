@@ -27,9 +27,12 @@ declare_args() {
   # aforementioned copy to the system one.
   #
   # Now, there are two reasons for using the checked in copy of libcxx:
-  # 1) MSan requires that the c++ library is built from sources, because it
-  #    needs to be instrumented with -fsanitize=memory as well (see
+  # 1) LLVM sanitizers require that the c++ library is built from sources,
+  #    because they need to be instrumented with -fsanitize as well (see
   #    https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo).
+  #    On top of this, they also require that the c++ library is dynamically
+  #    linked to prevent duplicate symbol errors when linking (see Chrome's
+  #    build/config/c++/c++.gni)
   # 2) The libstdc++ situation is too wild on Linux. Modern debian distros are
   #    fine but Ubuntu Trusty still ships a libstdc++ that doesn't fully
   #    support C++11. Hence we enable this flag on Linux by default.
@@ -37,6 +40,7 @@ declare_args() {
   #    use_custom_libcxx=false when we target a modern library (see the
   #    GCC7 target in .travis.yml).
   use_custom_libcxx = is_linux || is_msan
+  custom_libcxx_is_static = !use_sanitizers
 }
 
 libcxx_prefix = "//buildtools/libcxx"

@@ -13,9 +13,8 @@
 # limitations under the License.
 
 import("//build/android.gni")
-import("//build/c++.gni")
-import("//build/mac.gni")
 import("//build/sanitizers/sanitizers.gni")
+import("//build/toolchain/libc++.gni")
 
 config("extra_warnings") {
   cflags = [
@@ -32,7 +31,6 @@ config("extra_warnings") {
       "-Wno-gnu-zero-variadic-macro-arguments",
       "-Wno-padded",
       "-Wno-reserved-id-macro",
-      "-Wno-unknown-warning-option",
       "-Wno-unused-parameter",
       "-Wno-weak-vtables",
     ]
@@ -72,7 +70,10 @@ config("default") {
 
   # Color compiler output, see https://github.com/ninja-build/ninja/wiki/FAQ
   if (is_clang) {
-    cflags += [ "-fcolor-diagnostics" ]
+    cflags += [
+      "-fcolor-diagnostics",
+      "-Wno-unknown-warning-option",
+    ]
   }
 
   if (current_cpu == "arm") {
@@ -164,6 +165,16 @@ config("runtime_library") {
       "-isystem" + rebase_path("$libcxx_prefix/include", root_build_dir),
       "-isystem" + rebase_path("$libcxxabi_prefix/include", root_build_dir),
     ]
+
+    # In theory here we want just -nostdlib++, but that is not there yet in
+    # clang 3.9. So, in order to get rid of libstdc++ we have to remove all
+    # libs and then readd the core c libraries like libc and so on.
+    ldflags = [ "-nodefaultlibs" ]
+    libs = [
+      "c",
+      "m",
+      "dl",
+    ]
   }
 }
 
@@ -201,9 +212,8 @@ config("executable") {
   if (is_android) {
     asmflags = [ "-fPIE" ]
     cflags = [ "-fPIE" ]
-    ldflags = [
-      "-fPIE",
-      "-pie",
-    ]
+    ldflags = [ "-pie" ]
+  } else if (is_linux) {
+    ldflags = [ "-fPIC" ]
   }
 }

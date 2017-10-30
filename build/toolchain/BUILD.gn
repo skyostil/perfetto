@@ -13,6 +13,22 @@
 # limitations under the License.
 
 import("//build/android.gni")
+import("llvm.gni")
+
+declare_args() {
+  if (is_clang) {
+    if (is_linux) {
+      cc = "$linux_clang_bin"
+      cxx = "$linux_clangxx_bin"
+    } else {
+      cc = "clang"
+      cxx = "clang++"
+    }
+  } else {
+    cc = "gcc"
+    cxx = "g++"
+  }
+}
 
 declare_args() {
   host_ar = ar

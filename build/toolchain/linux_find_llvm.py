@@ -17,16 +17,22 @@ import subprocess
 import sys
 
 def main():
-  res = subprocess.check_output(['clang', '-print-search-dirs'])
-  for line in res.splitlines():
-    if not line.startswith('libraries:'):
+  devnull = open(os.devnull, 'w')
+  for clang in ('clang', 'clang-3.9'):
+    if subprocess.call(['which', clang], stdout=devnull, stderr=devnull) != 0:
       continue
-    libs = line.split('=', 1)[1].split(':')
-    for lib in libs:
-      if '/clang/' not in lib or not os.path.isdir(lib + '/lib'):
+    res = subprocess.check_output([clang, '-print-search-dirs'])
+    for line in res.splitlines():
+      if not line.startswith('libraries:'):
         continue
-      print os.path.abspath(lib)
-      return 0
+      libs = line.split('=', 1)[1].split(':')
+      for lib in libs:
+        if '/clang/' not in lib or not os.path.isdir(lib + '/lib'):
+          continue
+        print os.path.abspath(lib)
+        print clang
+        print clang.replace('clang', 'clang++')
+        return 0
   print 'Could not find the LLVM lib dir'
   return 1
 

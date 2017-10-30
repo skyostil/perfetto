@@ -19,13 +19,6 @@ declare_args() {
 
 declare_args() {
   ar = "ar"
-  if (is_clang) {
-    cc = "clang"
-    cxx = "clang++"
-  } else {
-    cc = "gcc"
-    cxx = "g++"
-  }
 }
 
 # Platform detection

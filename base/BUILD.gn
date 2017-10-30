@@ -12,12 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-declare_args() {
-  linux_clangrt_dir = ""
+source_set("base") {
+  sources = [
+    "build_config.h",
+    "logging.h",
+    "scoped_file.h",
+    "task_runner.h",
+    "utils.h",
+  ]
 }
 
-if (linux_clangrt_dir == "" && is_linux) {
-  linux_llvm_dir = exec_script("linux_find_llvm.py", [], "list lines")
-  linux_llvm_dir = linux_llvm_dir[0]
-  linux_clangrt_dir = "$linux_llvm_dir/lib/linux"
+source_set("test_support") {
+  testonly = true
+  deps += [ ":base" ]
+  sources = [
+    "test/test_task_runner.cc",
+    "test/test_task_runner.h",
+  ]
+}
+
+executable("base_unittests") {
+  testonly = true
+  deps += [
+    ":base",
+    ":test_support",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+    "//buildtools:gtest_main",
+  ]
+  sources = [
+    "scoped_file_unittest.cc",
+    "utils_unittest.cc",
+  ]
 }
