@@ -47,6 +47,7 @@ HostImpl::HostImpl(const char* socket_name, TaskRunner* task_runner)
 }
 
 HostImpl::~HostImpl() {
+  DLOG("HostImpl dtor");  // TODO removeme.
   if (sock_.fd() >= 0)
     task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
@@ -210,12 +211,12 @@ void HostImpl::OnInvokeMethod(ClientConnection* client,
   // streaming reply). for now hard-coding it to false.
 
   Deferred<ProtoMessage> reply_handler(method.reply_proto_factory());
-  std::weak_ptr<HostImpl> weak_ptr;
+  std::weak_ptr<HostImpl> weak_ptr = weak_ptr_;
   ClientID client_id = client->id;
   reply_handler.Bind(
       [weak_ptr, client_id, request_id](Deferred<ProtoMessage> reply) {
         std::shared_ptr<HostImpl> host = weak_ptr.lock();
-        if (host)
+        if (!host)
           return;  // The host is gone in the meantime.
         host->ReplyToMethodInvocation(client_id, request_id, std::move(reply));
       });

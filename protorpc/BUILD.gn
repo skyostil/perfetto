@@ -51,8 +51,8 @@ executable("protorpc_unittests") {
     "//cpp_common/test:test_support",
   ]
   sources = [
-    "src/test/greeter_service-gen.cc",
     "src/test/greeter_impl.cc",
+    "src/test/greeter_service-gen.cc",
     "src/test/protorpc_unittest.cc",
     "src/unix_socket_unittest.cc",
   ]

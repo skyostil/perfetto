@@ -26,7 +26,16 @@
 namespace perfetto {
 namespace protorpc {
 
-ServiceProxy::ServiceProxy() = default;
+namespace {
+// A default implementation just to avoid having to null-check the event
+// listener all the times.
+class NoOpEventListener : public ServiceProxy::EventListener {
+  void OnConnect() override {}
+  void OnConnectionFailed() override {}
+};
+}  // namespace
+
+ServiceProxy::ServiceProxy() : event_listener_(new NoOpEventListener()) {}
 ServiceProxy::~ServiceProxy() = default;
 
 void ServiceProxy::InitializeBinding(
@@ -57,6 +66,7 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
                             request, weak_ptr_self_);
   if (!request_id)
     return;
+  DLOG("BeginInvoke %llu", request_id);
   DCHECK(pending_callbacks_.count(request_id) == 0);
   pending_callbacks_.emplace(request_id, std::move(reply));
 }
@@ -64,6 +74,7 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
 void ServiceProxy::EndInvoke(RequestID request_id,
                              std::unique_ptr<ProtoMessage> result,
                              bool has_more) {
+  DLOG("EndInvoke %llu", request_id);
   auto callback_it = pending_callbacks_.find(request_id);
   if (callback_it == pending_callbacks_.end()) {
     DCHECK(false);
@@ -77,9 +88,6 @@ void ServiceProxy::EndInvoke(RequestID request_id,
   pending_callbacks_.erase(callback_it);
   return reply.Resolve();
 }
-
-void ServiceProxy::OnConnect() {}
-void ServiceProxy::OnConnectionFailed() {}
 
 }  // namespace protorpc
 }  // namespace perfetto

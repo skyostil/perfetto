@@ -29,7 +29,7 @@ class GreeterImpl : public Greeter {
  public:
   ~GreeterImpl() override;
   void SayHello(const GreeterRequestMsg&, DeferredGreeterReply) override;
-  void WaveGoodBye(const GreeterRequestMsg&, DeferredGreeterReply) override;
+  void WaveGoodbye(const GreeterRequestMsg&, DeferredGreeterReply) override;
 };
 
 }  // namespace protorpc_test

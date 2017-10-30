@@ -45,7 +45,8 @@ ClientImpl::ClientImpl(const char* socket_name, TaskRunner* task_runner)
     : socket_name_(socket_name), task_runner_(task_runner) {}
 
 ClientImpl::~ClientImpl() {
-  if (sock_.is_connected())  // Not 100% correct, what if got disconnected. but also can't just use the fd >= 0.
+  if (sock_.is_connected())  // Not 100% correct, what if got disconnected. but
+                             // also can't just use the fd >= 0.
     task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
 
@@ -72,7 +73,7 @@ void ClientImpl::BindService(const std::weak_ptr<ServiceProxy>& weak_service) {
   req->set_service_name(service_name);
   if (!SendRPCFrame(rpc_frame)) {
     DLOG("BindService(%s) failed", service_name.c_str());
-    return service_proxy->OnConnectionFailed();
+    service_proxy->event_listener()->OnConnectionFailed();
   }
   QueuedRequest qr;
   qr.type = RPCFrame::kMsgBindService;
@@ -101,6 +102,7 @@ RequestID ClientImpl::BeginInvoke(
   }
   QueuedRequest qr;
   qr.type = RPCFrame::kMsgInvokeMethod;
+  qr.request_id = request_id;
   qr.method_name = method_name;
   qr.service_proxy = service_proxy;
   queued_requests_.emplace(request_id, std::move(qr));
@@ -153,30 +155,23 @@ void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
   QueuedRequest req = std::move(queued_requests_it->second);
   queued_requests_.erase(queued_requests_it);
   req.succeeded = rpc_frame.reply_success();
+  DLOG("Success? %d", req.succeeded);
 
-  if (req.type != rpc_frame.msg_case()) {
-    DLOG(
-        "The server is drunk. We requestes msg_type=%d but received "
-        "msg_type=%d in reply for request_id=%" PRIu64,
-        req.type, rpc_frame.msg_case(), rpc_frame.request_id());
-    req.succeeded = false;
+  if (req.type == RPCFrame::kMsgBindService &&
+      rpc_frame.msg_case() == RPCFrame::kMsgBindServiceReply) {
+    return OnBindServiceReply(std::move(req),
+                              rpc_frame.msg_bind_service_reply());
+  }
+  if (req.type == RPCFrame::kMsgInvokeMethod &&
+      rpc_frame.msg_case() == RPCFrame::kMsgInvokeMethodReply) {
+    return OnInvokeMethodReply(std::move(req),
+                               rpc_frame.msg_invoke_method_reply());
   }
 
-  switch (req.type) {
-    case RPCFrame::kMsgBindServiceReply:
-      OnBindServiceReply(std::move(req), rpc_frame.msg_bind_service_reply());
-      break;
-    case RPCFrame::kMsgInvokeMethodReply: {
-      OnInvokeMethodReply(std::move(req), rpc_frame.msg_invoke_method_reply());
-      break;
-      // These messages are only valid in the Client -> Host direction.
-      case RPCFrame::kMsgBindService:
-      case RPCFrame::kMsgInvokeMethod:
-      case RPCFrame::MSG_NOT_SET:
-        DLOG("Received invalid RPC frame %u", rpc_frame.msg_case());
-        return;
-    }
-  }
+  DLOG(
+      "We requestes msg_type=%d but received msg_type=%d in reply to "
+      "request_id=%" PRIu64,
+      req.type, rpc_frame.msg_case(), rpc_frame.request_id());
 }
 
 void ClientImpl::OnBindServiceReply(QueuedRequest req,
@@ -187,7 +182,7 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   if (!req.succeeded) {
     DLOG("Failed BindService(%s)",
          service_proxy->GetDescriptor().service_name.c_str());
-    return service_proxy->OnConnectionFailed();
+    return service_proxy->event_listener()->OnConnectionFailed();
   }
   std::map<std::string, MethodID> methods;
   for (const auto& method : reply.methods()) {
@@ -200,7 +195,7 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   }
   service_proxy->InitializeBinding(req.service_proxy, weak_ptr_self_,
                                    reply.service_id(), std::move(methods));
-  service_proxy->OnConnect();
+  service_proxy->event_listener()->OnConnect();
 }
 
 void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
@@ -218,7 +213,8 @@ void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
       }
     }
   }
-  service_proxy->EndInvoke(req.request_id, nullptr, reply.has_more());
+  service_proxy->EndInvoke(req.request_id, std::move(decoded_reply),
+                           reply.has_more());
 }
 
 ClientImpl::QueuedRequest::QueuedRequest() = default;

@@ -19,6 +19,8 @@
 
 #include "protorpc/basic_types.h"
 
+#include <assert.h>
+
 #include <functional>
 #include <map>
 #include <memory>
@@ -34,11 +36,24 @@ class ServiceDescriptor;
 
 class ServiceProxy {
  public:
+  class EventListener {
+   public:
+    virtual ~EventListener() = default;
+    virtual void OnConnect() = 0;
+    virtual void OnConnectionFailed() = 0;
+  };
+
   ServiceProxy();
   virtual ~ServiceProxy();
 
-  virtual void OnConnect();
-  virtual void OnConnectionFailed();
+  // The passed |event_listener| will be bound to the lifetime of the
+  // ServiceProxy (which is owned by the caller) and is guaranteed to be
+  // destroyed only when ServiceProxy is destroyed.
+  void set_event_listener(std::unique_ptr<EventListener> event_listener) {
+    assert(event_listener.get());
+    event_listener_ = std::move(event_listener);
+  }
+  EventListener* event_listener() const { return event_listener_.get(); }
 
   bool connected() const { return service_id_ != 0; }
 
@@ -75,6 +90,7 @@ class ServiceProxy {
   ServiceID service_id_ = 0;
   std::map<std::string, MethodID> remote_method_ids_;
   std::map<RequestID, Deferred<ProtoMessage>> pending_callbacks_;
+  std::unique_ptr<EventListener> event_listener_;
 };
 
 }  // namespace protorpc

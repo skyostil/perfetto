@@ -20,19 +20,16 @@ namespace protorpc_test {
 
 GreeterImpl::~GreeterImpl() {}
 
-void GreeterImpl::SayHello(
-  const GreeterRequestMsg& req,
-  DeferredGreeterReply reply) {
+void GreeterImpl::SayHello(const GreeterRequestMsg& req,
+                           DeferredGreeterReply reply) {
   reply->set_message("hello " + req.name());
   reply.Resolve();
 }
 
-void GreeterImpl::WaveGoodBye(
-  const GreeterRequestMsg& req,
-  DeferredGreeterReply reply) {
+void GreeterImpl::WaveGoodbye(const GreeterRequestMsg& req,
+                              DeferredGreeterReply reply) {
   reply->set_message("goodbye " + req.name());
   reply.Resolve();
 }
-
 
 }  // namespace protorpc_test

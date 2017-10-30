@@ -34,6 +34,15 @@ void TestTaskRunner::Run() {
   }
 }
 
+bool TestTaskRunner::RunUntilCheckpoint(const std::string& checkpoint) {
+  DCHECK(checkpoints_.count(checkpoint) == 1);
+  while (!checkpoints_[checkpoint]) {
+    if (!RunUntilIdle())
+      return false;
+  }
+  return true;
+}
+
 bool TestTaskRunner::RunUntilIdle() {
   while (!task_queue_.empty()) {
     std::function<void()> closure = std::move(task_queue_.front());
@@ -65,7 +74,6 @@ bool TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
   }
   if (res == 0)
     return true;  // timeout
-  DLOG("wath");
   for (int fd = 0; fd <= max_fd; ++fd) {
     if (!FD_ISSET(fd, &fds))
       continue;
@@ -92,6 +100,13 @@ void TestTaskRunner::RemoveFileDescriptorWatch(int fd) {
   DCHECK(fd >= 0);
   DCHECK(watched_fds_.count(fd) == 1);
   watched_fds_.erase(fd);
+}
+
+std::function<void()> TestTaskRunner::GetCheckpointClosure(
+    const std::string& checkpoint) {
+  DCHECK(checkpoints_.count(checkpoint) == 0);
+  auto checkpoint_iter = checkpoints_.emplace(checkpoint, false);
+  return [checkpoint_iter] { checkpoint_iter.first->second = true; };
 }
 
 }  // namespace perfetto

@@ -17,6 +17,8 @@
 #ifndef PROTORPC_INCLUDE_PROTORPC_DEFERRED_H_
 #define PROTORPC_INCLUDE_PROTORPC_DEFERRED_H_
 
+#include <assert.h>
+
 #include <functional>
 #include <memory>
 #include <utility>
@@ -73,8 +75,11 @@ class Deferred {
   void set_msg(std::unique_ptr<ProtoMessage> r) { msg_ = std::move(r); }
 
   std::unique_ptr<ProtoMessage>* msg() { return &msg_; }
-  T& operator*() { return static_cast<T&>(*msg_); }
-  T* operator->() { return static_cast<T*>(msg_.get()); }
+  T* operator->() {
+    assert(msg_);
+    return static_cast<T*>(msg_.get());
+  }
+  T& operator*() { return *this; }
 
   void Bind(std::function<void(Deferred<T>)> callback) {
     callback_ = std::move(callback);
@@ -95,7 +100,7 @@ class Deferred {
     static_assert(std::is_base_of<ProtoMessage, X>::value, "X->ProtoMessage");
     auto orig_callback = std::move(callback_);
     callback_ = nullptr;
-    auto callback_adapter = [orig_callback] (Deferred<X> arg) {
+    auto callback_adapter = [orig_callback](Deferred<X> arg) {
       orig_callback(Deferred<T>(std::move(*arg.msg()), arg.has_more()));
     };
     return Deferred<X>(std::move(msg_), has_more_, callback_adapter);

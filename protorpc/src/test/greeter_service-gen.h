@@ -38,7 +38,7 @@ class Greeter : public ::perfetto::protorpc::Service {
   virtual ~Greeter();
 
   virtual void SayHello(const GreeterRequestMsg&, DeferredGreeterReply) = 0;
-  virtual void WaveGoodBye(const GreeterRequestMsg&, DeferredGreeterReply) = 0;
+  virtual void WaveGoodbye(const GreeterRequestMsg&, DeferredGreeterReply) = 0;
 
   // Service implementation.
   const ::perfetto::protorpc::ServiceDescriptor& GetDescriptor() override;
@@ -53,7 +53,7 @@ class GreeterProxy : public ::perfetto::protorpc::ServiceProxy {
 
   // Greeter implementation.
   void SayHello(const GreeterRequestMsg&, DeferredGreeterReply);
-  void WaveGoodBye(const GreeterRequestMsg&, DeferredGreeterReply);
+  void WaveGoodbye(const GreeterRequestMsg&, DeferredGreeterReply);
 };
 
 }  // namespace protorpc_test

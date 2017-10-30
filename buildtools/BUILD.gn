@@ -39,6 +39,7 @@ config("googletest_config") {
     "-Wno-shift-sign-overflow",
     "-Wno-undef",
     "-Wno-unknown-warning-option",
+    "-Wno-unused-member-function",
     "-Wno-used-but-marked-unused",
     "-Wno-zero-as-null-pointer-constant",
   ]

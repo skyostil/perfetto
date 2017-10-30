@@ -66,9 +66,7 @@ class HostImpl : public Host {
   void OnReceivedRPCFrame(ClientID, ClientConnection*, const RPCFrame&);
   void OnBindService(ClientConnection*, const RPCFrame&);
   void OnInvokeMethod(ClientConnection*, const RPCFrame&);
-  void ReplyToMethodInvocation(ClientID,
-                               RequestID,
-                               Deferred<ProtoMessage>);
+  void ReplyToMethodInvocation(ClientID, RequestID, Deferred<ProtoMessage>);
 
   const ExposedService* GetServiceByName(const std::string&);
   void SendRPCFrame(ClientConnection*, const RPCFrame&);

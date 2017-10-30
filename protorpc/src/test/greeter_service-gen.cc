@@ -69,20 +69,18 @@ ServiceDescriptor* CreateDescriptor() {
 
   // rpc SayHello(GreeterRequestMsg) returns (GreeterReplyMsg) {}
   desc->methods.emplace_back(ServiceDescriptor::Method{
-      "SayHello",
-      &Decoder<::protorpc_test::GreeterRequestMsg>,
+      "SayHello", &Decoder<::protorpc_test::GreeterRequestMsg>,
       &Decoder<::protorpc_test::GreeterReplyMsg>,
       &Factory<::protorpc_test::GreeterReplyMsg>,
       &Invoker<Greeter, ::protorpc_test::GreeterRequestMsg,
                ::protorpc_test::GreeterReplyMsg, &Greeter::SayHello>});
 
   desc->methods.emplace_back(ServiceDescriptor::Method{
-      "WaveGoodBye",
-      &Decoder<::protorpc_test::GreeterRequestMsg>,
+      "WaveGoodbye", &Decoder<::protorpc_test::GreeterRequestMsg>,
       &Decoder<::protorpc_test::GreeterReplyMsg>,
       &Factory<::protorpc_test::GreeterReplyMsg>,
       &Invoker<Greeter, ::protorpc_test::GreeterRequestMsg,
-               ::protorpc_test::GreeterReplyMsg, &Greeter::WaveGoodBye>});
+               ::protorpc_test::GreeterReplyMsg, &Greeter::WaveGoodbye>});
   return desc;
 }
 
@@ -92,7 +90,6 @@ const ServiceDescriptor& GetDescriptorLazy() {
 }
 
 }  // namespace
-
 
 Greeter::~Greeter() = default;
 
@@ -112,10 +109,10 @@ void GreeterProxy::SayHello(const GreeterRequestMsg& request,
       "SayHello", request, std::move(reply));
 }
 
-void GreeterProxy::WaveGoodBye(const GreeterRequestMsg& request,
+void GreeterProxy::WaveGoodbye(const GreeterRequestMsg& request,
                                DeferredGreeterReply reply) {
   ::perfetto::protorpc::ServiceProxy::BeginInvoke<GreeterReplyMsg>(
-      "WaveGoodBye", request, std::move(reply));
+      "WaveGoodbye", request, std::move(reply));
 }
 
 }  // namespace protorpc_test

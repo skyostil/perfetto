@@ -21,9 +21,7 @@ package perfetto.protorpc;
 
 message RPCFrame {
   // Client -> Host messages.
-  message BindService {
-    string service_name = 1;
-  }
+  message BindService { string service_name = 1; }
 
   message InvokeMethod {
     int32 service_id = 1;
