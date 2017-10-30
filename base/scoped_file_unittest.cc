@@ -33,6 +33,7 @@ TEST(ScopedDir, CloseOutOfScope) {
   {
     ScopedDir scoped_dir(dir_handle);
     ASSERT_EQ(dir_handle, scoped_dir.get());
+    ASSERT_TRUE(scoped_dir);
   }
   ASSERT_NE(0, close(dir_handle_fd));  // Should fail when closing twice.
 }

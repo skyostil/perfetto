@@ -63,9 +63,14 @@ TEST(Utils, EintrWrapper) {
 
   struct sigaction sa = {};
   struct sigaction old_sa = {};
-  sa.sa_sigaction = [](int, siginfo_t*, void*) {};
-  ASSERT_EQ(0, sigaction(SIGUSR2, &sa, &old_sa));
 
+// Glibc headers for sa_sigaction trigger this.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdisabled-macro-expansion"
+  sa.sa_sigaction = [](int, siginfo_t*, void*) {};
+#pragma GCC diagnostic pop
+
+  ASSERT_EQ(0, sigaction(SIGUSR2, &sa, &old_sa));
   int parent_pid = getpid();
   pid_t pid = fork();
   ASSERT_NE(-1, pid);

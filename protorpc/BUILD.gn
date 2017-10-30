@@ -51,10 +51,23 @@ executable("protorpc_unittests") {
     "//buildtools:gtest_main",
   ]
   sources = [
+    "src/unix_socket_unittest.cc",
+  ]
+}
+
+executable("protorpc_test") {
+  testonly = true
+  deps += [
+    ":protorpc",
+    ":test_protos",
+    "//base:test_support",
+    "//buildtools:gmock",
+    "//buildtools:gtest",
+  ]
+  sources = [
     "src/test/greeter_impl.cc",
     "src/test/greeter_service-gen.cc",
-    "src/test/protorpc_unittest.cc",
-    "src/unix_socket_unittest.cc",
+    "src/test/protorpc_test.cc",
   ]
 }
 

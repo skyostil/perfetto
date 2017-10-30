@@ -66,7 +66,6 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
                             request, weak_ptr_self_);
   if (!request_id)
     return;
-  PERFETTO_DLOG("BeginInvoke %llu", request_id);
   PERFETTO_DCHECK(pending_callbacks_.count(request_id) == 0);
   pending_callbacks_.emplace(request_id, std::move(reply));
 }
@@ -74,7 +73,6 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
 void ServiceProxy::EndInvoke(RequestID request_id,
                              std::unique_ptr<ProtoMessage> result,
                              bool has_more) {
-  PERFETTO_DLOG("EndInvoke %llu", request_id);
   auto callback_it = pending_callbacks_.find(request_id);
   if (callback_it == pending_callbacks_.end()) {
     PERFETTO_DCHECK(false);

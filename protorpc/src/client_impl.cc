@@ -156,7 +156,6 @@ void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
   QueuedRequest req = std::move(queued_requests_it->second);
   queued_requests_.erase(queued_requests_it);
   req.succeeded = rpc_frame.reply_success();
-  PERFETTO_DLOG("Success? %d", req.succeeded);
 
   if (req.type == RPCFrame::kMsgBindService &&
       rpc_frame.msg_case() == RPCFrame::kMsgBindServiceReply) {

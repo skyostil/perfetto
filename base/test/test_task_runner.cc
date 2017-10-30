@@ -42,7 +42,7 @@ bool TestTaskRunner::RunUntilIdle() {
     closure();
   }
 
-  int res = RunFileDescriptorWatches(1000);
+  int res = RunFileDescriptorWatches(100);
   if (res < 0)
     return false;
   return true;

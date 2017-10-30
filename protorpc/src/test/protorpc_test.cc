@@ -20,8 +20,9 @@
 #include "protorpc/host.h"
 #include "protorpc/src/test/greeter_impl.h"
 
+#include <stdio.h>
+
 #include "gmock/gmock.h"
-#include "gtest/gtest.h"
 
 namespace perfetto {
 namespace protorpc {
@@ -36,28 +37,24 @@ using ::testing::Invoke;
 
 const char kSocketName[] = "/tmp/test_protorpc";
 
-class ProtoRPCTest : public ::testing::Test {
- protected:
-  // void SetUp() override { unlink(kSocketName); }
-  // void TearDown() override { unlink(kSocketName); }
-};
-
 class MockEventListener : public ServiceProxy::EventListener {
  public:
   MOCK_METHOD0(OnConnect, void());
   MOCK_METHOD0(OnConnectionFailed, void());
 };
 
-TEST_F(ProtoRPCTest, GreeterHost) {
+int HostMain() {
+  unlink(kSocketName);
   base::TestTaskRunner task_runner;
   std::shared_ptr<GreeterImpl> svc(new GreeterImpl());
   std::shared_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
-  ASSERT_TRUE(host->ExposeService(svc));
+  PERFETTO_CHECK(host->ExposeService(svc));
   host->Start();
   task_runner.Run();
+  return 0;
 }
 
-TEST_F(ProtoRPCTest, GreeterClient) {
+int ClientMain() {
   base::TestTaskRunner task_runner;
   std::shared_ptr<Client> client(
       Client::CreateInstance(kSocketName, &task_runner));
@@ -65,7 +62,7 @@ TEST_F(ProtoRPCTest, GreeterClient) {
   std::shared_ptr<GreeterProxy> svc_proxy(new GreeterProxy());
   std::unique_ptr<MockEventListener> event_listener(new MockEventListener);
   auto on_connect = task_runner.GetCheckpointClosure("connected");
-  PERFETTO_DLOG("connecting");
+  PERFETTO_DLOG("Connecting...");
   EXPECT_CALL(*event_listener, OnConnectionFailed()).WillRepeatedly(Invoke([] {
     PERFETTO_DLOG("Connection failed");
   }));
@@ -82,8 +79,8 @@ TEST_F(ProtoRPCTest, GreeterClient) {
   Deferred<GreeterReplyMsg> reply;
   auto checkpoint = task_runner.GetCheckpointClosure("reply1");
   reply.Bind([checkpoint](Deferred<GreeterReplyMsg> r) {
-    PERFETTO_DLOG("GOT REPLY %d %s!", r.success(),
-                  r.success() ? r->message().c_str() : "");
+    PERFETTO_DLOG("SayHello() -> %s!",
+                  r.success() ? r->message().c_str() : "FAIL");
     checkpoint();
   });
   svc_proxy->SayHello(req, std::move(reply));
@@ -91,14 +88,24 @@ TEST_F(ProtoRPCTest, GreeterClient) {
 
   auto checkpoint2 = task_runner.GetCheckpointClosure("reply2");
   reply.Bind([checkpoint2](Deferred<GreeterReplyMsg> r) {
-    PERFETTO_DLOG("GOT REPLY2 %d %s!", r.success(),
-                  r.success() ? r->message().c_str() : "");
+    PERFETTO_DLOG("WaveGoodbye() -> %s!",
+                  r.success() ? r->message().c_str() : "FAIL");
     checkpoint2();
   });
   svc_proxy->WaveGoodbye(req, std::move(reply));
   task_runner.RunUntilCheckpoint("reply2");
+  return 0;
 }
 
 }  // namespace
 }  // namespace protorpc
 }  // namespace perfetto
+
+int main(int argc, char** argv) {
+  if (argc == 2 && strcmp(argv[1], "client") == 0)
+    return ::perfetto::protorpc::ClientMain();
+  if (argc == 2 && strcmp(argv[1], "host") == 0)
+    return ::perfetto::protorpc::HostMain();
+  fprintf(stderr, "Usage: %s host | client\n", argv[0]);
+  return 1;
+}
