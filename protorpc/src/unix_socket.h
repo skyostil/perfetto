@@ -22,7 +22,8 @@
 
 #include <string>
 
-#include "cpp_common/base.h"
+#include "base/logging.h"
+#include "base/scoped_file.h"
 
 namespace perfetto {
 namespace protorpc {
@@ -94,7 +95,7 @@ class UnixSocket {
   // Remember that this class has move semantics. Update the move operators
   // accordingly when adding new fields.
 
-  ::perfetto::ScopedFile sock_;
+  base::ScopedFile sock_;
   State state_ = State::DISCONNECTED;
 };
 

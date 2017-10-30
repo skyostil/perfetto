@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// TODO(primiano): protobuf leaks CHECK macro, sigh.
+// TODO(primiano): protobuf leaks PERFETTO_CHECK macro, sigh.
 #include "wire_protocol.pb.h"
 
 #include "protorpc/src/host_impl.h"
@@ -24,7 +24,8 @@
 #include <algorithm>
 #include <utility>
 
-#include "cpp_common/task_runner.h"
+#include "base/task_runner.h"
+#include "base/utils.h"
 #include "protorpc/service.h"
 #include "protorpc/service_descriptor.h"
 
@@ -35,19 +36,18 @@ namespace protorpc {
 
 // static
 std::shared_ptr<Host> Host::CreateInstance(const char* socket_name,
-                                           TaskRunner* task_runner) {
+                                           base::TaskRunner* task_runner) {
   std::shared_ptr<HostImpl> host(new HostImpl(socket_name, task_runner));
   host->set_weak_ptr(std::weak_ptr<HostImpl>(host));
   return host;
 }
 
-HostImpl::HostImpl(const char* socket_name, TaskRunner* task_runner)
+HostImpl::HostImpl(const char* socket_name, base::TaskRunner* task_runner)
     : socket_name_(socket_name), task_runner_(task_runner) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 }
 
 HostImpl::~HostImpl() {
-  DLOG("HostImpl dtor");  // TODO removeme.
   if (sock_.fd() >= 0)
     task_runner_->RemoveFileDescriptorWatch(sock_.fd());
 }
@@ -63,13 +63,13 @@ bool HostImpl::Start() {
 }
 
 void HostImpl::OnNewConnection() {
-  DLOG("[host_impl.cc] OnNewConnection()");
+  PERFETTO_DLOG("[host_impl.cc] OnNewConnection()");
 
   UnixSocket cli_sock;
   while (sock_.Accept(&cli_sock)) {
     int cli_sock_fd = cli_sock.fd();
     if (cli_sock_fd < 0) {
-      DCHECK(false);
+      PERFETTO_DCHECK(false);
       continue;
     }
     // TODO(primiano): careful with Send() and non-blocking mode.
@@ -79,7 +79,7 @@ void HostImpl::OnNewConnection() {
     client->id = client_id;
     client->sock = std::move(cli_sock);
     clients_[client_id] = std::move(client);
-    DLOG("[host_impl.cc] New client %" PRIu64, client_id);
+    PERFETTO_DLOG("[host_impl.cc] New client %" PRIu64, client_id);
     // TODO use the weak ptr.
     task_runner_->AddFileDescriptorWatch(
         cli_sock_fd, std::bind(&HostImpl::OnDataAvailable, this, client_id));
@@ -89,10 +89,11 @@ void HostImpl::OnNewConnection() {
 void HostImpl::OnClientDisconnect(ClientID client_id) {
   auto client_it = clients_.find(client_id);
   if (client_it == clients_.end() || client_it->second->sock.fd() < 0) {
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
     return;
   }
-  DLOG("[protorpc::HostImpl] Client %" PRIu64 " disconnected", client_id);
+  PERFETTO_DLOG("[protorpc::HostImpl] Client %" PRIu64 " disconnected",
+                client_id);
   task_runner_->RemoveFileDescriptorWatch(client_it->second->sock.fd());
   clients_.erase(client_id);
 }
@@ -100,7 +101,7 @@ void HostImpl::OnClientDisconnect(ClientID client_id) {
 bool HostImpl::ExposeService(const std::shared_ptr<Service>& service) {
   const ServiceDescriptor& desc = service->GetDescriptor();
   if (GetServiceByName(desc.service_name)) {
-    DLOG("Duplicate ExposeService(): %s", desc.service_name.c_str());
+    PERFETTO_DLOG("Duplicate ExposeService(): %s", desc.service_name.c_str());
     return false;
   }
   ServiceID sid = ++last_service_id_;
@@ -152,8 +153,8 @@ void HostImpl::OnReceivedRPCFrame(ClientID client_id,
   } else if (req_frame.msg_case() == RPCFrame::kMsgInvokeMethod) {
     return OnInvokeMethod(client, req_frame);
   }
-  DLOG("Received invalid RPC frame %u from client %" PRIu64,
-       req_frame.msg_case(), client_id);
+  PERFETTO_DLOG("Received invalid RPC frame %u from client %" PRIu64,
+                req_frame.msg_case(), client_id);
   RPCFrame reply_frame;
   reply_frame.set_request_id(req_frame.request_id());
   reply_frame.set_reply_success(false);
@@ -253,11 +254,10 @@ void HostImpl::SendRPCFrame(ClientConnection* client, const RPCFrame& reply) {
   uint32_t payload_len = static_cast<uint32_t>(reply.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
   if (!reply.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
     payload_len = 0;
   }
-  uint32_t enc_size = BYTE_SWAP_TO_LE32(payload_len);
-  memcpy(buf.get(), &enc_size, sizeof(uint32_t));
+  memcpy(buf.get(), ASSUME_LITTLE_ENDIAN(&payload_len), sizeof(uint32_t));
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or

@@ -24,9 +24,10 @@
 #include <map>
 #include <string>
 
-#include "cpp_common/task_runner.h"
+#include "base/task_runner.h"
 
 namespace perfetto {
+namespace base {
 
 class TestTaskRunner : public TaskRunner {
  public:
@@ -36,10 +37,10 @@ class TestTaskRunner : public TaskRunner {
   void Run();
 
   // Returns false in case of errors.
-  bool RunUntilCheckpoint(const std::string& checkpoint);
   bool RunUntilIdle();
 
   std::function<void()> GetCheckpointClosure(const std::string& checkpoint);
+  bool RunUntilCheckpoint(const std::string& checkpoint);
 
   // TaskRunner implementation.
   void PostTask(std::function<void()> closure) override;
@@ -58,6 +59,7 @@ class TestTaskRunner : public TaskRunner {
   std::map<std::string, bool> checkpoints_;
 };
 
+}  // namespace base
 }  // namespace perfetto
 
 #endif  // TRACING_SRC_TEST_TEST_TASK_RUNNER_H_

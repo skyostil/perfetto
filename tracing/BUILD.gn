@@ -12,56 +12,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//build/proto_library.gni")
-
-config("protorpc_config") {
+config("tracing_config") {
   include_dirs = [ "include" ]
 }
 
-source_set("protorpc") {
-  all_dependent_configs = [ ":protorpc_config" ]
-  deps = [
-    ":wire_protocol",
-  ]
+source_set("tracing") {
+  all_dependent_configs = [ ":tracing_config" ]
+  deps += [ "//base" ]
   sources = [
-    "src/client_impl.cc",
-    "src/host_impl.cc",
-    "src/rpc_frame_decoder.cc",
-    "src/service_proxy.cc",
-    "src/unix_socket.cc",
+    "include/tracing/core/basic_types.h",
+    "include/tracing/core/data_source_config.h",
+    "include/tracing/core/data_source_descriptor.h",
+    "include/tracing/core/producer.h",
+    "include/tracing/core/service.h",
+    "include/tracing/core/shared_memory.h",
+    "src/core/service_impl.cc",
+    "src/core/service_impl.h",
   ]
 }
 
-proto_library("wire_protocol") {
-  sources = [
-    "src/wire_protocol.proto",
-  ]
-  include_dirs = [ "include" ]
-  proto_in_dir = "src/"
-}
-
-executable("protorpc_unittests") {
+executable("tracing_unittests") {
   testonly = true
   deps += [
-    ":protorpc",
-    ":test_protos",
+    ":tracing",
+    "//base",
     "//base:test_support",
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
   ]
   sources = [
-    "src/test/greeter_impl.cc",
-    "src/test/greeter_service-gen.cc",
-    "src/test/protorpc_unittest.cc",
-    "src/unix_socket_unittest.cc",
+    "src/core/service_impl_unittest.cc",
+    "src/test/test_shared_memory.cc",
+    "src/test/test_shared_memory.h",
   ]
 }
 
-proto_library("test_protos") {
+executable("tracing_benchmarks") {
+  testonly = true
+  deps += [ "//buildtools:benchmark" ]
   sources = [
-    "src/test/greeter_service.proto",
+    "src/test/hello_world_benchmark.cc",
   ]
-  include_dirs = [ "include" ]
-  proto_in_dir = "src/test"
 }

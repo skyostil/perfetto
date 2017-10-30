@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-// TODO(primiano): protobuf leaks CHECK macro, sigh.
+// TODO(primiano): protobuf leaks PERFETTO_CHECK macro, sigh.
 #include "wire_protocol.pb.h"
 
 #include <inttypes.h>
 
 #include <utility>
 
-#include "cpp_common/base.h"
+#include "base/logging.h"
+#include "base/utils.h"
 #include "protorpc/src/rpc_frame_decoder.h"
 
 namespace perfetto {
@@ -32,17 +33,18 @@ RPCFrameDecoder::RPCFrameDecoder() = default;
 std::pair<char*, size_t> RPCFrameDecoder::GetRecvBuffer() {
   // If this dcheck is hit the client has invoked two GetRecvBuffer() back to
   // back, without having called SetLastReadSize() in between.
-  // DLOG("GetRecvBuffer: %zu %zu", valid_size_, buf_.size());
-  DCHECK(valid_size_ == buf_.size());
+  // PERFETTO_DLOG("GetRecvBuffer: %zu %zu", valid_size_, buf_.size());
+  PERFETTO_DCHECK(valid_size_ == buf_.size());
   const size_t kReadSize = 4096;
   buf_.resize(valid_size_ + kReadSize);
   return std::make_pair(buf_.data() + valid_size_, kReadSize);
 }
 
 void RPCFrameDecoder::SetLastReadSize(ssize_t rsize) {
-  CHECK(rsize < 1024 * 1024);  // We don't expect recv() buffers to be that big.
-  // DLOG("SetLastReadSize: %zu %zu, rsize: %ld", valid_size_, buf_.size(),
-  // rsize);
+  PERFETTO_CHECK(
+      rsize < 1024 * 1024);  // We don't expect recv() buffers to be that big.
+  // PERFETTO_DLOG("SetLastReadSize: %zu %zu, rsize: %ld", valid_size_,
+  // buf_.size(), rsize);
   if (rsize <= 0) {
     buf_.resize(valid_size_);
     return;
@@ -54,9 +56,9 @@ void RPCFrameDecoder::SetLastReadSize(ssize_t rsize) {
 std::unique_ptr<RPCFrame> RPCFrameDecoder::GetRPCFrame() {
   // The header is just the number of bytes of the payload.
   const size_t kHeaderSize = sizeof(uint32_t);
-  // DLOG("GetRPCFrame: %zu %zu", valid_size_, buf_.size());
+  // PERFETTO_DLOG("GetRPCFrame: %zu %zu", valid_size_, buf_.size());
 
-  CHECK(valid_size_ <= buf_.size());  // Sanity check.
+  PERFETTO_CHECK(valid_size_ <= buf_.size());  // Sanity check.
 
   // This loop is only to skip any invalid frame. We can't just return nullptr
   // that case because the caller will assume that there are no more frame,
@@ -68,8 +70,7 @@ std::unique_ptr<RPCFrame> RPCFrameDecoder::GetRPCFrame() {
     if (valid_size_ < kHeaderSize)
       return nullptr;  // There isn't enough data not even for the header.
     uint32_t frame_size = 0;
-    memcpy(&frame_size, buf_.data(), kHeaderSize);
-    frame_size = BYTE_SWAP_TO_LE32(frame_size);
+    memcpy(ASSUME_LITTLE_ENDIAN(&frame_size), buf_.data(), kHeaderSize);
     const size_t frame_size_including_header = kHeaderSize + frame_size;
     if (valid_size_ < frame_size_including_header)
       return nullptr;  // The header is here but the payload isn't complete yet.
@@ -80,7 +81,7 @@ std::unique_ptr<RPCFrame> RPCFrameDecoder::GetRPCFrame() {
     valid_size_ -= frame_size_including_header;
     if (decoded)
       return frame;
-    DLOG("Received malformed frame. size: %" PRIu32, frame_size);
+    PERFETTO_DLOG("Received malformed frame. size: %" PRIu32, frame_size);
   }
 }
 

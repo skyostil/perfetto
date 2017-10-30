@@ -29,8 +29,9 @@
 #include <algorithm>
 #include <memory>
 
-#include "cpp_common/base.h"
-#include "cpp_common/build_config.h"
+#include "base/build_config.h"
+#include "base/logging.h"
+#include "base/utils.h"
 
 namespace perfetto {
 namespace protorpc {
@@ -92,7 +93,7 @@ UnixSocket& UnixSocket::operator=(UnixSocket&& other) noexcept {
 bool UnixSocket::CreateSocket() {
   if (is_connected()) {
     Shutdown();
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
   }
   state_ = State::DISCONNECTED;
   sock_.reset(socket(AF_UNIX, SOCK_STREAM, 0));
@@ -103,7 +104,7 @@ bool UnixSocket::CreateSocket() {
   setsockopt(*sock_, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
 #endif
   int fcntl_res = fcntl(*sock_, FD_CLOEXEC);
-  DCHECK(fcntl_res == 0);
+  PERFETTO_DCHECK(fcntl_res == 0);
   return true;
 }
 
@@ -124,12 +125,12 @@ bool UnixSocket::Listen(const char* socket_name) {
 #endif
 
   if (bind(*sock_, reinterpret_cast<sockaddr*>(&addr), bind_size)) {
-    DPLOG("bind()");
+    PERFETTO_DPLOG("bind()");
     return false;
   }
   if (listen(*sock_, SOMAXCONN)) {
     return false;
-    DPLOG("listen()");
+    PERFETTO_DPLOG("listen()");
   }
   state_ = State::LISTENING;
   return true;
@@ -138,11 +139,11 @@ bool UnixSocket::Listen(const char* socket_name) {
 bool UnixSocket::Accept(UnixSocket* client_socket) {
   sockaddr_un cli_addr = {};
   socklen_t size = sizeof(cli_addr);
-  ::perfetto::ScopedFile cli_sock(HANDLE_EINTR(
+  base::ScopedFile cli_sock(PERFETTO_EINTR(
       accept(*sock_, reinterpret_cast<sockaddr*>(&cli_addr), &size)));
   if (!cli_sock) {
     if (errno != EWOULDBLOCK)
-      DPLOG("accept()");
+      PERFETTO_DPLOG("accept()");
     return false;
   }
   client_socket->sock_ = std::move(cli_sock);
@@ -157,7 +158,7 @@ bool UnixSocket::Connect(const char* socket_name) {
   socklen_t addr_size;
   if (!GetSockAddr(socket_name, &addr, &addr_size))
     return false;
-  if (HANDLE_EINTR(
+  if (PERFETTO_EINTR(
           connect(*sock_, reinterpret_cast<sockaddr*>(&addr), addr_size))) {
     return false;
   }
@@ -174,12 +175,12 @@ void UnixSocket::Shutdown() {
 }
 
 void UnixSocket::SetBlockingIOMode(bool would_block) {
-  CHECK(fd() >= 0);
+  PERFETTO_CHECK(fd() >= 0);
   int flags = fcntl(fd(), F_GETFL, 0);
-  DCHECK(flags >= 0);
+  PERFETTO_DCHECK(flags >= 0);
   flags = would_block ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
   int res = fcntl(fd(), F_SETFL, flags);
-  CHECK(res == 0);
+  PERFETTO_CHECK(res == 0);
 }
 
 bool UnixSocket::Send(const void* msg,
@@ -195,7 +196,7 @@ bool UnixSocket::Send(const void* msg,
   if (fds_size > 0) {
     const cbuf_len_t control_buf_len =
         static_cast<cbuf_len_t>(CMSG_SPACE(fds_size * sizeof(int)));
-    CHECK(control_buf_len <= sizeof(control_buf));
+    PERFETTO_CHECK(control_buf_len <= sizeof(control_buf));
     memset(control_buf, 0, sizeof(control_buf));
     msg_hdr.msg_control = control_buf;
     msg_hdr.msg_controllen = control_buf_len;
@@ -207,7 +208,7 @@ bool UnixSocket::Send(const void* msg,
     msg_hdr.msg_controllen = cmsg->cmsg_len;
   }
 
-  const ssize_t sz = HANDLE_EINTR(sendmsg(*sock_, &msg_hdr, kSockFlags));
+  const ssize_t sz = PERFETTO_EINTR(sendmsg(*sock_, &msg_hdr, kSockFlags));
   return sz == static_cast<ssize_t>(msg_size);
 }
 
@@ -225,9 +226,9 @@ ssize_t UnixSocket::Recv(void* msg,
     msg_hdr.msg_control = control_buf;
     msg_hdr.msg_controllen =
         static_cast<cbuf_len_t>(CMSG_SPACE(*fds_size * sizeof(int)));
-    CHECK(msg_hdr.msg_controllen <= sizeof(control_buf));
+    PERFETTO_CHECK(msg_hdr.msg_controllen <= sizeof(control_buf));
   }
-  const ssize_t sz = HANDLE_EINTR(recvmsg(*sock_, &msg_hdr, kSockFlags));
+  const ssize_t sz = PERFETTO_EINTR(recvmsg(*sock_, &msg_hdr, kSockFlags));
   if (sz <= 0)
     return sz;
 
@@ -239,8 +240,8 @@ ssize_t UnixSocket::Recv(void* msg,
          cmsg = CMSG_NXTHDR(&msg_hdr, cmsg)) {
       const size_t payload_len = cmsg->cmsg_len - CMSG_LEN(0);
       if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-        DCHECK(payload_len % sizeof(int) == 0u);
-        DCHECK(wire_fds == nullptr);
+        PERFETTO_DCHECK(payload_len % sizeof(int) == 0u);
+        PERFETTO_DCHECK(wire_fds == nullptr);
         wire_fds = reinterpret_cast<int*>(CMSG_DATA(cmsg));
         wire_fds_len = static_cast<uint32_t>(payload_len / sizeof(int));
       }
@@ -271,7 +272,7 @@ std::string UnixSocket::RecvString(size_t max_length) {
   ssize_t rsize = Recv(buf.get(), max_length);
   if (rsize <= 0)
     return std::string();
-  CHECK(static_cast<size_t>(rsize) <= max_length);
+  PERFETTO_CHECK(static_cast<size_t>(rsize) <= max_length);
   buf[static_cast<size_t>(rsize)] = '\0';
   return std::string(buf.get());
 }

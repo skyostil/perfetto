@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "cpp_common/base.h"
-#include "cpp_common/test/test_task_runner.h"
+#include "base/logging.h"
+#include "base/test/test_task_runner.h"
 #include "protorpc/client.h"
 #include "protorpc/host.h"
 #include "protorpc/src/test/greeter_impl.h"
@@ -49,7 +49,7 @@ class MockEventListener : public ServiceProxy::EventListener {
 };
 
 TEST_F(ProtoRPCTest, GreeterHost) {
-  TestTaskRunner task_runner;
+  base::TestTaskRunner task_runner;
   std::shared_ptr<GreeterImpl> svc(new GreeterImpl());
   std::shared_ptr<Host> host(Host::CreateInstance(kSocketName, &task_runner));
   ASSERT_TRUE(host->ExposeService(svc));
@@ -58,18 +58,19 @@ TEST_F(ProtoRPCTest, GreeterHost) {
 }
 
 TEST_F(ProtoRPCTest, GreeterClient) {
-  TestTaskRunner task_runner;
+  base::TestTaskRunner task_runner;
   std::shared_ptr<Client> client(
       Client::CreateInstance(kSocketName, &task_runner));
-  DCHECK(client);
+  PERFETTO_DCHECK(client);
   std::shared_ptr<GreeterProxy> svc_proxy(new GreeterProxy());
   std::unique_ptr<MockEventListener> event_listener(new MockEventListener);
   auto on_connect = task_runner.GetCheckpointClosure("connected");
+  PERFETTO_DLOG("connecting");
   EXPECT_CALL(*event_listener, OnConnectionFailed()).WillRepeatedly(Invoke([] {
-    printf("Connection failed\n");
+    PERFETTO_DLOG("Connection failed");
   }));
   EXPECT_CALL(*event_listener, OnConnect()).WillRepeatedly(Invoke([on_connect] {
-    printf("Connected\n");
+    PERFETTO_DLOG("Connected");
     on_connect();
   }));
   svc_proxy->set_event_listener(std::move(event_listener));
@@ -81,8 +82,8 @@ TEST_F(ProtoRPCTest, GreeterClient) {
   Deferred<GreeterReplyMsg> reply;
   auto checkpoint = task_runner.GetCheckpointClosure("reply1");
   reply.Bind([checkpoint](Deferred<GreeterReplyMsg> r) {
-    DLOG("GOT REPLY %d %s!", r.success(),
-         r.success() ? r->message().c_str() : "");
+    PERFETTO_DLOG("GOT REPLY %d %s!", r.success(),
+                  r.success() ? r->message().c_str() : "");
     checkpoint();
   });
   svc_proxy->SayHello(req, std::move(reply));
@@ -90,8 +91,8 @@ TEST_F(ProtoRPCTest, GreeterClient) {
 
   auto checkpoint2 = task_runner.GetCheckpointClosure("reply2");
   reply.Bind([checkpoint2](Deferred<GreeterReplyMsg> r) {
-    DLOG("GOT REPLY2 %d %s!", r.success(),
-         r.success() ? r->message().c_str() : "");
+    PERFETTO_DLOG("GOT REPLY2 %d %s!", r.success(),
+                  r.success() ? r->message().c_str() : "");
     checkpoint2();
   });
   svc_proxy->WaveGoodbye(req, std::move(reply));

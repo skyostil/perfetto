@@ -14,35 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef PROTORPC_INCLUDE_PROTORPC_HOST_H_
-#define PROTORPC_INCLUDE_PROTORPC_HOST_H_
+#ifndef TRACING_INCLUDE_TRACING_CORE_BASIC_TYPES_H_
+#define TRACING_INCLUDE_TRACING_CORE_BASIC_TYPES_H_
 
-#include <memory>
-
-#include "protorpc/basic_types.h"
+#include <stdint.h>
 
 namespace perfetto {
 
-namespace base {
-class TaskRunner;
-}  // namespace base
+using ProducerID = uint64_t;
+using DataSourceID = uint64_t;
+using DataSourceInstanceID = uint64_t;
 
-namespace protorpc {
-
-class Service;
-
-class Host {
- public:
-  static std::shared_ptr<Host> CreateInstance(const char* socket_name,
-                                              base::TaskRunner*);
-  virtual ~Host() = default;
-
-  virtual bool Start() = 0;
-
-  virtual bool ExposeService(const std::shared_ptr<Service>&) = 0;
-};
-
-}  // namespace protorpc
 }  // namespace perfetto
 
-#endif  // PROTORPC_INCLUDE_PROTORPC_HOST_H_
+#endif  // TRACING_INCLUDE_TRACING_CORE_BASIC_TYPES_H_

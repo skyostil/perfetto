@@ -18,7 +18,7 @@
 
 #include <utility>
 
-#include "cpp_common/base.h"
+#include "base/logging.h"
 #include "google/protobuf/message_lite.h"
 #include "protorpc/client.h"
 #include "protorpc/service_descriptor.h"
@@ -54,7 +54,7 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
                                       Deferred<ProtoMessage> reply) {
   // |reply| will auto-resolve if it gets out of scope early.
   if (!connected()) {
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
     return;
   }
   auto remote_method_it = remote_method_ids_.find(method_name);
@@ -66,18 +66,18 @@ void ServiceProxy::BeginInvokeGeneric(const std::string& method_name,
                             request, weak_ptr_self_);
   if (!request_id)
     return;
-  DLOG("BeginInvoke %llu", request_id);
-  DCHECK(pending_callbacks_.count(request_id) == 0);
+  PERFETTO_DLOG("BeginInvoke %llu", request_id);
+  PERFETTO_DCHECK(pending_callbacks_.count(request_id) == 0);
   pending_callbacks_.emplace(request_id, std::move(reply));
 }
 
 void ServiceProxy::EndInvoke(RequestID request_id,
                              std::unique_ptr<ProtoMessage> result,
                              bool has_more) {
-  DLOG("EndInvoke %llu", request_id);
+  PERFETTO_DLOG("EndInvoke %llu", request_id);
   auto callback_it = pending_callbacks_.find(request_id);
   if (callback_it == pending_callbacks_.end()) {
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
     return;
   }
   Deferred<ProtoMessage> reply(std::move(callback_it->second));

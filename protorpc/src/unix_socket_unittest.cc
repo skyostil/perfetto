@@ -19,8 +19,9 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
-#include "cpp_common/base.h"
-#include "cpp_common/build_config.h"
+#include "base/build_config.h"
+#include "base/logging.h"
+#include "base/utils.h"
 #include "gtest/gtest.h"
 
 namespace perfetto {
@@ -175,7 +176,7 @@ TEST_F(UnixSocketTest, SharedMemory) {
   ASSERT_TRUE(cli.is_connected());
   char msg[32];
   int tmp_fd[3];
-  uint32_t tmp_fd_num = arraysize(tmp_fd);
+  uint32_t tmp_fd_num = base::ArraySize(tmp_fd);
   ASSERT_EQ(5, cli.Recv(msg, sizeof(msg), tmp_fd, &tmp_fd_num));
   ASSERT_STREQ("txfd", msg);
 
@@ -192,7 +193,7 @@ TEST_F(UnixSocketTest, SharedMemory) {
   ASSERT_TRUE(cli.Send("change notify", 14));
 
   int st = 0;
-  HANDLE_EINTR(waitpid(pid, &st, 0));
+  PERFETTO_EINTR(waitpid(pid, &st, 0));
   ASSERT_FALSE(WIFSIGNALED(st)) << "Server died with signal " << WTERMSIG(st);
   EXPECT_TRUE(WIFEXITED(st));
   ASSERT_EQ(0, WEXITSTATUS(st));

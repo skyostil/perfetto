@@ -24,7 +24,9 @@
 
 namespace perfetto {
 
+namespace base {
 class TaskRunner;
+}  // namespace base
 
 namespace protorpc {
 class ServiceProxy;
@@ -32,7 +34,7 @@ class ServiceProxy;
 class Client {
  public:
   static std::shared_ptr<Client> CreateInstance(const char* socket_name,
-                                                TaskRunner*);
+                                                base::TaskRunner*);
   virtual ~Client() = default;
 
   virtual void BindService(const std::weak_ptr<ServiceProxy>&) = 0;

@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "cpp_common/task_runner.h"
+#include "base/task_runner.h"
 #include "protorpc/deferred.h"
 #include "protorpc/host.h"
 #include "protorpc/src/rpc_frame_decoder.h"
@@ -35,7 +35,7 @@ class RPCFrame;
 
 class HostImpl : public Host {
  public:
-  HostImpl(const char* socket_name, TaskRunner*);
+  HostImpl(const char* socket_name, base::TaskRunner*);
   ~HostImpl() override;
 
   void set_weak_ptr(const std::weak_ptr<HostImpl>& ptr) { weak_ptr_ = ptr; }
@@ -73,7 +73,7 @@ class HostImpl : public Host {
 
   std::weak_ptr<HostImpl> weak_ptr_;
   const char* const socket_name_;
-  TaskRunner* const task_runner_;
+  base::TaskRunner* const task_runner_;
   std::map<ServiceID, ExposedService> services_;
   UnixSocket sock_;  // The listening socket.
   std::map<ClientID, std::unique_ptr<ClientConnection>> clients_;

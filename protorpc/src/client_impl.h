@@ -17,7 +17,7 @@
 #ifndef PROTORPC_SRC_CLIENT_IMPL_H_
 #define PROTORPC_SRC_CLIENT_IMPL_H_
 
-#include "cpp_common/task_runner.h"
+#include "base/task_runner.h"
 #include "protorpc/client.h"
 #include "protorpc/src/rpc_frame_decoder.h"
 #include "protorpc/src/unix_socket.h"
@@ -27,6 +27,11 @@
 #include <vector>
 
 namespace perfetto {
+
+namespace base {
+class TaskRunner;
+}  // namespace base
+
 namespace protorpc {
 
 class RPCFrame;
@@ -34,7 +39,7 @@ class ServiceDescriptor;
 
 class ClientImpl : public Client {
  public:
-  ClientImpl(const char* socket_name, TaskRunner*);
+  ClientImpl(const char* socket_name, base::TaskRunner*);
   ~ClientImpl() override;
 
   bool Connect();
@@ -72,7 +77,7 @@ class ClientImpl : public Client {
 
   std::weak_ptr<Client> weak_ptr_self_;
   const char* const socket_name_;
-  TaskRunner* const task_runner_;
+  base::TaskRunner* const task_runner_;
   UnixSocket sock_;
   RequestID last_request_id_ = 0;
   RPCFrameDecoder frame_decoder;

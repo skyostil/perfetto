@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-// TODO(primiano): protobuf leaks CHECK macro, sigh. switch us to PERFETTO_CHECK
-// and put this header back down.
+// TODO(primiano): protobuf leaks PERFETTO_CHECK macro, sigh. switch us to
+// PERFETTO_CHECK and put this header back down.
 #include "wire_protocol.pb.h"
 
 #include "protorpc/src/client_impl.h"
 
 #include <inttypes.h>
 
-#include "cpp_common/task_runner.h"
+#include "base/task_runner.h"
+#include "base/utils.h"
 #include "protorpc/service_descriptor.h"
 #include "protorpc/service_proxy.h"
 
@@ -33,7 +34,7 @@ namespace protorpc {
 
 // static
 std::shared_ptr<Client> Client::CreateInstance(const char* socket_name,
-                                               TaskRunner* task_runner) {
+                                               base::TaskRunner* task_runner) {
   std::shared_ptr<ClientImpl> client(new ClientImpl(socket_name, task_runner));
   client->set_weak_ptr(std::weak_ptr<Client>(client));
   if (!client->Connect())
@@ -41,7 +42,7 @@ std::shared_ptr<Client> Client::CreateInstance(const char* socket_name,
   return client;
 }
 
-ClientImpl::ClientImpl(const char* socket_name, TaskRunner* task_runner)
+ClientImpl::ClientImpl(const char* socket_name, base::TaskRunner* task_runner)
     : socket_name_(socket_name), task_runner_(task_runner) {}
 
 ClientImpl::~ClientImpl() {
@@ -72,7 +73,7 @@ void ClientImpl::BindService(const std::weak_ptr<ServiceProxy>& weak_service) {
   const std::string& service_name = service_proxy->GetDescriptor().service_name;
   req->set_service_name(service_name);
   if (!SendRPCFrame(rpc_frame)) {
-    DLOG("BindService(%s) failed", service_name.c_str());
+    PERFETTO_DLOG("BindService(%s) failed", service_name.c_str());
     service_proxy->event_listener()->OnConnectionFailed();
   }
   QueuedRequest qr;
@@ -113,11 +114,10 @@ bool ClientImpl::SendRPCFrame(const RPCFrame& rpc_frame) {
   uint32_t payload_len = static_cast<uint32_t>(rpc_frame.ByteSize());
   std::unique_ptr<char[]> buf(new char[sizeof(uint32_t) + payload_len]);
   if (!rpc_frame.SerializeToArray(buf.get() + sizeof(uint32_t), payload_len)) {
-    DCHECK(false);
+    PERFETTO_DCHECK(false);
     return false;
   }
-  uint32_t enc_size = BYTE_SWAP_TO_LE32(payload_len);
-  memcpy(buf.get(), &enc_size, sizeof(uint32_t));
+  memcpy(buf.get(), ASSUME_LITTLE_ENDIAN(&payload_len), sizeof(uint32_t));
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
@@ -149,13 +149,14 @@ void ClientImpl::OnDataAvailable() {
 void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
   auto queued_requests_it = queued_requests_.find(rpc_frame.request_id());
   if (queued_requests_it == queued_requests_.end()) {
-    DLOG("OnRPCFrameReceived() unknown req %" PRIu64, rpc_frame.request_id());
+    PERFETTO_DLOG("OnRPCFrameReceived() unknown req %" PRIu64,
+                  rpc_frame.request_id());
     return;
   }
   QueuedRequest req = std::move(queued_requests_it->second);
   queued_requests_.erase(queued_requests_it);
   req.succeeded = rpc_frame.reply_success();
-  DLOG("Success? %d", req.succeeded);
+  PERFETTO_DLOG("Success? %d", req.succeeded);
 
   if (req.type == RPCFrame::kMsgBindService &&
       rpc_frame.msg_case() == RPCFrame::kMsgBindServiceReply) {
@@ -168,7 +169,7 @@ void ClientImpl::OnRPCFrameReceived(const RPCFrame& rpc_frame) {
                                rpc_frame.msg_invoke_method_reply());
   }
 
-  DLOG(
+  PERFETTO_DLOG(
       "We requestes msg_type=%d but received msg_type=%d in reply to "
       "request_id=%" PRIu64,
       req.type, rpc_frame.msg_case(), rpc_frame.request_id());
@@ -180,15 +181,15 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   if (!service_proxy)
     return;
   if (!req.succeeded) {
-    DLOG("Failed BindService(%s)",
-         service_proxy->GetDescriptor().service_name.c_str());
+    PERFETTO_DLOG("Failed BindService(%s)",
+                  service_proxy->GetDescriptor().service_name.c_str());
     return service_proxy->event_listener()->OnConnectionFailed();
   }
   std::map<std::string, MethodID> methods;
   for (const auto& method : reply.methods()) {
     if (method.name().empty() || method.id() <= 0) {
-      DLOG("OnBindServiceReply() invalid method \"%s\" -> %" PRIu32,
-           method.name().c_str(), method.id());
+      PERFETTO_DLOG("OnBindServiceReply() invalid method \"%s\" -> %" PRIu32,
+                    method.name().c_str(), method.id());
       continue;
     }
     methods[method.name()] = method.id();

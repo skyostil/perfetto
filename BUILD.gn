@@ -27,13 +27,13 @@ group("all") {
 group("tests") {
   testonly = true
   deps = [
-    "//cpp_common:base_unittests",
+    "//base:base_unittests",
     "//libftrace:libftrace_unittests",
-    "//libtracing:libtracing_benchmarks",
-    "//libtracing:libtracing_unittests",
     "//protorpc:protorpc_unittests",
     "//protozero:protozero_unittests",
     "//tools/ftrace_proto_gen:ftrace_proto_gen_unittests",
     "//tools/sanitizers_unittests",
+    "//tracing:tracing_benchmarks",
+    "//tracing:tracing_unittests",
   ]
 }
