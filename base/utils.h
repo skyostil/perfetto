@@ -37,6 +37,9 @@ constexpr size_t ArraySize(const T& array) {
   return sizeof(array) / sizeof(array[0]);
 }
 
+template <typename... T>
+inline void ignore_result(const T&...) {}
+
 }  // namespace base
 }  // namespace perfetto
 

@@ -29,6 +29,8 @@
 #include <string.h>  // For strerror.
 #endif
 
+#include "base/utils.h"
+
 #if PERFETTO_DCHECK_IS_ON()
 #define PERFETTO_DLOG(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 #define PERFETTO_DPLOG(x)                                                    \
@@ -56,14 +58,5 @@
       abort();                          \
   } while (0)
 #endif  // PERFETTO_DCHECK_IS_ON()
-
-namespace perfetto {
-namespace base {
-
-template <typename... T>
-inline void ignore_result(const T&...) {}
-
-}  // namespace base
-}  // namespace perfetto
 
 #endif  // PERFETTO_BASE_LOGGING_H_

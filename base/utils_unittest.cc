@@ -66,7 +66,9 @@ TEST(Utils, EintrWrapper) {
 
 // Glibc headers for sa_sigaction trigger this.
 #pragma GCC diagnostic push
+#if defined(__clang__)
 #pragma GCC diagnostic ignored "-Wdisabled-macro-expansion"
+#endif
   sa.sa_sigaction = [](int, siginfo_t*, void*) {};
 #pragma GCC diagnostic pop
 
@@ -77,7 +79,7 @@ TEST(Utils, EintrWrapper) {
   if (pid == 0 /* child */) {
     usleep(5000);
     kill(parent_pid, SIGUSR2);
-    write(pipe_fd[1], "foo\0", 4);
+    ignore_result(write(pipe_fd[1], "foo\0", 4));
     _exit(0);
   }
 

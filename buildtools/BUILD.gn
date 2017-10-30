@@ -40,7 +40,6 @@ config("googletest_config") {
     "-Wno-shift-sign-overflow",
     "-Wno-sign-conversion",
     "-Wno-undef",
-    "-Wno-unknown-warning-option",
     "-Wno-unused-member-function",
     "-Wno-used-but-marked-unused",
     "-Wno-zero-as-null-pointer-constant",
@@ -101,7 +100,6 @@ config("protobuf_gen_config") {
     "-Wno-sign-compare",
     "-Wno-sign-conversion",
     "-Wno-undef",
-    "-Wno-unknown-warning-option",
     "-Wno-zero-as-null-pointer-constant",
   ]
 }
