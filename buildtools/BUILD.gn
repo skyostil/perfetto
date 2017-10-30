@@ -101,6 +101,7 @@ config("protobuf_gen_config") {
     "-Wno-sign-conversion",
     "-Wno-int-to-void-pointer-cast",
     "-Wno-sign-compare",
+    "-Wno-",
     "-Wno-zero-as-null-pointer-constant",
   ]
   if (is_clang) {
