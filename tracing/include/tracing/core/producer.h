@@ -29,7 +29,7 @@ class SharedMemory;
 // of a Producer is as follows:
 // 1. The producer connects to the service and advertises its data sources
 //    (e.g., the ability to get kernel ftraces, to list process stats).
-// 2. The service acknoledges the connection and sends over the SharedMemory
+// 2. The service acknowledges the connection and sends over the SharedMemory
 //    region that will be used to exchange data (together with the signalling
 //    API Service::ProducerEndpoint::OnPageAcquired()/OnPageReleased()).
 // 3. At some point later on, the Service asks the Producer to on turn some of
@@ -58,7 +58,7 @@ class Producer {
   // service drops, either voluntarily (e.g., by destroying the ProducerEndpoint
   // obtained through Service::ConnectProducer()) or involuntarily (e.g., if the
   // Service process crashes).
-  // The Producer is expected to tear down all its data sources if this hapens.
+  // The Producer is expected to tear down all its data sources if this happens.
   // Once this call returns it is possible to safely destroy the Producer
   // instance.
   virtual void OnDisconnect() = 0;

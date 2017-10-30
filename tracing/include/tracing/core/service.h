@@ -30,6 +30,9 @@ class DataSourceDescriptor;
 class Producer;
 class TaskRunner;
 
+// TODO: for the moment this assumes that all the calls hapen on the same
+// thread/sequence. Not sure this will be the case long term in Chrome.
+
 // The public API of the tracing Service business logic.
 //
 // Exposed to:
