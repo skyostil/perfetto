@@ -22,7 +22,7 @@
 
 #include "base/logging.h"
 
-#define CHECK_PTR_LE(a, b)                         \
+#define PERFETTO_CHECK_PTR_LE(a, b)                \
   PERFETTO_CHECK(reinterpret_cast<uintptr_t>(a) <= \
                  reinterpret_cast<uintptr_t>(b))
 
@@ -43,7 +43,7 @@ const uint8_t* ParseVarInt(const uint8_t* start,
   uint64_t shift = 0;
   *value = 0;
   do {
-    CHECK_PTR_LE(pos, end - 1);
+    PERFETTO_CHECK_PTR_LE(pos, end - 1);
     PERFETTO_DCHECK(shift < 64ull);
     *value |= static_cast<uint64_t>(*pos & 0x7f) << shift;
     shift += 7;
@@ -64,7 +64,7 @@ const uint8_t* ParseField(const uint8_t* start,
   const uint8_t kFieldTypeMask = (1 << kFieldTypeNumBits) - 1;  // 0000 0111;
 
   const uint8_t* pos = start;
-  CHECK_PTR_LE(pos, end - 1);
+  PERFETTO_CHECK_PTR_LE(pos, end - 1);
   *field_type = static_cast<FieldType>(*pos & kFieldTypeMask);
 
   uint64_t raw_field_id;
@@ -76,14 +76,14 @@ const uint8_t* ParseField(const uint8_t* start,
 
   switch (*field_type) {
     case kFieldTypeFixed64: {
-      CHECK_PTR_LE(pos + sizeof(uint64_t), end);
+      PERFETTO_CHECK_PTR_LE(pos + sizeof(uint64_t), end);
       memcpy(field_intvalue, pos, sizeof(uint64_t));
       *field_intvalue = BYTE_SWAP_TO_LE64(*field_intvalue);
       pos += sizeof(uint64_t);
       break;
     }
     case kFieldTypeFixed32: {
-      CHECK_PTR_LE(pos + sizeof(uint32_t), end);
+      PERFETTO_CHECK_PTR_LE(pos + sizeof(uint32_t), end);
       uint32_t tmp;
       memcpy(&tmp, pos, sizeof(uint32_t));
       *field_intvalue = BYTE_SWAP_TO_LE32(tmp);
@@ -97,7 +97,7 @@ const uint8_t* ParseField(const uint8_t* start,
     case kFieldTypeLengthDelimited: {
       pos = ParseVarInt(pos, end, field_intvalue);
       pos += *field_intvalue;
-      CHECK_PTR_LE(pos, end);
+      PERFETTO_CHECK_PTR_LE(pos, end);
       break;
     }
   }
