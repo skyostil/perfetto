@@ -63,7 +63,7 @@ TEST(Utils, EintrWrapper) {
 
   struct sigaction sa = {};
   struct sigaction old_sa = {};
-  sa.sa_sigaction = [](int, siginfo_t*, void*) { printf(""); };
+  sa.sa_sigaction = [](int, siginfo_t*, void*) {};
   ASSERT_EQ(0, sigaction(SIGUSR2, &sa, &old_sa));
 
   int parent_pid = getpid();

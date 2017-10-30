@@ -34,7 +34,7 @@ TEST(ScopedDir, CloseOutOfScope) {
     ScopedDir scoped_dir(dir_handle);
     ASSERT_EQ(dir_handle, scoped_dir.get());
   }
-  ASSERT_NE(0, close(dir_handle_fd));  // Should when closing twice.
+  ASSERT_NE(0, close(dir_handle_fd));  // Should fail when closing twice.
 }
 
 TEST(ScopedFile, CloseOutOfScope) {
@@ -44,7 +44,7 @@ TEST(ScopedFile, CloseOutOfScope) {
     ScopedFile scoped_file(raw_fd);
     ASSERT_EQ(raw_fd, scoped_file.get());
   }
-  ASSERT_NE(0, close(raw_fd));  // Should when closing twice.
+  ASSERT_NE(0, close(raw_fd));  // Should fail when closing twice.
 }
 
 TEST(ScopedFile, Reset) {
@@ -57,7 +57,7 @@ TEST(ScopedFile, Reset) {
     ASSERT_EQ(raw_fd1, scoped_file.get());
     scoped_file.reset(raw_fd2);
     ASSERT_EQ(raw_fd2, scoped_file.get());
-    ASSERT_NE(0, close(raw_fd1));  // Should when closing twice.
+    ASSERT_NE(0, close(raw_fd1));  // Should fail when closing twice.
     scoped_file.reset();
     ASSERT_NE(0, close(raw_fd2));
     scoped_file.reset(open("/dev/null", O_RDONLY));
@@ -79,7 +79,7 @@ TEST(ScopedFile, MoveCtor) {
     scoped_file1.reset(raw_fd2);
     ASSERT_EQ(raw_fd2, scoped_file1.get());
   }
-  ASSERT_NE(0, close(raw_fd1));  // Should when closing twice.
+  ASSERT_NE(0, close(raw_fd1));  // Should fail when closing twice.
   ASSERT_NE(0, close(raw_fd2));
 }
 
