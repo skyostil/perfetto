@@ -131,13 +131,13 @@ script:
     "
 
     if [[ "$CFG" != android-* ]]; then
-      for TEST_TARGET in "$TEST_TARGETS"; do
+      for TEST_TARGET in $TEST_TARGETS; do
         "out/dist/$TEST_TARGET"
       done
     else
       TARGET_ARCH=$(echo $CFG | cut -d- -f3)
       build/run_android_emulator $TARGET_ARCH --pid /tmp/emulator.pid -v &
-      for TEST_TARGET in "$TEST_TARGETS"; do
+      for TEST_TARGET in $TEST_TARGETS; do
         build/run_android_test out/dist "$TEST_TARGET"
       done
     fi
