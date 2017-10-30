@@ -15,7 +15,28 @@
 import("//build/sanitizers/sanitizers.gni")
 
 declare_args() {
-  use_custom_libcxx = is_msan && is_linux && is_clang
+  # Background:
+  # there are mainly two C++ libraries around in the world: (i) GNU's
+  # libstdc++ and LLVM's libc++ (aka libcxx). By default Linux provides libstdc++
+  # (even building with clang on Linux uses that by default) while Mac and
+  # Android switched to libcxx.
+  # buildtools/libcxx(abi) contains a fixed version of the libcxx, the same one
+  # that Chrome uses on most production configurations (% lagging catching up
+  # with our DEPS).
+  # The variable use_custom_libcxx tells our build system to prefer the
+  # aforementioned copy to the system one.
+  #
+  # Now, there are two reasons for using the checked in copy of libcxx:
+  # 1) MSan requires that the c++ library is built from sources, because it
+  #    needs to be instrumented with -fsanitize=memory as well (see
+  #    https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo).
+  # 2) The libstdc++ situation is too wild on Linux. Modern debian distros are
+  #    fine but Ubuntu Trusty still ships a libstdc++ that doesn't fully
+  #    support C++11. Hence we enable this flag on Linux by default.
+  #    We still retain libstdc++ coverage on the Travis bots by overriding
+  #    use_custom_libcxx=false when we target a modern library (see the
+  #    GCC7 target in .travis.yml).
+  use_custom_libcxx = is_linux || is_msan
 }
 
 libcxx_prefix = "//buildtools/libcxx"
