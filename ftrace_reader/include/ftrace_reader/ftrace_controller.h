@@ -30,13 +30,13 @@ class FtraceController {
 
   // Clears the trace buffers for all CPUs. Blocks until this is done.
   void ClearTrace();
-  
+
   // Writes the string |str| as an event into the trace buffer.
   void WriteTraceMarker(const char* str);
-  
+
   // Enable the event |name|.
   void EnableEvent(const char* name);
-  
+
   // Disable the event |name|.
   void DisableEvent(const char* name);
 

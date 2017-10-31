@@ -32,7 +32,7 @@ namespace perfetto {
 
 namespace {
 
-// TODO(b/68242551): Do not hardcode these paths. 
+// TODO(b/68242551): Do not hardcode these paths.
 // This directory contains the 'format' and 'enable' files for each event.
 // These are nested like so: group_name/event_name/{format, enable}
 const char kTraceEventPath[] = "/sys/kernel/debug/tracing/events/";
