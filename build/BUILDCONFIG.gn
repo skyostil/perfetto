@@ -71,7 +71,7 @@ set_defaults("shared_library") {
   configs = default_configs
   configs += [ "//build:shared_library" ]
   deps = [
-    "//build:exe_and_shlib_deps",
+    "//build/sanitizers:deps",
   ]
 }
 
@@ -79,7 +79,7 @@ set_defaults("executable") {
   configs = default_configs
   configs += [ "//build:executable" ]
   deps = [
-    "//build:exe_and_shlib_deps",
+    "//build/sanitizers:deps",
     "//build/libc++:deps",
   ]
 }
