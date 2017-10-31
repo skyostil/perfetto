@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if (is_linux) {
+if (is_linux || is_android) {
   find_llvm_out = exec_script("linux_find_llvm.py", [], "list lines")
   linux_llvm_dir = find_llvm_out[0]
   linux_clang_bin = find_llvm_out[1]

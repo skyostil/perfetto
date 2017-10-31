@@ -79,8 +79,8 @@ set_defaults("executable") {
   configs = default_configs
   configs += [ "//build:executable" ]
   deps = [
-    "//build/sanitizers:deps",
     "//build/libc++:deps",
+    "//build/sanitizers:deps",
   ]
 }
 
