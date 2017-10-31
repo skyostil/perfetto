@@ -45,6 +45,6 @@ class FtraceController {
   FtraceController& operator=(const FtraceController&) = delete;
 };
 
-} // namespace perfetto
+}  // namespace perfetto
 
 #endif  // FTRACE_READER_FTRACE_CONTROLLER_H_

@@ -26,7 +26,8 @@
 
 #include <string>
 
-#include "cpp_common/base.h"
+#include "base/scoped_file.h"
+#include "base/utils.h"
 
 namespace perfetto {
 
@@ -45,49 +46,48 @@ const char kTracePath[] = "/sys/kernel/debug/tracing/trace";
 const char kTraceMarkerPath[] = "/sys/kernel/debug/tracing/trace_marker";
 
 bool WriteToFile(const char* path, const char* str) {
-  ScopedFile fd(open(path, O_WRONLY));
+  base::ScopedFile fd(open(path, O_WRONLY));
   if (fd.get() == -1)
     return false;
-  HANDLE_EINTR(write(fd.get(), str, strlen(str)));
-  ssize_t result = HANDLE_EINTR(write(fd.get(), str, strlen(str)));
-  DCHECK(result != -1);
+  PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
+  long result = PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
+  PERFETTO_DCHECK(result != -1);
   return result != -1;
 }
 
 }  // namespace
 
-FtraceController::FtraceController() {
-}
+FtraceController::FtraceController() {}
 
 void FtraceController::ClearTrace() {
-  ScopedFile fd(open(kTracePath, O_WRONLY | O_TRUNC));
+  base::ScopedFile fd(open(kTracePath, O_WRONLY | O_TRUNC));
   if (fd.get() == -1) {
-    DCHECK(false); // Could not clear.
+    PERFETTO_DCHECK(false);  // Could not clear.
     return;
   }
 }
 
 void FtraceController::WriteTraceMarker(const char* str) {
-  ScopedFile fd(open(kTraceMarkerPath, O_WRONLY));
+  base::ScopedFile fd(open(kTraceMarkerPath, O_WRONLY));
   if (fd.get() == -1) {
-    DCHECK(false); // Could not open.
+    PERFETTO_DCHECK(false);  // Could not open.
     return;
   }
 
-  ssize_t result = HANDLE_EINTR(write(fd.get(), str, strlen(str)));
-  DCHECK(result != -1);
+  ssize_t result = PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
+  PERFETTO_DCHECK(result != -1);
 }
 
 void FtraceController::EnableEvent(const char* name) {
   std::string path = std::string(kTraceEventPath) + name + "/enable";
   bool success = WriteToFile(path.c_str(), "1");
-  DCHECK(success);
+  PERFETTO_DCHECK(success);
 }
 
 void FtraceController::DisableEvent(const char* name) {
   std::string path = std::string(kTraceEventPath) + name + "/enable";
   bool success = WriteToFile(path.c_str(), "0");
-  DCHECK(success);
+  PERFETTO_DCHECK(success);
 }
 
 }  // namespace perfetto
