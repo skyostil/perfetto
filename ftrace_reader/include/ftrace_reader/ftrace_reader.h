@@ -14,34 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef FTRACE_READER_FTRACE_CPU_READER_H_
-#define FTRACE_READER_FTRACE_CPU_READER_H_
+#ifndef FTRACE_READER_FTRACE_READER_H_
+#define FTRACE_READER_FTRACE_READER_H_
 
-#include "base/scoped_file.h"
+#include <map>
+
+#include "ftrace_reader/ftrace_cpu_reader.h"
 
 namespace perfetto {
 
-struct FtraceRegion {
-  char* start;
-  char* end;
-};
-
-class FtraceCpuReader {
+class FtraceReader {
  public:
-  FtraceCpuReader(int fd);
-
-  void Read(FtraceRegion region);
-  int GetFileDescriptor();
+  FtraceReader();
+  const FtraceCpuReader* GetCpuReader(size_t cpu_id);
 
  private:
-  static void ParsePage(const char* ptr, FtraceRegion region);
-
-  FtraceCpuReader(const FtraceCpuReader&) = delete;
-  FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
-
-  base::ScopedFile fd_;
+  std::map<size_t, FtraceCpuReader> readers_;
 };
 
 } // namespace perfetto
 
-#endif  // FTRACE_READER_FTRACE_CPU_READER_H_
+#endif  // FTRACE_READER_FTRACE_READER_H_

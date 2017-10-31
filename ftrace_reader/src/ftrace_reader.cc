@@ -14,33 +14,16 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-
-#include "ftrace_reader/ftrace_controller.h"
-#include "ftrace_reader/ftrace_cpu_reader.h"
 #include "ftrace_reader/ftrace_reader.h"
 
-int main(int argc, const char** argv) {
-  if (argc > 1)
-    printf("Usage: %s\n", argv[0]);
+namespace perfetto {
 
-  perfetto::FtraceController ftrace_controller;
-
-  ftrace_controller.ClearTrace();
-  ftrace_controller.WriteTraceMarker("Hello, world!");
-
-  for (int i = 1; i < argc; i++) {
-    printf("Enabling: %s\n", argv[i]);
-    ftrace_controller.EnableEvent(argv[i]);
-  }
-
-  // Sleep for one second so we get some events
-  sleep(1);
-
-  for (int i = 1; i < argc; i++) {
-    printf("Disable: %s\n", argv[i]);
-    ftrace_controller.DisableEvent(argv[i]);
-  }
-
-  return 0;;
+FtraceReader::FtraceReader() {
 }
+
+const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) {
+  return nullptr; // &readers_[cpu];
+}
+
+} // namespace perfetto
+

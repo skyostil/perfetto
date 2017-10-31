@@ -20,8 +20,7 @@
 namespace perfetto {
 namespace {
 
-TEST(LibFtrace, SomePublicApi) {
-  EXPECT_EQ(42, SomePublicApi());
+TEST(FtraceCpuReader, ParseEmpty) {
 }
 
 }  // namespace
