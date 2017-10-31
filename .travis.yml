@@ -142,6 +142,7 @@ script:
       out/dist/protozero_unittests
       out/dist/tracing_unittests
       out/dist/tracing_benchmarks
+      out/dist/ftrace_proto_gen_unittests
     else
       TARGET_ARCH=$(echo $CFG | cut -d- -f3)
       build/run_android_emulator $TARGET_ARCH --pid /tmp/emulator.pid -v &
@@ -149,6 +150,7 @@ script:
       build/run_android_test out/dist protozero_unittests
       build/run_android_test out/dist tracing_unittests
       build/run_android_test out/dist tracing_benchmarks
+      build/run_android_test out/dist ftrace_proto_gen_unittests
     fi
 
 after_script:
