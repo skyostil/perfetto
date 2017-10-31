@@ -94,7 +94,10 @@ config("default") {
   }
 
   if (is_linux) {
-    libs += [ "pthread" ]
+    libs += [
+      "pthread",
+      "rt",
+    ]
   }
 
   if (is_android) {
@@ -177,6 +180,9 @@ config("shared_library") {
 
 config("executable") {
   ldflags = []
+
+  # Android will refuse to run executables if they aren't position independent.
+  # Instead on Linux there isn't any need and they break ASan (goo.gl/paFR6K).
   if (is_android) {
     asmflags = [ "-fPIE" ]
     cflags = [ "-fPIE" ]

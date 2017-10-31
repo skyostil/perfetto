@@ -26,16 +26,16 @@ config("config") {
       "-isystem" + rebase_path("$libcxxabi_prefix/include", root_build_dir),
     ]
 
-    # In theory here we want just -nostdlib++, but that is not there yet in
-    # clang 3.9. So, in order to get rid of libstdc++ we have to remove all
-    # libs and then readd the core libraries like libc and so on.
+    # In theory here we want just -nostdlib++ to avoid linking both libc++ and
+    # libstdc++. Unfortunately the -nostdlib++ switch is available only in
+    # bleeding edge versions of clang. So, in order to get rid of libstdc++
+    # we have to remove all libs and then re-add the core ones like libc.
     ldflags = [ "-nodefaultlibs" ]
     libs = [
-      "c",
-      "m",
-      "dl",
-      "gcc_eh",
-      "rt",
+      "c",  # libc: the core C library.
+      "m",  # libm: math library.
+      "dl",  # libdl: dynamic linking.
+      "gcc_eh",  # gcc exception handling, required by libunwind.
     ]
   }
 }

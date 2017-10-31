@@ -146,6 +146,7 @@ script:
     protozero_unittests
     tracing_unittests
     tracing_benchmarks
+    sanitizers_unittests
     "
 
     if [[ "$CFG" != android-* ]]; then

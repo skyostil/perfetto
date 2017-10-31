@@ -361,6 +361,11 @@ if (use_custom_libcxx) {
       "//build:extra_warnings",
       "//build:no_exceptions",
       "//build:no_rtti",
+
+      # When building with msan, libunwind itself triggers memory violations
+      # that causes msan to get stuck into an infinite loop. Just don't
+      # instrument libunwind itself.
+      "//build/sanitizers:sanitizers_cflags",
     ]
     configs += [
       ":libc++config",
