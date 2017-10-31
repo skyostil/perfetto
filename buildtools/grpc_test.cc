@@ -7,6 +7,8 @@
 
 #include "helloworld.grpc.pb.h"
 
+#include <android/log.h>
+
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -61,6 +63,8 @@ class GreeterClient {
 };
 
 int main(int argc, char**) {
+  __android_log_print(ANDROID_LOG_ERROR, "grpc_test", "main()");
+
   if (argc > 1) {
     GreeterClient greeter(grpc::CreateChannel(
     "localhost:50051", grpc::InsecureChannelCredentials()));
