@@ -18,7 +18,7 @@ import sys
 
 def main():
   devnull = open(os.devnull, 'w')
-  for clang in ('clang', 'clang-3.9'):
+  for clang in ('clang', 'clang-3.8', 'clang-3.5'):
     if subprocess.call(['which', clang], stdout=devnull, stderr=devnull) != 0:
       continue
     res = subprocess.check_output([clang, '-print-search-dirs'])

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//build/toolchain/libc++.gni")
+import("//build/libc++/libc++.gni")
 
 # Mimimal config to be used in production (i.e. non-test) targets. This is
 # really just to allowing include "gtest/gtest_prod.h" for the FRIEND_TEST macro
@@ -454,9 +454,6 @@ if (use_custom_libcxx) {
     ]
     defines = [ "_LIBCPP_BUILDING_LIBRARY" ]
     deps += [ ":libc++abi" ]
-    if (!custom_libcxx_is_static) {
-      deps -= [ "//build:exe_and_shlib_deps" ]
-    }
   }
 }  # if (use_custom_libcxx)
 

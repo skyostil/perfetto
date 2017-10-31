@@ -115,6 +115,7 @@ cache:
     - buildtools/googletest
     - buildtools/libcxx
     - buildtools/libcxxabi
+    - buildtools/libunwind
 
 before_install:
   - set -e

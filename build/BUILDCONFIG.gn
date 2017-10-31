@@ -49,7 +49,7 @@ default_configs = [
   "//build:extra_warnings",
   "//build:no_exceptions",
   "//build:no_rtti",
-  "//build:runtime_library",
+  "//build/libc++:config",
   "//build/sanitizers:sanitizers_cflags",
 ]
 
@@ -80,6 +80,7 @@ set_defaults("executable") {
   configs += [ "//build:executable" ]
   deps = [
     "//build:exe_and_shlib_deps",
+    "//build/libc++:deps",
   ]
 }
 
