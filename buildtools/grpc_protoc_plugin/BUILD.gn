@@ -1,0 +1,11 @@
+if (current_toolchain == host_toolchain) {
+  executable("grpc_protoc_plugin") {
+    sources = [
+      "../grpc/src/compiler/cpp_generator.cc",
+      "../grpc/src/compiler/cpp_plugin.cc",
+    ]
+    configs += [ "//buildtools:grpc_config" ]
+    deps += [ "//buildtools:protoc_lib" ]
+    configs -= [ "//build:extra_warnings" ]
+  }
+}
