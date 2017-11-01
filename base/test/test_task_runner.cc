@@ -48,6 +48,22 @@ bool TestTaskRunner::RunUntilIdle() {
   return true;
 }
 
+std::function<void()> TestTaskRunner::GetCheckpointClosure(
+    const std::string& checkpoint) {
+  PERFETTO_DCHECK(checkpoints_.count(checkpoint) == 0);
+  auto checkpoint_iter = checkpoints_.emplace(checkpoint, false);
+  return [checkpoint_iter] { checkpoint_iter.first->second = true; };
+}
+
+bool TestTaskRunner::RunUntilCheckpoint(const std::string& checkpoint) {
+  PERFETTO_DCHECK(checkpoints_.count(checkpoint) == 1);
+  while (!checkpoints_[checkpoint]) {
+    if (!RunUntilIdle())
+      return false;
+  }
+  return true;
+}
+
 bool TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
   struct timeval timeout;
   timeout.tv_usec = (timeout_ms % 1000) * 1000L;

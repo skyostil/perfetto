@@ -46,6 +46,8 @@ class UnixSocket {
  public:
   class EventListener {
    public:
+    virtual ~EventListener();
+
     // After Listen().
     virtual void OnNewIncomingConnection(
         UnixSocket* self,
@@ -63,7 +65,9 @@ class UnixSocket {
   };
 
   enum class State {
-    kDisconnected = 0,
+    kNotInitialized = 0,
+    kDisconnected,
+    kConnecting,
     kConnected,
     kListening  // Only for service sockets, after Listen()
   };
@@ -87,12 +91,13 @@ class UnixSocket {
   //       connection, either successful or not.
   bool Connect(const char* socket_name);
 
+  void Shutdown();
+
   // Returns true is the message was queued, false if there was no space in the
   // output buffer, in which case the client should retry or give up.
   // If any other error happens the socket will be shutdown and
   // EventListener::OnDisconnect() will be called.
-  // If the socket is not connected, Send() will DCHECK in debug builds, and
-  // return false in release.
+  // If the socket is not connected, Send() will just return false.
   // Does not append a null string terminator to msg in any case.
   bool Send(const void* msg, size_t len, int wired_fd = -1);
   bool Send(const std::string& msg);
@@ -100,7 +105,7 @@ class UnixSocket {
   // Returns the number of bytes (<= |len|) written in |msg| or 0 if there
   // is no data in the buffer to read or an error occurs (in which case a
   // EventListener::OnDisconnect() will follow).
-  // DCHECK(s) in debug builds if the socet is not connected.
+  // Returns 0 if the socet is not connected.
   // If the ScopedFile pointer is not null and a file descriptor is received, it
   // moves the received fd into that.
   size_t Recv(void* msg, size_t len, base::ScopedFile* = nullptr);
@@ -117,10 +122,11 @@ class UnixSocket {
 
  private:
   // Used to decouple the lifetime of the UnixSocket from the callbacks
-  // registered on the TaskRunner, without having to make the full UnixSocket
-  // a shared_ptr (C++11 weak_ptr require that the object is a shared_ptr).
-  // A shared_ptr<WeakRef> is passed around to the callbacks posted on the
-  // task_runner_. The |sock| pointer is invalidated by the dtor.
+  // registered on the TaskRunner, which might happen after UnixSocket has been
+  // destroyed. This is essentially a single-instance weak_ptr<UnixSocket>.
+  // Unfortunately C++11's weak_ptr would require UnixSocket to be a shared_ptr,
+  // which is undesirable here. The |sock| pointer is invalidated by the dtor
+  // of UnixSocket.
   struct WeakRef {
     explicit WeakRef(UnixSocket* s) : sock(s) {}
     ~WeakRef() { sock = nullptr; }
@@ -134,14 +140,12 @@ class UnixSocket {
   UnixSocket& operator=(const UnixSocket&) = delete;
 
   bool InitializeSocket();
-  void OnIncomingConnectionsAvailable();
   void OnEvent();
-  void ShutdownAndNotifyEventListenerIfConnected();
 
   base::ScopedFile fd_;
-  State state_ = State::kDisconnected;
+  State state_ = State::kNotInitialized;
   EventListener* event_listener_;
-  TaskRunner* task_runner_;
+  base::TaskRunner* task_runner_;
   std::shared_ptr<WeakRef> weak_ref_;
 };
 

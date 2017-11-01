@@ -29,6 +29,7 @@ group("tests") {
   deps = [
     "//base:base_unittests",
     "//ftrace_reader:ftrace_reader_unittests",
+    "//protorpc:protorpc_unittests",
     "//protozero:protozero_unittests",
     "//tools/ftrace_proto_gen:ftrace_proto_gen_unittests",
     "//tools/sanitizers_unittests",
