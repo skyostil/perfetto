@@ -57,6 +57,11 @@ source_set("gtest") {
   ]
 }
 
+source_set("gtest_prod") {
+  all_dependent_configs = [ ":googletest_prod_config" ]
+  public = [ "googletest/googletest/include/gtest/gtest_prod.h" ]
+}
+
 source_set("gtest_main") {
   testonly = true
   configs -= [ "//build:extra_warnings" ]

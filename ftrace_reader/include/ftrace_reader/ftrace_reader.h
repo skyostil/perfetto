@@ -29,6 +29,9 @@ class FtraceReader {
   const FtraceCpuReader* GetCpuReader(size_t cpu_id);
 
  private:
+  FtraceReader(const FtraceReader&) = delete;
+  FtraceReader& operator=(const FtraceReader&) = delete;
+
   std::map<size_t, FtraceCpuReader> readers_;
 };
 

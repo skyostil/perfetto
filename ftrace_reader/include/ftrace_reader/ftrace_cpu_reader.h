@@ -18,6 +18,7 @@
 #define FTRACE_READER_FTRACE_CPU_READER_H_
 
 #include "base/scoped_file.h"
+#include "gtest/gtest_prod.h"
 
 namespace perfetto {
 
@@ -34,6 +35,9 @@ class FtraceCpuReader {
   int GetFileDescriptor();
 
  private:
+  friend class FtraceCpuReaderTest;
+  FRIEND_TEST(FtraceCpuReaderTest, ParseEmpty);
+
   static void ParsePage(const char* ptr, FtraceRegion region);
 
   FtraceCpuReader(const FtraceCpuReader&) = delete;

@@ -57,7 +57,7 @@ T ReadAndAdvance(const char** ptr) {
 FtraceCpuReader::FtraceCpuReader(int fd) : fd_(base::ScopedFile(fd)) {
 }
 
-void FtraceCpuReader::Read() {
+void FtraceCpuReader::Read(FtraceRegion region) {
   if (fd_.get() == -1)
     return;
 
@@ -70,7 +70,7 @@ void FtraceCpuReader::Read() {
 
   PERFETTO_DCHECK(bytes == kPageSize);
 
-  ParsePage(buffer.get());
+  ParsePage(buffer.get(), region);
 }
 
 // The structure of a raw trace buffer page is as follows:

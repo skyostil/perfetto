@@ -21,6 +21,7 @@ group("all") {
     "//ftrace_reader:ftrace_reader_demo",
     "//protozero/src/protoc_plugin($host_toolchain)",
     "//tools/ftrace_proto_gen:ftrace_proto_gen",
+    "//protos/ftrace",
   ]
 }
 
