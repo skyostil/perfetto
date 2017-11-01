@@ -23,7 +23,13 @@ import sys
 import urllib
 import zipfile
 
-PREBUILTS = (
+from collections import namedtuple
+
+# When adding a new git dependency here please also add a corresponding entry in
+# .travis.yml under the "cache:" section.
+
+# Dependencies required to build code on the host or when targeting desktop OS.
+BUILD_DEPS_HOST = [
   # GN
   ('buildtools/mac/gn',
    'https://storage.googleapis.com/chromium-gn/c2c934d4dda1f470a6511b1015dda9a9fb1ce50b',
@@ -34,6 +40,24 @@ PREBUILTS = (
    'https://storage.googleapis.com/chromium-gn/b53fa13e950948c6f9a062189b76b34a9610281f',
    'b53fa13e950948c6f9a062189b76b34a9610281f',
    'linux2'
+  ),
+
+  # clang-format
+  ('buildtools/mac/clang-format',
+   'https://storage.googleapis.com/chromium-clang-format/0679b295e2ce2fce7919d1e8d003e497475f24a3',
+   '0679b295e2ce2fce7919d1e8d003e497475f24a3',
+   'darwin'
+  ),
+  ('buildtools/linux64/clang-format',
+   'https://storage.googleapis.com/chromium-clang-format/5349d1954e17f6ccafb6e6663b0f13cdb2bb33c8',
+   '5349d1954e17f6ccafb6e6663b0f13cdb2bb33c8',
+   'linux2'
+  ),
+  # Keep the SHA1 in sync with |clang_format_rev| in chromium //buildtools/DEPS.
+  ('buildtools/clang_format/script',
+   'https://chromium.googlesource.com/chromium/llvm-project/cfe/tools/clang-format.git',
+   '0653eee0c81ea04715c635dd0885e8096ff6ba6d',
+   'all'
   ),
 
   # Ninja
@@ -48,6 +72,51 @@ PREBUILTS = (
    'linux2'
   ),
 
+  # Keep in sync with Android's //external/googletest/README.version.
+  ('buildtools/googletest.zip',
+   'https://github.com/google/googletest/archive/ff07a5de0e81580547f1685e101194ed1a4fcd56.zip',
+   'c7edec7d7e6db1fc37a20710de9c4d89e3a3893b',
+   'all'
+  ),
+
+  # Keep in sync with Android's //external/protobuf/README.version.
+  ('buildtools/protobuf.zip',
+   'https://github.com/google/protobuf/releases/download/v3.0.0-beta-3/protobuf-cpp-3.0.0-beta-3.zip',
+   '3caec60aa9d8eefc8c3c3201b6b8ca19935edb89',
+   'all'
+  ),
+
+  # libc++ and libc++abi, for clang msan that require rebuilding the C++ lib
+  # from sources. Keep the SHA1s in sync with Chrome's src/buildtools/DEPS.
+  ('buildtools/libcxx',
+   'https://chromium.googlesource.com/chromium/llvm-project/libcxx.git',
+   '3a07dd740be63878167a0ea19fe81869954badd7',
+   'all'
+  ),
+  ('buildtools/libcxxabi',
+   'https://chromium.googlesource.com/chromium/llvm-project/libcxxabi.git',
+   '4072e8fd76febee37f60aeda76d6d9f5e3791daa',
+   'all'
+  ),
+  ('buildtools/libunwind',
+   'https://chromium.googlesource.com/external/llvm.org/libunwind.git',
+   '41f982e5887185b904a456e20dfcd58e6be6cc19',
+   'all'
+  ),
+
+  # Benchmarking tool.
+  ('buildtools/benchmark.zip',
+   'https://github.com/google/benchmark/archive/v1.2.0.zip',
+   '553b6bfa59c63f15c54cfd8c5122b0f7f84469af',
+   'all'
+  ),
+]
+
+# Dependencies required to build Android code.
+# URLs and SHA1s taken from:
+# - https://dl.google.com/android/repository/repository-11.xml
+# - https://dl.google.com/android/repository/sys-img/android/sys-img.xml
+BUILD_DEPS_ANDROID = [
   # Android NDK
   ('buildtools/ndk.zip',
    'https://dl.google.com/android/repository/android-ndk-r15c-darwin-x86_64.zip',
@@ -59,36 +128,46 @@ PREBUILTS = (
    '0bf02d4e8b85fd770fd7b9b2cdec57f9441f27a2',
    'linux2'
   ),
+]
 
-  # Keep in sync with Android's //external/googletest/README.version .
-  ('buildtools/googletest.zip',
-   'https://github.com/google/googletest/archive/ff07a5de0e81580547f1685e101194ed1a4fcd56.zip',
-   'c7edec7d7e6db1fc37a20710de9c4d89e3a3893b',
-   'all'
+# Dependencies required to run Android tests.
+TEST_DEPS_ANDROID = [
+  # tools.zip contains the emulator binaries.
+  ('buildtools/android_sdk/tools.zip',
+   'https://dl.google.com/android/repository/tools_r25.2.5-macosx.zip',
+   'd2168d963ac5b616e3d3ddaf21511d084baf3659',
+   'darwin'
+  ),
+  ('buildtools/android_sdk/tools.zip',
+   'https://dl.google.com/android/repository/tools_r25.2.5-linux.zip',
+   '72df3aa1988c0a9003ccdfd7a13a7b8bd0f47fc1',
+   'linux2'
   ),
 
-  # Keep in sync with Android's //external/protobuf/README.version .
-  ('buildtools/protobuf.zip',
-   'https://github.com/google/protobuf/releases/download/v3.0.0-beta-3/protobuf-cpp-3.0.0-beta-3.zip',
-   '3caec60aa9d8eefc8c3c3201b6b8ca19935edb89',
-   'all'
+  # platform-tools.zip contains adb binaries.
+  ('buildtools/android_sdk/platform-tools.zip',
+   'https://dl.google.com/android/repository/platform-tools_r26.0.0-darwin.zip',
+   'e75b6137dc444f777eb02f44a6d9819b3aabff82',
+   'darwin'
+  ),
+  ('buildtools/android_sdk/platform-tools.zip',
+   'https://dl.google.com/android/repository/platform-tools_r26.0.0-linux.zip',
+   '00de8a6631405b617c10f68cd11ff2e1cd528e23',
+   'linux2'
   ),
 
-  # libc++ and libc++abi, for clang msan that require rebuilding the C++ lib
-  # from sources. Keep the SHA1s in sync with Chrome's src/buildtools/DEPS .
-  ('buildtools/libcxx',
-   'https://chromium.googlesource.com/chromium/llvm-project/libcxx.git',
-   '3a07dd740be63878167a0ea19fe81869954badd7',
+  # Android emulator images.
+  ('buildtools/android_sdk/system-images/android-24/default/armeabi-v7a.zip',
+   'https://dl.google.com/android/repository/sys-img/android/armeabi-v7a-24_r07.zip',
+   '3454546b4eed2d6c3dd06d47757d6da9f4176033',
    'all'
   ),
-  ('buildtools/libcxxabi',
-   'https://chromium.googlesource.com/chromium/llvm-project/libcxxabi.git',
-   '4072e8fd76febee37f60aeda76d6d9f5e3791daa',
+  ('buildtools/android_sdk/system-images/android-24/default/arm64-v8a.zip',
+   'https://dl.google.com/android/repository/sys-img/android/arm64-v8a-24_r07.zip',
+   'e8ab2e49e4efe4b064232b33b5eeaded61437d7f',
    'all'
   ),
-
-
-)
+]
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -143,14 +222,13 @@ def CheckoutGitRepo(path, git_url, revision):
 
 def Main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--skip', action='append', default=[])
+  parser.add_argument('--no-android', action='store_true')
   args = parser.parse_args()
-  skip_set = set(args.skip)
-  for rel_path, url, expected_sha1, platform in PREBUILTS:
+  deps = BUILD_DEPS_HOST
+  if not args.no_android:
+    deps += BUILD_DEPS_ANDROID + TEST_DEPS_ANDROID
+  for rel_path, url, expected_sha1, platform in deps:
     if platform != 'all' and platform != sys.platform:
-      continue
-    if os.path.basename(rel_path) in skip_set:
-      logging.info('Skipping %s because of --skip cmdline arg', rel_path)
       continue
     local_path = os.path.join(ROOT_DIR, rel_path)
     if url.endswith('.git'):
