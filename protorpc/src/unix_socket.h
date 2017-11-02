@@ -17,7 +17,6 @@
 #ifndef PROTORPC_SRC_UNIX_SOCKET_H_
 #define PROTORPC_SRC_UNIX_SOCKET_H_
 
-#include <errno.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -155,7 +154,7 @@ class UnixSocket {
   bool is_connected() const { return state_ == State::kConnected; }
   bool is_listening() const { return state_ == State::kListening; }
   int fd() const { return fd_.get(); }
-  errno_t last_error() const { return last_error_; }
+  int last_error() const { return last_error_; }
 
  private:
   // Used to decouple the lifetime of the UnixSocket from the callbacks
@@ -182,7 +181,7 @@ class UnixSocket {
 
   base::ScopedFile fd_;
   State state_ = State::kNotInitialized;
-  errno_t last_error_ = 0;
+  int last_error_ = 0;
   EventListener* event_listener_;
   base::TaskRunner* task_runner_;
   std::shared_ptr<WeakRef> weak_ref_;

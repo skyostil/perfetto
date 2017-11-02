@@ -204,7 +204,7 @@ void UnixSocket::OnEvent() {
 
   if (state_ == State::kConnecting) {
     PERFETTO_DCHECK(fd_);
-    errno_t sock_err = EINVAL;
+    int sock_err = EINVAL;
     socklen_t err_len = sizeof(sock_err);
     int res = getsockopt(*fd_, SOL_SOCKET, SO_ERROR, &sock_err, &err_len);
     if (res == 0 && sock_err == EINPROGRESS)
