@@ -89,24 +89,27 @@ class UnixSocket {
     // After Connect(), whether successful or not.
     virtual void OnConnect(UnixSocket* self, bool connected);
 
-    // After a sucessful Connect() or OnNewConnection(). Either the other
-    // endpoint did disconnect or some other error happened.
+    // After a sucessful Connect() or OnNewIncomingConnection(). Either the
+    // other endpoint did disconnect or some other error happened.
     virtual void OnDisconnect(UnixSocket* self);
 
-    // Whenever there is data available to Recv().
+    // Whenever there is data available to Recv(). Note that spurious FD watch
+    // events are possible, so it is possible that Recv() soon after
+    // OnDataAvailable() returns 0 (just ignored those).
     virtual void OnDataAvailable(UnixSocket* self);
   };
 
   enum class State {
-    kNotInitialized = 0,
-    kDisconnected,
-    kConnecting,
-    kConnected,
-    kListening  // Only for service sockets, after Listen()
+    kNotInitialized = 0,  // After ctor or after Shutdown().
+    kDisconnected,  // After a failed connection or after the peer disconnects.
+    kConnecting,    // Soon after Connect(), before it either succeeds or fails.
+    kConnected,     // After a succesfull Connect().
+    kListening      // After Listen(), until Shutdown().
   };
 
-  // Guarantees that no event is called on the EventListener after the object
-  // has been destroyed. Any queued callback will be dropped.
+  // This class gives the hard guarantee that no callback is called on the
+  // passed EventListener after the object immediately after the object has been
+  // destroyed. Any queued callback will be silently dropped.
   UnixSocket(EventListener*, base::TaskRunner*);
   ~UnixSocket();
 
@@ -118,11 +121,11 @@ class UnixSocket {
   bool Listen(const std::string& socket_name);
 
   // Creates a Unix domain socket and connects to the listening endpoint.
-  // EventListener::OnConnect(bool success) will be called, whether the Connect
-  // succeeded or not.
+  // EventListener::OnConnect(bool success) will be called always, whether the
+  // connection succeeded or not.
   void Connect(const std::string& socket_name);
 
-  // Shutdowns the current connection, if any. If the socket was Listen()-ing,
+  // Shuts down the current connection, if any. If the socket was Listen()-ing,
   // stops listening. The socket goes back to kNotInitialized state, so it can
   // be reused with Listen() or Connect().
   void Shutdown();
@@ -139,9 +142,9 @@ class UnixSocket {
   // Returns the number of bytes (<= |len|) written in |msg| or 0 if there
   // is no data in the buffer to read or an error occurs (in which case a
   // EventListener::OnDisconnect() will follow).
-  // Returns 0 if the socet is not connected.
-  // If the ScopedFile pointer is not null and a file descriptor is received, it
-  // moves the received fd into that.
+  // If the ScopedFile pointer is not null and a FD is received, it moves the
+  // received FD into that. If a FD is received but the ScopedFile pointer is
+  // null, the FD will be automatically closed.
   size_t Recv(void* msg, size_t len, base::ScopedFile* = nullptr);
 
   // Only for tests. This is slower than Recv() as it requires a heap allocation
@@ -149,7 +152,6 @@ class UnixSocket {
   // terminated even if the underlying message sent by the peer is not.
   std::string RecvString(size_t max_length = 1024);
 
-  EventListener* event_listener() const { return event_listener_; }
   bool is_connected() const { return state_ == State::kConnected; }
   bool is_listening() const { return state_ == State::kListening; }
   int fd() const { return fd_.get(); }

@@ -362,6 +362,12 @@ TEST_F(UnixSocketTest, AtomicWrites) {
 // and the other end just doing a recv (without taking it), the fd is closed and
 // not left around.
 
+// TODO(primiano); add a test to check that a socket can be reused after
+// Shutdown(),
+
+// TODO(primiano): add a test to check that OnDisconnect() is called in all
+// possible cases.
+
 }  // namespace
 }  // namespace protorpc
 }  // namespace perfetto
