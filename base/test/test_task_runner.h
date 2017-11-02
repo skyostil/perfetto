@@ -34,13 +34,12 @@ class TestTaskRunner : public TaskRunner {
   TestTaskRunner();
   ~TestTaskRunner() override;
 
-  void Run();
-
-  // Returns false in case of errors.
-  bool RunUntilIdle();
+  size_t RunCurrentTasks();
+  void RunUntilIdle();
+  void __attribute__((__noreturn__)) Run();
 
   std::function<void()> GetCheckpointClosure(const std::string& checkpoint);
-  bool RunUntilCheckpoint(const std::string& checkpoint);
+  void RunUntilCheckpoint(const std::string& checkpoint, int timeout_ms = 5000);
 
   // TaskRunner implementation.
   void PostTask(std::function<void()> closure) override;
@@ -52,7 +51,7 @@ class TestTaskRunner : public TaskRunner {
   TestTaskRunner& operator=(const TestTaskRunner&) = delete;
 
   // Returns false in case of errors.
-  bool RunFileDescriptorWatches(int timeout_ms);
+  size_t RunFileDescriptorWatches(int timeout_ms);
 
   std::list<std::function<void()>> task_queue_;
   std::map<int, std::function<void()>> watched_fds_;

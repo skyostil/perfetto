@@ -13,6 +13,7 @@
 # limitations under the License.
 
 source_set("protorpc") {
+  deps += [ "//base" ]
   sources = [
     "src/unix_socket.cc",
   ]
@@ -22,6 +23,7 @@ executable("protorpc_unittests") {
   testonly = true
   deps += [
     ":protorpc",
+    "//base",
     "//base:test_support",
     "//buildtools:gmock",
     "//buildtools:gtest",

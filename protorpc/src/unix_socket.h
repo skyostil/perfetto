@@ -17,6 +17,7 @@
 #ifndef PROTORPC_SRC_UNIX_SOCKET_H_
 #define PROTORPC_SRC_UNIX_SOCKET_H_
 
+#include <errno.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -35,13 +36,45 @@ class TaskRunner;
 namespace protorpc {
 
 // A non-blocking UNIX domain socket in SOCK_STREAM mode. Allows also to
-// transfer file descriptors over the network.
-// None of the methods in this class are blocking.
+// transfer file descriptors over the network. None of the methods in this class
+// are blocking.
 // The main design goal is API simplicity and strong guarantees on the
-// EventListener callbacks, in order to avoid ending in any undetermined state.
-// It assumes that the client doesn't want to do any fancy error handling and
-// in case of any error it will aggressively just shut down the socket and
-// notify an OnDisconnect().
+// EventListener callbacks, in order to avoid ending in some undefined state.
+// In case of any error it will aggressively just shut down the socket and
+// notify the failure with OnConnect(false) or OnDisconnect() depending on the
+// state of the socket (see below).
+// EventListener callbacks stop happening as soon as the instance is destroyed.
+//
+// Lifecycle of a client socket:
+//
+//                           Connect()
+//                               |
+//            +------------------+------------------+
+//            | (success)                           | (failure or Shutdown())
+//            V                                     V
+//     OnConnect(true)                         OnConnect(false)
+//            |
+//            V
+//    OnDataAvailable()
+//            |
+//            V
+//     OnDisconnect()  (failure or shutdown)
+//
+//
+// Lifecycle of a server socket:
+//
+//                          Listen()  --> returns false in case of errors.
+//                             |
+//                             V
+//              OnNewIncomingConnection(new_socket)
+//
+//          (|new_socket| inherits the same EventListener)
+//                             |
+//                             V
+//                     OnDataAvailable()
+//                             | (failure or Shutdown())
+//                             V
+//                       OnDisconnect()
 class UnixSocket {
  public:
   class EventListener {
@@ -82,15 +115,16 @@ class UnixSocket {
   // Returns false in on failure (e.g., another socket with the same name is
   // already listening). New connections will be notified through
   // EventListener::OnNewConnection().
-  bool Listen(const char* socket_name);
+  bool Listen(const std::string& socket_name);
 
   // Creates a Unix domain socket and connects to the listening endpoint.
-  // Return value:
-  // false: an error occurred, no EventListener::OnConnect() will happen.
-  // true: EventListener::OnConnect() will update on the outcome of the
-  //       connection, either successful or not.
-  bool Connect(const char* socket_name);
+  // EventListener::OnConnect(bool success) will be called, whether the Connect
+  // succeeded or not.
+  void Connect(const std::string& socket_name);
 
+  // Shutdowns the current connection, if any. If the socket was Listen()-ing,
+  // stops listening. The socket goes back to kNotInitialized state, so it can
+  // be reused with Listen() or Connect().
   void Shutdown();
 
   // Returns true is the message was queued, false if there was no space in the
@@ -119,6 +153,7 @@ class UnixSocket {
   bool is_connected() const { return state_ == State::kConnected; }
   bool is_listening() const { return state_ == State::kListening; }
   int fd() const { return fd_.get(); }
+  errno_t last_error() const { return last_error_; }
 
  private:
   // Used to decouple the lifetime of the UnixSocket from the callbacks
@@ -141,9 +176,11 @@ class UnixSocket {
 
   bool InitializeSocket();
   void OnEvent();
+  void NotifyConnectionState(bool success);
 
   base::ScopedFile fd_;
   State state_ = State::kNotInitialized;
+  errno_t last_error_ = 0;
   EventListener* event_listener_;
   base::TaskRunner* task_runner_;
   std::shared_ptr<WeakRef> weak_ref_;

@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <chrono>
+
 #include "base/logging.h"
 
 // TODO: the current implementation quite hacky as it keeps waking up every 1ms.
@@ -30,22 +32,40 @@ TestTaskRunner::TestTaskRunner() = default;
 
 TestTaskRunner::~TestTaskRunner() = default;
 
-void TestTaskRunner::Run() {
-  while (RunUntilIdle()) {
-  }
-}
-
-bool TestTaskRunner::RunUntilIdle() {
-  while (!task_queue_.empty()) {
+size_t TestTaskRunner::RunCurrentTasks() {
+  size_t num_tasks = task_queue_.size();
+  for (size_t i = 0; i < num_tasks; i++) {
     std::function<void()> closure = std::move(task_queue_.front());
     task_queue_.pop_front();
     closure();
   }
+  size_t num_watches_ran = RunFileDescriptorWatches(100);
+  return num_tasks + num_watches_ran;
+}
 
-  int res = RunFileDescriptorWatches(100);
-  if (res < 0)
-    return false;
-  return true;
+void TestTaskRunner::Run() {
+  for (;;)
+    RunCurrentTasks();
+}
+
+void TestTaskRunner::RunUntilIdle() {
+  while (RunCurrentTasks() > 0) {
+  }
+}
+
+void TestTaskRunner::RunUntilCheckpoint(const std::string& checkpoint,
+                                        int timeout_ms) {
+  PERFETTO_DCHECK(checkpoints_.count(checkpoint) == 1);
+  auto tstart = std::chrono::system_clock::now();
+  auto deadline = tstart + std::chrono::milliseconds(timeout_ms);
+  while (!checkpoints_[checkpoint]) {
+    RunCurrentTasks();
+    if (std::chrono::system_clock::now() > deadline) {
+      printf("[TestTaskRunner] Failed to reach checkpoint \"%s\"\n",
+             checkpoint.c_str());
+      abort();
+    }
+  }
 }
 
 std::function<void()> TestTaskRunner::GetCheckpointClosure(
@@ -55,41 +75,36 @@ std::function<void()> TestTaskRunner::GetCheckpointClosure(
   return [checkpoint_iter] { checkpoint_iter.first->second = true; };
 }
 
-bool TestTaskRunner::RunUntilCheckpoint(const std::string& checkpoint) {
-  PERFETTO_DCHECK(checkpoints_.count(checkpoint) == 1);
-  while (!checkpoints_[checkpoint]) {
-    if (!RunUntilIdle())
-      return false;
-  }
-  return true;
-}
-
-bool TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
+size_t TestTaskRunner::RunFileDescriptorWatches(int timeout_ms) {
   struct timeval timeout;
   timeout.tv_usec = (timeout_ms % 1000) * 1000L;
   timeout.tv_sec = static_cast<time_t>(timeout_ms / 1000);
   int max_fd = 0;
-  fd_set fds = {};
+  fd_set fds_in = {};
+  fd_set fds_err = {};
   for (const auto& it : watched_fds_) {
-    FD_SET(it.first, &fds);
+    FD_SET(it.first, &fds_in);
+    FD_SET(it.first, &fds_err);
     max_fd = std::max(max_fd, it.first);
   }
-  int res = select(max_fd + 1, &fds, nullptr, nullptr, &timeout);
-
+  int res = select(max_fd + 1, &fds_in, nullptr, &fds_err, &timeout);
   if (res < 0) {
     perror("select() failed");
-    return false;
+    abort();
   }
   if (res == 0)
-    return true;  // timeout
+    return 0;  // timeout
+  size_t num_watches_ran = 0;
   for (int fd = 0; fd <= max_fd; ++fd) {
-    if (!FD_ISSET(fd, &fds))
+    if (!FD_ISSET(fd, &fds_in) && !FD_ISSET(fd, &fds_err)) {
       continue;
+    }
     auto fd_and_callback = watched_fds_.find(fd);
     PERFETTO_DCHECK(fd_and_callback != watched_fds_.end());
+    num_watches_ran++;
     fd_and_callback->second();
   }
-  return true;
+  return num_watches_ran;
 }
 
 // TaskRunner implementation.

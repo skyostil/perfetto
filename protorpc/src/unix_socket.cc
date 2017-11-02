@@ -39,6 +39,8 @@
 namespace perfetto {
 namespace protorpc {
 
+// TODO(primiano): Add ThreadChecker to methods of this class.
+
 namespace {
 
 // MSG_NOSIGNAL is not supported on Mac OS X, but in that case the socket is
@@ -56,14 +58,14 @@ using cbuf_len_t = size_t;
 using cbuf_len_t = socklen_t;
 #endif
 
-bool MakeSockAddr(const char* socket_name,
+bool MakeSockAddr(const std::string& socket_name,
                   sockaddr_un* addr,
                   socklen_t* addr_size) {
   memset(addr, 0, sizeof(sockaddr_un));
-  const size_t name_len = strlen(socket_name);
+  const size_t name_len = socket_name.size();
   if (name_len >= sizeof(addr->sun_path))
     return false;
-  memcpy(addr->sun_path, socket_name, name_len);
+  memcpy(addr->sun_path, socket_name.data(), name_len);
   if (addr->sun_path[0] == '@')
     addr->sun_path[0] = '\0';
   addr->sun_family = AF_UNIX;
@@ -89,8 +91,10 @@ bool UnixSocket::InitializeSocket() {
   PERFETTO_DCHECK(state_ == State::kNotInitialized);
   if (!fd_)
     fd_.reset(socket(AF_UNIX, SOCK_STREAM, 0));
-  if (!fd_)
+  if (!fd_) {
+    last_error_ = errno;
     return false;
+  }
 #if BUILDFLAG(OS_MACOSX)
   const int no_sigpipe = 1;
   setsockopt(*fd_, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
@@ -115,14 +119,16 @@ bool UnixSocket::InitializeSocket() {
   return true;
 }
 
-bool UnixSocket::Listen(const char* socket_name) {
+bool UnixSocket::Listen(const std::string& socket_name) {
   if (!InitializeSocket())
     return false;
 
   sockaddr_un addr;
   socklen_t addr_size;
-  if (!MakeSockAddr(socket_name, &addr, &addr_size))
+  if (!MakeSockAddr(socket_name, &addr, &addr_size)) {
+    last_error_ = errno;
     return false;
+  }
 
 // Android takes an int as 3rd argument of bind() instead of socklen_t.
 #if BUILDFLAG(OS_ANDROID)
@@ -132,38 +138,50 @@ bool UnixSocket::Listen(const char* socket_name) {
 #endif
 
   if (bind(*fd_, reinterpret_cast<sockaddr*>(&addr), bind_size)) {
+    last_error_ = errno;
     PERFETTO_DPLOG("bind()");
     return false;
   }
   if (listen(*fd_, SOMAXCONN)) {
+    last_error_ = errno;
     PERFETTO_DPLOG("listen()");
     return false;
   }
 
+  last_error_ = 0;
   state_ = State::kListening;
   return true;
 }
 
-bool UnixSocket::Connect(const char* socket_name) {
+void UnixSocket::Connect(const std::string& socket_name) {
   if (state_ == State::kNotInitialized) {
     if (!InitializeSocket())
-      return false;
+      return NotifyConnectionState(false);
   }
 
   sockaddr_un addr;
   socklen_t addr_size;
-  if (!MakeSockAddr(socket_name, &addr, &addr_size))
-    return false;
+  if (!MakeSockAddr(socket_name, &addr, &addr_size)) {
+    last_error_ = errno;
+    return NotifyConnectionState(false);
+  }
 
   int res = PERFETTO_EINTR(
       connect(*fd_, reinterpret_cast<sockaddr*>(&addr), addr_size));
-  if (res && errno != EINPROGRESS)
-    return false;
+  if (res && errno != EINPROGRESS) {
+    last_error_ = errno;
+    return NotifyConnectionState(false);
+  }
 
-  // Would be quite unusual for a non-blocking socket to connect() straight away
-  // rather than returning EINPROGRESS, but won't be surprised if some kernel
-  // short circuits that for UNIX sockets. In this case just trigger an OnEvent
-  // without waiting for the FD watch.
+  // At this point either |res| == 0 (the connect() succeeded) or started
+  // asynchronously (EINPROGRESS).
+  last_error_ = 0;
+  state_ = State::kConnecting;
+
+  // Even if the socket is non-blocking, connecting to a UNIX socket can be
+  // acknowledged straight away rather than returning EINPROGRESS. In this case
+  // just trigger an OnEvent without waiting for the FD watch. That will poll
+  // the SO_ERROR and evolve the state into either kConnected or kDisconnected.
   if (res == 0) {
     std::shared_ptr<WeakRef> weak_ref = weak_ref_;
     task_runner_->PostTask([weak_ref]() {
@@ -171,9 +189,6 @@ bool UnixSocket::Connect(const char* socket_name) {
         weak_ref->sock->OnEvent();
     });
   }
-
-  state_ = State::kConnecting;
-  return true;
 }
 
 void UnixSocket::OnEvent() {
@@ -182,24 +197,23 @@ void UnixSocket::OnEvent() {
   PERFETTO_DCHECK(state_ != State::kNotInitialized);
 
   if (state_ == State::kDisconnected)
-    return;  // Some Spurious event.
+    return;  // Some Spurious event, typically queued just before Shutdown().
 
   if (state_ == State::kConnected)
     return event_listener_->OnDataAvailable(this);
 
   if (state_ == State::kConnecting) {
     PERFETTO_DCHECK(fd_);
-    int sock_err = EINVAL;
+    errno_t sock_err = EINVAL;
     socklen_t err_len = sizeof(sock_err);
     int res = getsockopt(*fd_, SOL_SOCKET, SO_ERROR, &sock_err, &err_len);
     if (res == 0 && sock_err == EINPROGRESS)
       return;  // Not connected yet, just a spurious FD watch wakeup.
     if (res == 0 && sock_err == 0) {
       state_ = State::kConnected;
-      event_listener_->OnConnect(this, true /* connected */);
-      return;
+      return event_listener_->OnConnect(this, true /* connected */);
     }
-    errno = sock_err;
+    last_error_ = sock_err;
     return event_listener_->OnConnect(this, false /* connected */);
   }
 
@@ -217,8 +231,11 @@ void UnixSocket::OnEvent() {
       std::unique_ptr<UnixSocket> new_sock(
           new UnixSocket(event_listener_, task_runner_));
       new_sock->fd_ = std::move(new_fd);
+
+      // InitializeSocket can't fail if we set the fd_.
       bool initialized = new_sock->InitializeSocket();
-      PERFETTO_CHECK(initialized);  // This can't fail.
+      PERFETTO_CHECK(initialized);
+      new_sock->last_error_ = 0;
       new_sock->state_ = State::kConnected;
       event_listener_->OnNewIncomingConnection(this, std::move(new_sock));
     }
@@ -230,8 +247,10 @@ bool UnixSocket::Send(const std::string& msg) {
 }
 
 bool UnixSocket::Send(const void* msg, size_t len, int wired_fd) {
-  if (state_ != State::kConnected)
+  if (state_ != State::kConnected) {
+    last_error_ = ENOTCONN;
     return false;
+  }
 
   msghdr msg_hdr = {};
   iovec iov = {const_cast<void*>(msg), len};
@@ -255,33 +274,41 @@ bool UnixSocket::Send(const void* msg, size_t len, int wired_fd) {
   }
 
   const ssize_t sz = PERFETTO_EINTR(sendmsg(*fd_, &msg_hdr, kNoSigPipe));
-  if (sz > 0) {
+  if (sz >= 0) {
     // There should be no way a non-blocking socket returns < |len|.
     // If the queueing fails, sendmsg() must return -1 + errno = EWOULDBLOCK.
     PERFETTO_CHECK(static_cast<size_t>(sz) == len);
+    last_error_ = 0;
     return true;
   }
-  if (sz == 0) {
-    PERFETTO_DCHECK(len == 0);
-    return true;
-  }
+
   if (errno == EAGAIN || errno == EWOULDBLOCK) {
-    // A genuine out-of-buffer error. The client should retry or give up.
+    // A genuine out-of-buffer. The client should retry or give up.
+    // Man pages specify that EAGAIN and EWOULDBLOCK have the same semantic here
+    // and clients should check for both.
+    last_error_ = EAGAIN;
     return false;
   }
+
   // Either the the other endpoint disconnect (ECONNRESET) or some other error
   // happened.
+  last_error_ = errno;
   PERFETTO_DPLOG("sendmsg() failed");
   Shutdown();
   return false;
 }
 
 void UnixSocket::Shutdown() {
+  std::shared_ptr<WeakRef>& weak_ref = weak_ref_;
   if (state_ == State::kConnected) {
-    std::shared_ptr<WeakRef>& weak_ref = weak_ref_;
     task_runner_->PostTask([weak_ref]() {
       if (weak_ref->sock)
         weak_ref->sock->event_listener_->OnDisconnect(weak_ref->sock);
+    });
+  } else if (state_ == State::kConnecting) {
+    task_runner_->PostTask([weak_ref]() {
+      if (weak_ref->sock)
+        weak_ref->sock->event_listener_->OnConnect(weak_ref->sock, false);
     });
   }
   if (fd_) {
@@ -293,8 +320,10 @@ void UnixSocket::Shutdown() {
 }
 
 size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
-  if (state_ != State::kConnected)
+  if (state_ != State::kConnected) {
+    last_error_ = ENOTCONN;
     return 0;
+  }
 
   msghdr msg_hdr = {};
   iovec iov = {msg, len};
@@ -308,9 +337,12 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
     PERFETTO_CHECK(msg_hdr.msg_controllen <= sizeof(control_buf));
   }
   const ssize_t sz = PERFETTO_EINTR(recvmsg(*fd_, &msg_hdr, kNoSigPipe));
-  if (sz < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+  if (sz < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    last_error_ = EAGAIN;
     return 0;
+  }
   if (sz == 0) {
+    last_error_ = errno;
     Shutdown();
     return 0;
   }
@@ -335,7 +367,7 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
   if (msg_hdr.msg_flags & MSG_TRUNC || msg_hdr.msg_flags & MSG_CTRUNC) {
     for (size_t i = 0; i < wire_fds_len; ++i)
       close(wire_fds[i]);
-    errno = EMSGSIZE;
+    last_error_ = EMSGSIZE;
     Shutdown();
     return 0;
   }
@@ -348,6 +380,7 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
     }
   }
 
+  last_error_ = 0;
   return static_cast<size_t>(sz);
 }
 
@@ -357,6 +390,14 @@ std::string UnixSocket::RecvString(size_t max_length) {
   PERFETTO_CHECK(static_cast<size_t>(rsize) <= max_length);
   buf[static_cast<size_t>(rsize)] = '\0';
   return std::string(buf.get());
+}
+
+void UnixSocket::NotifyConnectionState(bool success) {
+  std::shared_ptr<WeakRef> weak_ref = weak_ref_;
+  task_runner_->PostTask([weak_ref, success]() {
+    if (weak_ref->sock)
+      weak_ref->sock->event_listener_->OnConnect(weak_ref->sock, success);
+  });
 }
 
 UnixSocket::EventListener::~EventListener() {}
