@@ -37,7 +37,7 @@ std::string ToCamelCase(const std::string& s) {
   std::string result = s;
   bool upperCaseNextChar = true;
   size_t j = 0;
-  for (size_t i=0; i<s.size(); i++) {
+  for (size_t i = 0; i < s.size(); i++) {
     char c = s[i];
     if (c == '_') {
       upperCaseNextChar = true;

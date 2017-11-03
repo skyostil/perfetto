@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#include "ftrace_reader/ftrace_reader.h"
+#include "delegate_adaptor.h"
 
 namespace perfetto {
 
-FtraceReader::FtraceReader() {}
-
-const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) {
-  return nullptr;  // &readers_[cpu];
-}
+// DelegateAdaptor::DelegateAdaptor() {}
+//
+// DelegateAdaptor::~DelegateAdaptor() {}
 
 }  // namespace perfetto

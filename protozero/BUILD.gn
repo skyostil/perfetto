@@ -64,6 +64,5 @@ protozero_library("testing_messages") {
     "src/test/example_proto/test_messages.proto",
     "src/test/example_proto/upper_import.proto",
   ]
-  include_dirs = [ "include" ]
   proto_in_dir = "src/test/example_proto"
 }

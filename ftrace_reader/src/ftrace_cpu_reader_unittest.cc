@@ -18,22 +18,47 @@
 
 #include <stdint.h>
 
-#include "gtest/gtest.h"
 #include "base/utils.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+
+#include "ftrace_event.pb.h"
+#include "ftrace_event_bundle.pb.h"
+
+using testing::_;
+using testing::Return;
+using testing::SaveArg;
+using testing::Invoke;
 
 namespace perfetto {
 
 namespace {
+
 const size_t kPageSize = 4096;
 
-std::unique_ptr<char[]> MakeBuffer(size_t size) {
-  return std::unique_ptr<char[]>(new char[size]);
+std::unique_ptr<uint8_t[]> MakeBuffer(size_t size) {
+  return std::unique_ptr<uint8_t[]>(new uint8_t[size]);
 }
+
+}  // namespace
+
+class MockRegion : public FtraceCpuReader::Region {
+ public:
+  MockRegion() {}
+  ~MockRegion() {}
+  MOCK_METHOD1(DoneWriting, void(uint8_t*));
+};
+
+class MockDelegate : public FtraceCpuReader::Delegate {
+ public:
+  MockDelegate() {}
+  ~MockDelegate() {}
+  MOCK_METHOD0(NewRegion, FtraceCpuReader::Region*());
+};
 
 class BinaryWriter {
  public:
-  BinaryWriter(char* ptr, size_t size) : ptr_(ptr), size_(size) {
-  }
+  BinaryWriter(uint8_t* ptr, size_t size) : ptr_(ptr), size_(size) {}
 
   template <typename T>
   void Write(T t) {
@@ -42,20 +67,30 @@ class BinaryWriter {
     PERFETTO_CHECK(ptr_ < ptr_ + size_);
   }
 
+  void WriteEventHeader(uint32_t time_delta, uint32_t entry_type) {
+    // Entry header is a packed time delta (d) and type (t):
+    // dddddddd dddddddd dddddddd dddttttt
+    //    Write<uint32_t>((time_delta << 5) | (entry_type & 0x1f));
+    Write<uint32_t>(entry_type);
+  }
+
+  void WriteString(const char* s) {
+    char c;
+    while ((c = *s++)) {
+      Write<char>(c);
+    }
+  }
+
  private:
-  char* ptr_;
+  uint8_t* ptr_;
   size_t size_;
 };
 
-} // namespace
-
 class FtraceCpuReaderTest : public ::testing::Test {
  public:
-  FtraceCpuReaderTest() {
-  }
+  FtraceCpuReaderTest() {}
 
-  virtual ~FtraceCpuReaderTest() {
-  }
+  virtual ~FtraceCpuReaderTest() {}
 
  private:
   FtraceCpuReaderTest(const FtraceCpuReaderTest&) = delete;
@@ -63,13 +98,50 @@ class FtraceCpuReaderTest : public ::testing::Test {
 };
 
 TEST_F(FtraceCpuReaderTest, ParseEmpty) {
-  std::unique_ptr<char[]> in_page = MakeBuffer(kPageSize);
-  std::unique_ptr<char[]> out_page = MakeBuffer(kPageSize);
-  BinaryWriter writer(out_page.get(), kPageSize);
-  writer.Write<uint64_t>(4);
+  std::unique_ptr<uint8_t[]> in_page = MakeBuffer(kPageSize);
+  std::unique_ptr<uint8_t[]> out_page = MakeBuffer(kPageSize);
 
-  FtraceRegion region{out_page.get(), out_page.get() + kPageSize};
-  FtraceCpuReader::ParsePage(in_page.get(), region);
+  MockRegion mockRegion;
+  mockRegion.start = out_page.get();
+  mockRegion.end = out_page.get() + kPageSize;
+  MockDelegate mockDelegate;
+
+  uint8_t* out_page_end = nullptr;
+  EXPECT_CALL(mockRegion,
+              DoneWriting(_));  //.WillOnce(SaveArg<0>(out_page_end));
+  EXPECT_CALL(mockDelegate, NewRegion()).WillOnce(Return(&mockRegion));
+
+  BinaryWriter writer(in_page.get(), kPageSize);
+  // Timestamp:
+  writer.Write<uint64_t>(999);
+  // Page length:
+  writer.Write<uint64_t>(35);
+  // 4 Header:
+  writer.WriteEventHeader(1 /* time delta */, 8 /* entry type */);
+  // 6 Event type:
+  writer.Write<uint16_t>(5);
+  // 7 Flags:
+  writer.Write<uint8_t>(0);
+  // 8 Preempt count:
+  writer.Write<uint8_t>(0);
+  // 12 PID:
+  writer.Write<uint32_t>(72);
+  // 20 Instruction pointer:
+  writer.Write<uint64_t>(0);
+  // 35 String:
+  writer.WriteString("Hello, world!\n");
+
+  FtraceCpuReader::ParsePage(42, in_page.get(), &mockDelegate);
+
+  FtraceEventBundle bundle;
+  size_t size = out_page_end - out_page.get();
+  bundle.ParseFromArray(out_page.get(), static_cast<int>(size));
+
+  EXPECT_EQ(42, bundle.cpu());
+  EXPECT_EQ(1, bundle.event_size());
+  EXPECT_EQ(72, bundle.event(0).pid());
+
+  google::protobuf::ShutdownProtobufLibrary();
 }
 
 }  // namespace perfetto

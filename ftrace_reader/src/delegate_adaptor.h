@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-#include "ftrace_reader/ftrace_reader.h"
+#ifndef FTRACE_READER_DELEGATE_ADAPTOR_H_
+#define FTRACE_READER_DELEGATE_ADAPTOR_H_
 
-namespace perfetto {
+#include "protozero/scattered_stream_writer.h"
 
-FtraceReader::FtraceReader() {}
+namespace perfetto {}  // namespace perfetto
 
-const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) {
-  return nullptr;  // &readers_[cpu];
-}
-
-}  // namespace perfetto
+#endif  // FTRACE_READER_DELEGATE_ADAPTOR_H_

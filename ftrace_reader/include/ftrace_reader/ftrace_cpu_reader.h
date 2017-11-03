@@ -17,32 +17,44 @@
 #ifndef FTRACE_READER_FTRACE_CPU_READER_H_
 #define FTRACE_READER_FTRACE_CPU_READER_H_
 
+#include <stdint.h>
+
 #include "base/scoped_file.h"
 #include "gtest/gtest_prod.h"
 
 namespace perfetto {
 
-struct FtraceRegion {
-  char* start;
-  char* end;
-};
-
 class FtraceCpuReader {
  public:
-  FtraceCpuReader(int fd);
+  class Region {
+   public:
+    virtual ~Region();
+    uint8_t* start;
+    uint8_t* end;
+    virtual void DoneWriting(uint8_t* end_ptr) = 0;
+  };
 
-  void Read(FtraceRegion region);
+  class Delegate {
+   public:
+    virtual ~Delegate();
+    virtual Region* NewRegion() = 0;
+  };
+
+  FtraceCpuReader(uint32_t cpu, int fd);
+
+  void Read(Delegate* delegate);
   int GetFileDescriptor();
 
  private:
   friend class FtraceCpuReaderTest;
   FRIEND_TEST(FtraceCpuReaderTest, ParseEmpty);
 
-  static void ParsePage(const char* ptr, FtraceRegion region);
+  static void ParsePage(uint32_t cpu, const uint8_t* ptr, Delegate* delegate);
 
   FtraceCpuReader(const FtraceCpuReader&) = delete;
   FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
 
+  uint32_t cpu_;
   base::ScopedFile fd_;
 };
 

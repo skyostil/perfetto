@@ -27,6 +27,10 @@
 #include <memory>
 
 #include "base/utils.h"
+#include "delegate_adaptor.h"
+#include "ftrace_event.pbzero.h"
+#include "ftrace_event_bundle.pbzero.h"
+#include "protozero/protozero_message.h"
 
 namespace perfetto {
 
@@ -45,24 +49,63 @@ const uint32_t kTypeTimeStamp = 31;
 const size_t kPageSize = 4096;
 
 template <typename T>
-T ReadAndAdvance(const char** ptr) {
+T ReadAndAdvance(const uint8_t** ptr) {
   T ret;
   memcpy(&ret, *ptr, sizeof(T));
   *ptr += sizeof(T);
   return ret;
 }
 
-} // namespace
+class DelegateAdaptor : public protozero::ScatteredStreamWriter::Delegate {
+ public:
+  explicit DelegateAdaptor(FtraceCpuReader::Delegate* delegate);
+  ~DelegateAdaptor() override;
 
-FtraceCpuReader::FtraceCpuReader(int fd) : fd_(base::ScopedFile(fd)) {
+  // ScatteredStreamWriter::Delegate implementation.
+  protozero::ContiguousMemoryRange GetNewBuffer() override;
+
+  void Done(size_t message_size);
+
+ private:
+  FtraceCpuReader::Delegate* delegate_;
+  FtraceCpuReader::Region* current_region_;
+};
+
+DelegateAdaptor::DelegateAdaptor(FtraceCpuReader::Delegate* delegate)
+    : delegate_(delegate), current_region_(nullptr) {}
+
+DelegateAdaptor::~DelegateAdaptor() {}
+
+// ScatteredStreamWriter::Delegate implementation.
+protozero::ContiguousMemoryRange DelegateAdaptor::GetNewBuffer() {
+  FtraceCpuReader::Region* region = delegate_->NewRegion();
+  if (current_region_ != nullptr) {
+    // TODO(hjd): handle this case.
+    PERFETTO_CHECK(false);
+  }
+  current_region_ = region;
+  return {region->start, region->end};
 }
 
-void FtraceCpuReader::Read(FtraceRegion region) {
+void DelegateAdaptor::Done(size_t message_size) {
+  PERFETTO_CHECK(current_region_);
+  current_region_->DoneWriting(current_region_->start + message_size);
+}
+
+}  // namespace
+
+FtraceCpuReader::Region::~Region() {}
+FtraceCpuReader::Delegate::~Delegate() {}
+
+FtraceCpuReader::FtraceCpuReader(uint32_t cpu, int fd)
+    : cpu_(cpu), fd_(base::ScopedFile(fd)) {}
+
+void FtraceCpuReader::Read(Delegate* delegate) {
   if (fd_.get() == -1)
     return;
 
-  std::unique_ptr<char[]> buffer =
-            std::unique_ptr<char[]>(new char[perfetto::kPageSize]);
+  std::unique_ptr<uint8_t[]> buffer =
+      std::unique_ptr<uint8_t[]>(new uint8_t[perfetto::kPageSize]);
 
   long bytes = PERFETTO_EINTR(read(fd_.get(), buffer.get(), kPageSize));
   if (bytes == -1 || bytes == 0)
@@ -70,7 +113,7 @@ void FtraceCpuReader::Read(FtraceRegion region) {
 
   PERFETTO_DCHECK(bytes == kPageSize);
 
-  ParsePage(buffer.get(), region);
+  ParsePage(cpu_, buffer.get(), delegate);
 }
 
 // The structure of a raw trace buffer page is as follows:
@@ -80,14 +123,23 @@ void FtraceCpuReader::Read(FtraceRegion region) {
 // // TODO(hjd): Document rest of format.
 // Some information about the layout of the page header is available in user
 // space at: /sys/kernel/debug/tracing/events/header_event
+// This method is deliberately static so it can be tested independently.
 // static
-void FtraceCpuReader::ParsePage(const char* ptr, FtraceRegion region) {
+void FtraceCpuReader::ParsePage(uint32_t cpu,
+                                const uint8_t* ptr,
+                                Delegate* delegate) {
+  DelegateAdaptor adaptor(delegate);
+  protozero::ScatteredStreamWriter stream_writer(&adaptor);
+  pbzero::FtraceEventBundle message;
+  message.Reset(&stream_writer);
+  message.set_cpu(cpu);
+
   // TODO(hjd): Read this format dynamically?
   uint64_t timestamp = ReadAndAdvance<uint64_t>(&ptr);
   uint64_t page_length = ReadAndAdvance<uint64_t>(&ptr) & 0xfffful;
   PERFETTO_CHECK(page_length <= kPageSize - 64 * 2);
-  const char* const start = ptr;
-  const char* const end = ptr + page_length;
+  const uint8_t* const start = ptr;
+  const uint8_t* const end = ptr + page_length;
 
   // TODO(hjd): Remove.
   (void)start;
@@ -128,13 +180,15 @@ void FtraceCpuReader::ParsePage(const char* ptr, FtraceRegion region) {
         (void)tv_sec;
         break;
       }
+      // Data record:
       default: {
         PERFETTO_CHECK(type <= kTypeDataTypeLengthMax);
         // Where type is <=28 it represents the length of a data record
         if (type == 0) {
-          PERFETTO_CHECK(false);  // TODO(hjd): Look at the next few bytes for real size.
+          PERFETTO_CHECK(
+              false);  // TODO(hjd): Look at the next few bytes for real size.
         }
-        const char* next = ptr + 4 * type;
+        const uint8_t* next = ptr + 4 * type;
 
         uint16_t event_type = ReadAndAdvance<uint16_t>(&ptr);
 
@@ -145,10 +199,13 @@ void FtraceCpuReader::ParsePage(const char* ptr, FtraceRegion region) {
         uint32_t pid = ReadAndAdvance<uint32_t>(&ptr);
         printf("Event type=%d pid=%d\n", event_type, pid);
 
+        pbzero::FtraceEvent* event = message.add_event();
+        event->set_pid(pid);
+
         if (event_type == 5) {
           // Trace Marker Parser
           ReadAndAdvance<uint64_t>(&ptr);  // ip
-          const char* word_start = ptr;
+          const uint8_t* word_start = ptr;
           printf("  marker=%s", word_start);
           while (*ptr != '\0')
             ptr++;
@@ -156,9 +213,12 @@ void FtraceCpuReader::ParsePage(const char* ptr, FtraceRegion region) {
 
         // Jump to next event.
         ptr = next;
+        printf("%zu\n", ptr - start);
       }
     }
   }
+  size_t message_size = message.Finalize();
+  adaptor.Done(message_size);
 }
 
 }  // namespace perfetto

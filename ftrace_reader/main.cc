@@ -42,5 +42,6 @@ int main(int argc, const char** argv) {
     ftrace_controller.DisableEvent(argv[i]);
   }
 
-  return 0;;
+  return 0;
+  ;
 }

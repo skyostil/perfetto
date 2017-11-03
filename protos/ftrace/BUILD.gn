@@ -19,8 +19,8 @@ import("//protozero//protozero_library.gni")
 # dynamically look up the field IDs and types and write the event at runtime.
 protozero_library("ftrace") {
   sources = [
-    "ftrace_event_bundle.proto",
     "ftrace_event.proto",
+    "ftrace_event_bundle.proto",
     "print.proto",
     "sched_switch.proto",
   ]

@@ -35,6 +35,6 @@ class FtraceReader {
   std::map<size_t, FtraceCpuReader> readers_;
 };
 
-} // namespace perfetto
+}  // namespace perfetto
 
 #endif  // FTRACE_READER_FTRACE_READER_H_

@@ -19,11 +19,12 @@ config("ftrace_reader_config") {
 executable("ftrace_reader_unittests") {
   testonly = true
   deps += [
-    "//base",
     ":ftrace_reader",
+    "//base",
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
+    "//protos/ftrace",
   ]
   sources = [
     "src/ftrace_cpu_reader_unittest.cc",
@@ -57,12 +58,18 @@ source_set("ftrace_reader") {
   deps += [
     "//base",
     "//buildtools:gtest_prod",
+
+    # Hmm, should I need this?
+    "//buildtools:protobuf_full",
+    "//protos/ftrace",
     "//protozero",
   ]
   sources = [
     "include/ftrace_reader/ftrace_controller.h",
     "include/ftrace_reader/ftrace_cpu_reader.h",
     "include/ftrace_reader/ftrace_reader.h",
+    "src/delegate_adaptor.cc",
+    "src/delegate_adaptor.h",
     "src/ftrace_controller.cc",
     "src/ftrace_cpu_reader.cc",
     "src/ftrace_reader.cc",
