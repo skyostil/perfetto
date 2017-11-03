@@ -153,15 +153,12 @@ script:
       for TEST_TARGET in $TEST_TARGETS; do
         "out/dist/$TEST_TARGET"
       done
-      # ftrace_reader_integrationtests is special and has to be run with sudo.
-      sudo out/dist/ftrace_reader_integrationtests
     else
       TARGET_ARCH=$(echo $CFG | cut -d- -f3)
       build/run_android_emulator $TARGET_ARCH --pid /tmp/emulator.pid -v &
       for TEST_TARGET in $TEST_TARGETS; do
         build/run_android_test out/dist "$TEST_TARGET"
       done
-      build/run_android_test out/dist ftrace_reader_integrationtests
     fi
 
 after_script:
