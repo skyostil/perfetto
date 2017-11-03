@@ -81,14 +81,15 @@ TEST_F(UnixSocketTest, ConnectionFailureIfUnreachable) {
   task_runner_.RunUntilCheckpoint("failure");
 }
 
-// Both server and client should see a Shutdown if the new server connection is
-// dropped immediately by the server as it is created.
+// Both server and client should see an OnDisconnect() if the server drops
+// incoming connections immediately as they are created.
 TEST_F(UnixSocketTest, ConnectionImmediatelyDroppedByServer) {
   UnixSocket cli(&event_listener_, &task_runner_);
   UnixSocket srv(&event_listener_, &task_runner_);
   ASSERT_TRUE(srv.Listen(kSocketName));
 
-  // The server will immediately shutdown the connection.
+  // The server will immediately shutdown the connection upon
+  // OnNewIncomingConnection().
   auto srv_did_shutdown = task_runner_.GetCheckpointClosure("srv_did_shutdown");
   EXPECT_CALL(event_listener_, OnNewIncomingConnection(&srv, _))
       .WillOnce(
@@ -156,7 +157,7 @@ TEST_F(UnixSocketTest, ClientAndServerExchangeData) {
   task_runner_.RunUntilCheckpoint("cli_did_recv");
   task_runner_.RunUntilCheckpoint("srv_did_recv");
 
-  // Check that Send/Recv() fails gracefully on a closed socket.
+  // Check that Send/Recv() fails gracefully once the socket is closed.
   auto cli_disconnected = task_runner_.GetCheckpointClosure("cli_disconnected");
   EXPECT_CALL(event_listener_, OnDisconnect(&cli))
       .WillOnce(
@@ -174,6 +175,8 @@ TEST_F(UnixSocketTest, ClientAndServerExchangeData) {
   task_runner_.RunUntilCheckpoint("srv_disconnected");
 }
 
+// Mostly a stress tests. Connects kNumClients clients to the same server and
+// tests that all can exchange data and can see the expected sequence of events.
 TEST_F(UnixSocketTest, SeveralClients) {
   UnixSocket srv(&event_listener_, &task_runner_);
   constexpr size_t kNumClients = 32;
@@ -213,8 +216,8 @@ TEST_F(UnixSocketTest, SeveralClients) {
 }
 
 // Creates two processes. The server process creates a file and passes it over
-// the socket to the client. Both processes mmap the file and check that
-// see the same contents.
+// the socket to the client. Both processes mmap the file in shared mode and
+// check that they see the same contents.
 TEST_F(UnixSocketTest, SharedMemory) {
   int pipes[2];
   ASSERT_EQ(0, pipe(pipes));
@@ -302,14 +305,14 @@ bool AtomicWrites_SendAttempt(UnixSocket* s,
   return false;
 }
 
-// Creates a client-server pair. The client writes data aggressively. On each
-// attempt, the client sends a buffer filled with a unique number (0 to
-// kNumFrames). The client is extremely aggressive and When the Send() fails
-// ist just keeps re-posting the Send. We are deliberately trying to fill the
-// output buffer, so we expect some of them to necessarily fail. The server
-// verifies that we receive one and exactly one of each frame, and verifies that
-// they are not trucated.
-TEST_F(UnixSocketTest, AtomicWrites) {
+// Creates a client-server pair. The client sends continuously data to the
+// server. Upon each Send() attempt, the client sends a buffer which is memset()
+// with a unique number (0 to kNumFrames). We are deliberately trying to fill
+// the socket output buffer, so we expect some of these Send()s to fail.
+// The client is extremely aggressive and, when a Send() fails, just keeps
+// re-posting it with the same unique number. The server verifies that we
+// receive one and exactly one of each buffers, without any gaps or truncation.
+TEST_F(UnixSocketTest, SendIsAtomic) {
   UnixSocket srv(&event_listener_, &task_runner_);
   UnixSocket cli(&event_listener_, &task_runner_);
   ASSERT_TRUE(srv.Listen(kSocketName));
@@ -367,6 +370,9 @@ TEST_F(UnixSocketTest, AtomicWrites) {
 
 // TODO(primiano): add a test to check that OnDisconnect() is called in all
 // possible cases.
+
+// TODO(primiano): add tests that destroy the socket in all possible stages and
+// verify that no spurious EventListener callback is received.
 
 }  // namespace
 }  // namespace ipc
