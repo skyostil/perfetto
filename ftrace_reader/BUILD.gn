@@ -68,8 +68,6 @@ source_set("ftrace_reader") {
     "include/ftrace_reader/ftrace_controller.h",
     "include/ftrace_reader/ftrace_cpu_reader.h",
     "include/ftrace_reader/ftrace_reader.h",
-    "src/delegate_adaptor.cc",
-    "src/delegate_adaptor.h",
     "src/ftrace_controller.cc",
     "src/ftrace_cpu_reader.cc",
     "src/ftrace_reader.cc",

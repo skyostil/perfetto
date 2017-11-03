@@ -21,7 +21,7 @@ namespace perfetto {
 FtraceReader::FtraceReader() {}
 
 const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) {
-  return nullptr;  // &readers_[cpu];
+  return nullptr;
 }
 
 }  // namespace perfetto

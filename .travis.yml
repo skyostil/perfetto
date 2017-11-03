@@ -146,7 +146,7 @@ script:
     protozero_unittests
     tracing_unittests
     tracing_benchmarks
-    ftrace_reader_unittests 
+    ftrace_reader_unittests
     sanitizers_unittests
     "
 

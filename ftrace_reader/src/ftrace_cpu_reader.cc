@@ -27,7 +27,6 @@
 #include <memory>
 
 #include "base/utils.h"
-#include "delegate_adaptor.h"
 #include "ftrace_event.pbzero.h"
 #include "ftrace_event_bundle.pbzero.h"
 #include "protozero/protozero_message.h"
