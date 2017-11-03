@@ -22,6 +22,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <string>
 
 #include "base/task_runner.h"
 
@@ -33,10 +34,12 @@ class TestTaskRunner : public TaskRunner {
   TestTaskRunner();
   ~TestTaskRunner() override;
 
-  void Run();
+  size_t RunCurrentTasks();
+  void RunUntilIdle();
+  void __attribute__((__noreturn__)) Run();
 
-  // Returns false in case of errors.
-  bool RunUntilIdle();
+  std::function<void()> GetCheckpointClosure(const std::string& checkpoint);
+  void RunUntilCheckpoint(const std::string& checkpoint, int timeout_ms = 5000);
 
   // TaskRunner implementation.
   void PostTask(std::function<void()> closure) override;
@@ -48,10 +51,11 @@ class TestTaskRunner : public TaskRunner {
   TestTaskRunner& operator=(const TestTaskRunner&) = delete;
 
   // Returns false in case of errors.
-  bool RunFileDescriptorWatches(int timeout_ms);
+  size_t RunFileDescriptorWatches(int timeout_ms);
 
   std::list<std::function<void()>> task_queue_;
   std::map<int, std::function<void()>> watched_fds_;
+  std::map<std::string, bool> checkpoints_;
 };
 
 }  // namespace base
