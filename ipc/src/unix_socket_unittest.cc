@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "protorpc/src/unix_socket.h"
+#include "ipc/src/unix_socket.h"
 
 #include <sys/mman.h>
 
@@ -26,7 +26,7 @@
 #include "gtest/gtest.h"
 
 namespace perfetto {
-namespace protorpc {
+namespace ipc {
 namespace {
 
 using ::testing::_;
@@ -369,5 +369,5 @@ TEST_F(UnixSocketTest, AtomicWrites) {
 // possible cases.
 
 }  // namespace
-}  // namespace protorpc
+}  // namespace ipc
 }  // namespace perfetto

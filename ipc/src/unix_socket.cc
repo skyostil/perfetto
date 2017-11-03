@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "protorpc/src/unix_socket.h"
+#include "ipc/src/unix_socket.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -37,7 +37,7 @@
 #include "base/utils.h"
 
 namespace perfetto {
-namespace protorpc {
+namespace ipc {
 
 // TODO(primiano): Add ThreadChecker to methods of this class.
 
@@ -408,5 +408,5 @@ void UnixSocket::EventListener::OnConnect(UnixSocket*, bool) {}
 void UnixSocket::EventListener::OnDisconnect(UnixSocket*) {}
 void UnixSocket::EventListener::OnDataAvailable(UnixSocket*) {}
 
-}  // namespace protorpc
+}  // namespace ipc
 }  // namespace perfetto

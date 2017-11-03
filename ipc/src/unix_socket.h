@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef PROTORPC_SRC_UNIX_SOCKET_H_
-#define PROTORPC_SRC_UNIX_SOCKET_H_
+#ifndef IPC_SRC_UNIX_SOCKET_H_
+#define IPC_SRC_UNIX_SOCKET_H_
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -32,7 +32,7 @@ namespace base {
 class TaskRunner;
 }  // namespace base.
 
-namespace protorpc {
+namespace ipc {
 
 // A non-blocking UNIX domain socket in SOCK_STREAM mode. Allows also to
 // transfer file descriptors over the network. None of the methods in this class
@@ -187,7 +187,7 @@ class UnixSocket {
   std::shared_ptr<WeakRef> weak_ref_;
 };
 
-}  // namespace protorpc
+}  // namespace ipc
 }  // namespace perfetto
 
-#endif  // PROTORPC_SRC_UNIX_SOCKET_H_
+#endif  // IPC_SRC_UNIX_SOCKET_H_
