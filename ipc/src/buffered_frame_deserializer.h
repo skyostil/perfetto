@@ -31,7 +31,7 @@ namespace ipc {
 class Frame;
 
 // Deserializes incoming frames, taking care of buffering and tokenization.
-// Used by both and client to decoded frames received on the socket.
+// Used by both and client to decode incoming frames.
 //
 // Which problem does it solve?
 // ----------------------------
@@ -47,37 +47,43 @@ class Frame;
 // 66 00 00 00 02 ...
 // This class takes care of buffering efficiently the data received, without
 // making any assumption on how the incoming data will be chunked by the socket.
-// For instance, it is possible that a recv doesn't produce any frame (because
-// it received only a part of the frame) or produces >1 frame.
+// For instance, it is possible that a recv() doesn't produce any frame (because
+// it received only a part of the frame) or produces more than one frame.
 //
 // Usage
 // -----
 // Both host and client use this as follows:
 //
 // auto buf = rpc_frame_decoder.BeginRecv();
-// ssize_t rsize = socket.recv(buf.first, buf.second);
+// size_t rsize = socket.recv(buf.first, buf.second);
 // rpc_frame_decoder.EndRecv(rsize);
 // while (Frame frame = rpc_frame_decoder.GetRPCFrame()) {
 //   ... process |frame|
 // }
 //
 // Design goals:
-// ---------------
-// TODO. Explain that guarantees that every frame is in a virtually contiguous
-// region, to avoid having to use protobuf full.
-// TODO DOS prevention.
-// No malloc for the common case.
+// -------------
+// - Optimize for the realistic case of each Recv() receiving one or more
+//   whole frames which size is < kMinRecvBuffer. In this case no buffer
+//   move or (re)allocation is performed (other than the very first one).
+// - Guarantee that a whole frame lays in a virtually contiguous memory area.
+//   This allows to use the protobuf-lite deserialization API (scattered
+//   deserialization is supported only by libprotobuf-full).
+// - Put a hard boundary to the size of the incoming buffer. This is to prevent
+//   that a malicious sends an abnormally large frame and OOMs us.
 
 class BufferedFrameDeserializer {
  public:
-  BufferedFrameDeserializer();
+  explicit BufferedFrameDeserializer(size_t max_capacity = 128 * 1024);
+  ~BufferedFrameDeserializer();
 
-  // Return an empty buffer that can be passed to recv().
+  // Returns a buffer that can be passed to recv(). The buffer is deliberately
+  // not initialized.
   std::pair<char*, size_t> BeginRecv();
 
   // Must be called soon after BeginRecv() with the return value of recv().
-  // If a header > kMaxFrameSize is received returns false. The caller is
-  // expected to shutdown the socket and stop using this class at this point.
+  // Return false if a header > |max_capacity| is received, in which case the
+  // caller is expected to shutdown the socket and terminate the ipc.
   bool EndRecv(size_t recv_size) __attribute__((warn_unused_result));
 
   // Decodes and returns the next decoded frame in the buffer if any, nullptr
@@ -89,14 +95,10 @@ class BufferedFrameDeserializer {
 
  private:
   void DecodeFrame(const char*, size_t);
-  void SetCapacity(size_t);
 
-  static constexpr size_t kMinRecvBuffer = 512;
-  static constexpr size_t kMaxFrameSize = 16384;
-
-  size_t capacity_ = 0;  // sizeof(|buf_|), buf_ can be partially uninitialized.
+  char* buf_ = nullptr;
+  const size_t capacity_ = 0;  // sizeof(|buf_|).
   size_t size_ = 0;  // <= capacity_. The number of EndRecv()'d bytes in |buf_|.
-  std::unique_ptr<char, base::FreeDeleter> buf_;
   std::list<std::unique_ptr<Frame>> decoded_frames_;
 };
 

@@ -17,6 +17,7 @@
 #include "ipc/src/buffered_frame_deserializer.h"
 
 #include <inttypes.h>
+#include <sys/mman.h>
 
 #include <type_traits>
 #include <utility>
@@ -30,21 +31,42 @@
 namespace perfetto {
 namespace ipc {
 
-// static
-constexpr size_t BufferedFrameDeserializer::kMinRecvBuffer;
-constexpr size_t BufferedFrameDeserializer::kMaxFrameSize;
+namespace {
+constexpr size_t kPageSize = 4096;
+constexpr size_t kGuardRegionSize = kPageSize;
+}  // namespace
 
-BufferedFrameDeserializer::BufferedFrameDeserializer() = default;
+BufferedFrameDeserializer::BufferedFrameDeserializer(size_t max_capacity)
+    : capacity_(max_capacity) {
+  PERFETTO_CHECK(max_capacity % kPageSize == 0);
+}
+
+BufferedFrameDeserializer::~BufferedFrameDeserializer() {
+  if (!buf_)
+    return;
+  int res = munmap(buf_, capacity_ + kGuardRegionSize);
+  PERFETTO_DCHECK(res == 0);
+}
 
 std::pair<char*, size_t> BufferedFrameDeserializer::BeginRecv() {
+  // Upon the first recv initialize the buffer to the max message size but
+  // release the physical memory for all but the first page (the kernel will
+  // automatically give us physical pages as soon as we page-fault on it).
+  // Also create a guard region after the buffer to prevent overflows.
   if (!buf_) {
-    buf_.reset(reinterpret_cast<char*>(malloc(kMinRecvBuffer)));
-    capacity_ = kMinRecvBuffer;
-    size_ = 0;
+    PERFETTO_DCHECK(size_ == 0);
+    buf_ = reinterpret_cast<char*>(mmap(nullptr, capacity_ + kGuardRegionSize,
+                                        PROT_READ | PROT_WRITE,
+                                        MAP_ANONYMOUS | MAP_PRIVATE, 0, 0));
+    PERFETTO_CHECK(buf_ != MAP_FAILED);
+    int res = madvise(buf_ + kPageSize,
+                      capacity_ + kGuardRegionSize - kPageSize, MADV_DONTNEED);
+    PERFETTO_DCHECK(res == 0);
+    res = mprotect(buf_ + capacity_, kGuardRegionSize, PROT_NONE);
+    PERFETTO_DCHECK(res == 0);
   }
-  static_assert(kMinRecvBuffer > 0, "kMinRecvBuffer must be > 0");
-  PERFETTO_CHECK(capacity_ >= size_ + kMinRecvBuffer);
-  return std::make_pair(buf_.get() + size_, capacity_ - size_);
+  PERFETTO_CHECK(capacity_ > size_);
+  return std::make_pair(buf_ + size_, capacity_ - size_);
 }
 
 bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
@@ -77,8 +99,8 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
 
   size_t next_frame_size = 0;
   size_t consumed_size = 0;
-  const char* const begin = buf_.get();
-  const char* const end = buf_.get() + size_;
+  const char* const begin = buf_;
+  const char* const end = buf_ + size_;
   const char* rd_ptr = begin;
   for (;;) {
     if (rd_ptr + kHeaderSize > end)
@@ -92,9 +114,12 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
     if (rd_ptr + payload_size > end) {
       // Case B. We got the header but not the whole frame.
       next_frame_size = kHeaderSize + payload_size;
-      if (next_frame_size > kMaxFrameSize) {
+      if (next_frame_size > capacity_) {
+        // The caller is expected to shut down the socket and give up at this
+        // point. If it doesn't do that and insists going on at some point it
+        // will hit the capacity check in BeginRecv().
         PERFETTO_DLOG("Frame too large (size %zu)", next_frame_size);
-        return false;  // TODO invalidate so we hit CHECKs.
+        return false;
       }
       break;
     }
@@ -105,41 +130,33 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
     rd_ptr += payload_size;
   }
 
-  // Finally, shift out the consumed data from the buffer.
   PERFETTO_DCHECK(consumed_size <= size_);
-  size_ -= consumed_size;
-  if (size_ > 0 && consumed_size > 0) {
-    // Case D. We consumed some frames but there is a leftover at the end of
-    // the buffer. Shift out the consumed bytes, so that on the next round
-    // |buf_| starts with the header of the next unconsumed frame.
-    PERFETTO_DCHECK(rd_ptr > begin && rd_ptr + size_ <= end);
-    memmove(buf_.get(), rd_ptr, size_);
+  if (consumed_size > 0) {
+    // Shift out the consumed data from the buffer. In the typical case (C)
+    // there is nothig to shift really, just setting size_ = 0 is enough.
+    // Shifting is only for the (unlikely) case D.
+    size_ -= consumed_size;
+    if (size_ > 0) {
+      // Case D. We consumed some frames but there is a leftover at the end of
+      // the buffer. Shift out the consumed bytes, so that on the next round
+      // |buf_| starts with the header of the next unconsumed frame.
+      PERFETTO_DCHECK(rd_ptr > begin && rd_ptr + size_ <= end);
+      memmove(buf_, rd_ptr, size_);
+    }
+    // If we just finished decoding a large frame that used more than one page,
+    // release the extra memory in the buffer. Large frames should be quite
+    // rare.
+    if (consumed_size > kPageSize) {
+      size_t size_rounded_up = (size_ / kPageSize + 1) * kPageSize;
+      if (size_rounded_up < capacity_) {
+        int res = madvise(buf_ + size_rounded_up, capacity_ - size_rounded_up,
+                          MADV_DONTNEED);
+        PERFETTO_DCHECK(res == 0);
+      }
+    }
   }
   // At this point |size_| == 0 for case C, > 0 for cases A, B, D.
-
-  // There are two things we want to guarantee here:
-  // 1. If a partial frame is received (either case A or B) we want to leave
-  //    a decent capacity (kMinRecvBuffer) to the next recv(), to avoid
-  //    fragmenting recv() calls.
-  // 2. If the upcoming frame is larger than the current capacity, bump it
-  //    in one go. At this point we know that we'll need exactly this much.
-  // It could be also nice to shrink down the buffer after a large message has
-  // been received. However, given that at current state that is unlikely to
-  // happen, that would be useless extra complexity.
-  size_t next_capacity = std::max(next_frame_size, size_ + kMinRecvBuffer);
-  if (next_capacity > capacity_)
-    SetCapacity(next_capacity);
-
   return true;
-}
-
-void BufferedFrameDeserializer::SetCapacity(size_t capacity) {
-  PERFETTO_CHECK(capacity >= size_);
-  char* old_buf = buf_.release();
-  char* new_buf = reinterpret_cast<char*>(realloc(old_buf, capacity));
-  PERFETTO_CHECK(new_buf);
-  buf_.reset(new_buf);
-  capacity_ = capacity;
 }
 
 std::unique_ptr<Frame> BufferedFrameDeserializer::PopNextFrame() {
