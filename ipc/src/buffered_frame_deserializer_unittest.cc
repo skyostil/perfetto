@@ -260,6 +260,42 @@ TEST(BufferedFrameDeserializerTest, CanRecoverAfterUnparsableFrames) {
   }
 }
 
+// Test the case of recv()s that always max up the max_capacity.
+// Alternate the receival of one recv() that returns two frames which total
+// size is exactly |max_capacity| and one recv() that returns one frame, also
+// big |max_capacity|.
+TEST(BufferedFrameDeserializerTest, FillCapacity) {
+  size_t max_capacity = 1024 * 16;
+  BufferedFrameDeserializer bfd(max_capacity);
+
+  for (int i = 0; i < 3; i++) {
+    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
+    std::vector<char> frame1 = GetSimpleFrame(1024);
+    std::vector<char> frame2 =
+        GetSimpleFrame(max_capacity - frame1.size() - sizeof(uint32_t));
+    SimulateRecv(rbuf, frame1);
+    SimulateRecv(rbuf, frame2, frame1.size());
+    ASSERT_TRUE(bfd.EndRecv(frame1.size() + frame2.size()));
+
+    rbuf = bfd.BeginRecv();
+    std::vector<char> frame3 = GetSimpleFrame(max_capacity - sizeof(uint32_t));
+    SimulateRecv(rbuf, frame3);
+    ASSERT_TRUE(bfd.EndRecv(frame3.size()));
+
+    std::unique_ptr<Frame> decoded_frame_1 = bfd.PopNextFrame();
+    std::unique_ptr<Frame> decoded_frame_2 = bfd.PopNextFrame();
+    std::unique_ptr<Frame> decoded_frame_3 = bfd.PopNextFrame();
+    ASSERT_TRUE(decoded_frame_1);
+    AssertFrameEq(frame1, *decoded_frame_1);
+
+    ASSERT_TRUE(decoded_frame_2);
+    AssertFrameEq(frame2, *decoded_frame_2);
+
+    ASSERT_TRUE(decoded_frame_3);
+    AssertFrameEq(frame3, *decoded_frame_3);
+  }
+}
+
 }  // namespace
 }  // namespace ipc
 }  // namespace perfetto
