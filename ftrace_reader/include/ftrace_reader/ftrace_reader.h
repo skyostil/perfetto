@@ -25,6 +25,19 @@ namespace perfetto {
 
 class FtracePaths;
 
+// Root of the ftrace_reader API.
+// When initialized it reads:
+//  available_events    - to figure out which events exist
+//  events/header_event - as a sanitiy check
+//  events/page_header  - as a snaitiy check
+//  events/*/*/format   - to get the format of the common and non-common fields
+// and uses this data creates the configuration the FtraceCpuReaders uses to
+// parse the raw ftrace format.
+//
+// FtraceReader owns each FtraceCpuReader. Users call |GetCpuReader(int cpu)|
+// to access the reader for a specific CPU.
+//
+// TODO(hjd): Implement the above.
 class FtraceReader {
  public:
   FtraceReader();
