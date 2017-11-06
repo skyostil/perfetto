@@ -59,7 +59,7 @@ TEST(FtraceController, TraceMarker) {
   EXPECT_THAT(GetTraceOutput(), HasSubstr("Hello, World!"));
 }
 
-TEST(FtraceController, EnableDisable) {
+TEST(FtraceController, EnableDisableEvent) {
   FtraceController ftrace_controller;
   ftrace_controller.EnableEvent("sched/sched_switch");
   sleep(1);
@@ -68,6 +68,22 @@ TEST(FtraceController, EnableDisable) {
   ftrace_controller.DisableEvent("sched/sched_switch");
   ftrace_controller.ClearTrace();
   EXPECT_THAT(GetTraceOutput(), Not(HasSubstr("sched_switch")));
+}
+
+TEST(FtraceController, EnableDisableTracing) {
+  FtraceController ftrace_controller;
+  ftrace_controller.ClearTrace();
+  EXPECT_TRUE(ftrace_controller.IsTracingEnabled());
+  ftrace_controller.WriteTraceMarker("Before");
+  ftrace_controller.DisableTracing();
+  EXPECT_FALSE(ftrace_controller.IsTracingEnabled());
+  ftrace_controller.WriteTraceMarker("During");
+  ftrace_controller.EnableTracing();
+  EXPECT_TRUE(ftrace_controller.IsTracingEnabled());
+  ftrace_controller.WriteTraceMarker("After");
+  EXPECT_THAT(GetTraceOutput(), HasSubstr("Before"));
+  EXPECT_THAT(GetTraceOutput(), Not(HasSubstr("During")));
+  EXPECT_THAT(GetTraceOutput(), HasSubstr("After"));
 }
 
 }  // namespace

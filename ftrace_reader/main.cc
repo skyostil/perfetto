@@ -20,9 +20,6 @@
 #include "ftrace_reader/ftrace_cpu_reader.h"
 
 int main(int argc, const char** argv) {
-  if (argc > 1)
-    printf("Usage: %s\n", argv[0]);
-
   perfetto::FtraceController ftrace_controller;
 
   ftrace_controller.ClearTrace();

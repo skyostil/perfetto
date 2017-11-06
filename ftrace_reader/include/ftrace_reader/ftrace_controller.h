@@ -19,6 +19,7 @@
 
 #include <unistd.h>
 
+#include <string>
 #include <vector>
 
 namespace perfetto {
@@ -32,13 +33,24 @@ class FtraceController {
   void ClearTrace();
 
   // Writes the string |str| as an event into the trace buffer.
-  void WriteTraceMarker(const char* str);
+  bool WriteTraceMarker(const std::string& str);
+
+  // Enable tracing.
+  bool EnableTracing();
+
+  // Disables tracing, does not clear the buffer.
+  bool DisableTracing();
+
+  // Returns true iff tracing is enabled.
+  // Necessarily racy: another program could enable/disable tracing at any
+  // point.
+  bool IsTracingEnabled();
 
   // Enable the event |name|.
-  void EnableEvent(const char* name);
+  bool EnableEvent(const std::string& name);
 
   // Disable the event |name|.
-  void DisableEvent(const char* name);
+  bool DisableEvent(const std::string& name);
 
  private:
   FtraceController(const FtraceController&) = delete;
