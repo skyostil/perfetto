@@ -26,8 +26,6 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include <string.h>
-
 #include <algorithm>
 #include <memory>
 
@@ -53,18 +51,20 @@ constexpr int kNoSigPipe = MSG_NOSIGNAL;
 
 // Android takes an int instead of socklen_t for the control buffer size.
 #if BUILDFLAG(OS_ANDROID)
-using cbuf_len_t = size_t;
+using CBufLenType = size_t;
 #else
-using cbuf_len_t = socklen_t;
+using CBufLenType = socklen_t;
 #endif
 
 bool MakeSockAddr(const std::string& socket_name,
                   sockaddr_un* addr,
                   socklen_t* addr_size) {
-  memset(addr, 0, sizeof(sockaddr_un));
+  memset(addr, 0, sizeof(*addr));
   const size_t name_len = socket_name.size();
-  if (name_len >= sizeof(addr->sun_path))
+  if (name_len >= sizeof(addr->sun_path)) {
+    errno = ENAMETOOLONG;
     return false;
+  }
   memcpy(addr->sun_path, socket_name.data(), name_len);
   if (addr->sun_path[0] == '@')
     addr->sun_path[0] = '\0';
@@ -76,25 +76,46 @@ bool MakeSockAddr(const std::string& socket_name,
 
 }  // namespace
 
-UnixSocket::UnixSocket(EventListener* event_listener,
-                       base::TaskRunner* task_runner)
-    : event_listener_(event_listener),
-      task_runner_(task_runner),
-      weak_ref_(new WeakRef(this)) {}
-
-UnixSocket::~UnixSocket() {
-  weak_ref_->sock = nullptr;  // This will no-op any future callback.
-  Shutdown();
+// static
+std::unique_ptr<UnixSocket> UnixSocket::Listen(const std::string& socket_name,
+                                               EventListener* event_listener,
+                                               base::TaskRunner* task_runner) {
+  std::unique_ptr<UnixSocket> sock(new UnixSocket(event_listener, task_runner));
+  sock->DoListen(socket_name);
+  return sock;
 }
 
-bool UnixSocket::InitializeSocket() {
-  PERFETTO_DCHECK(state_ == State::kNotInitialized);
-  if (!fd_)
+// static
+std::unique_ptr<UnixSocket> UnixSocket::Connect(const std::string& socket_name,
+                                                EventListener* event_listener,
+                                                base::TaskRunner* task_runner) {
+  std::unique_ptr<UnixSocket> sock(new UnixSocket(event_listener, task_runner));
+  sock->DoConnect(socket_name);
+  return sock;
+}
+
+UnixSocket::UnixSocket(EventListener* event_listener,
+                       base::TaskRunner* task_runner)
+    : UnixSocket(event_listener, task_runner, base::ScopedFile()) {}
+
+UnixSocket::UnixSocket(EventListener* event_listener,
+                       base::TaskRunner* task_runner,
+                       base::ScopedFile adopt_fd)
+    : event_listener_(event_listener),
+      task_runner_(task_runner),
+      weak_ref_(new WeakRef(this)) {
+  if (adopt_fd) {
+    // Only in the case of OnNewIncomingConnection().
+    fd_ = std::move(adopt_fd);
+    state_ = State::kConnected;
+  } else {
     fd_.reset(socket(AF_UNIX, SOCK_STREAM, 0));
+  }
   if (!fd_) {
     last_error_ = errno;
-    return false;
+    return;
   }
+
 #if BUILDFLAG(OS_MACOSX)
   const int no_sigpipe = 1;
   setsockopt(*fd_, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe));
@@ -115,19 +136,24 @@ bool UnixSocket::InitializeSocket() {
     if (weak_ref->sock)
       weak_ref->sock->OnEvent();
   });
-  state_ = State::kDisconnected;
-  return true;
 }
 
-bool UnixSocket::Listen(const std::string& socket_name) {
-  if (!InitializeSocket())
-    return false;
+UnixSocket::~UnixSocket() {
+  weak_ref_->sock = nullptr;  // This will no-op any future callback.
+  Shutdown();
+}
+
+// Called only by the Listen() static constructor.
+void UnixSocket::DoListen(const std::string& socket_name) {
+  PERFETTO_DCHECK(state_ == State::kDisconnected);
+  if (!fd_)
+    return;  // This is the only thing that can gracefully fail in the ctor.
 
   sockaddr_un addr;
   socklen_t addr_size;
   if (!MakeSockAddr(socket_name, &addr, &addr_size)) {
     last_error_ = errno;
-    return false;
+    return;
   }
 
 // Android takes an int as 3rd argument of bind() instead of socklen_t.
@@ -140,24 +166,25 @@ bool UnixSocket::Listen(const std::string& socket_name) {
   if (bind(*fd_, reinterpret_cast<sockaddr*>(&addr), bind_size)) {
     last_error_ = errno;
     PERFETTO_DPLOG("bind()");
-    return false;
+    return;
   }
   if (listen(*fd_, SOMAXCONN)) {
     last_error_ = errno;
     PERFETTO_DPLOG("listen()");
-    return false;
+    return;
   }
 
   last_error_ = 0;
   state_ = State::kListening;
-  return true;
 }
 
-void UnixSocket::Connect(const std::string& socket_name) {
-  if (state_ == State::kNotInitialized) {
-    if (!InitializeSocket())
-      return NotifyConnectionState(false);
-  }
+// Called only by the Connect() static constructor.
+void UnixSocket::DoConnect(const std::string& socket_name) {
+  PERFETTO_DCHECK(state_ == State::kDisconnected);
+
+  // This is the only thing that can gracefully fail in the ctor.
+  if (!fd_)
+    return NotifyConnectionState(false);
 
   sockaddr_un addr;
   socklen_t addr_size;
@@ -192,12 +219,8 @@ void UnixSocket::Connect(const std::string& socket_name) {
 }
 
 void UnixSocket::OnEvent() {
-  // This would be weird because in this state we don't have setup the fd
-  // watch yet.
-  PERFETTO_DCHECK(state_ != State::kNotInitialized);
-
   if (state_ == State::kDisconnected)
-    return;  // Some Spurious event, typically queued just before Shutdown().
+    return;  // Some spurious event, typically queued just before Shutdown().
 
   if (state_ == State::kConnected)
     return event_listener_->OnDataAvailable(this);
@@ -229,14 +252,7 @@ void UnixSocket::OnEvent() {
       if (!new_fd)
         return;
       std::unique_ptr<UnixSocket> new_sock(
-          new UnixSocket(event_listener_, task_runner_));
-      new_sock->fd_ = std::move(new_fd);
-
-      // InitializeSocket can't fail if we set the fd_.
-      bool initialized = new_sock->InitializeSocket();
-      PERFETTO_CHECK(initialized);
-      new_sock->last_error_ = 0;
-      new_sock->state_ = State::kConnected;
+          new UnixSocket(event_listener_, task_runner_, std::move(new_fd)));
       event_listener_->OnNewIncomingConnection(this, std::move(new_sock));
     }
   }
@@ -246,7 +262,7 @@ bool UnixSocket::Send(const std::string& msg) {
   return Send(msg.c_str(), msg.size() + 1);
 }
 
-bool UnixSocket::Send(const void* msg, size_t len, int wired_fd) {
+bool UnixSocket::Send(const void* msg, size_t len, int send_fd) {
   if (state_ != State::kConnected) {
     last_error_ = ENOTCONN;
     return false;
@@ -258,9 +274,9 @@ bool UnixSocket::Send(const void* msg, size_t len, int wired_fd) {
   msg_hdr.msg_iovlen = 1;
   alignas(cmsghdr) char control_buf[256];
 
-  if (wired_fd > -1) {
-    const cbuf_len_t control_buf_len =
-        static_cast<cbuf_len_t>(CMSG_SPACE(sizeof(int)));
+  if (send_fd > -1) {
+    const CBufLenType control_buf_len =
+        static_cast<CBufLenType>(CMSG_SPACE(sizeof(int)));
     PERFETTO_CHECK(control_buf_len <= sizeof(control_buf));
     memset(control_buf, 0, sizeof(control_buf));
     msg_hdr.msg_control = control_buf;
@@ -269,7 +285,7 @@ bool UnixSocket::Send(const void* msg, size_t len, int wired_fd) {
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type = SCM_RIGHTS;
     cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-    memcpy(CMSG_DATA(cmsg), &wired_fd, sizeof(int));
+    memcpy(CMSG_DATA(cmsg), &send_fd, sizeof(int));
     msg_hdr.msg_controllen = cmsg->cmsg_len;
   }
 
@@ -316,10 +332,10 @@ void UnixSocket::Shutdown() {
     task_runner_->RemoveFileDescriptorWatch(*fd_);
     fd_.reset();
   }
-  state_ = State::kNotInitialized;
+  state_ = State::kDisconnected;
 }
 
-size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
+size_t UnixSocket::Receive(void* msg, size_t len, base::ScopedFile* recv_fd) {
   if (state_ != State::kConnected) {
     last_error_ = ENOTCONN;
     return 0;
@@ -331,9 +347,9 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
   msg_hdr.msg_iovlen = 1;
   alignas(cmsghdr) char control_buf[256];
 
-  if (wired_fd) {
+  if (recv_fd) {
     msg_hdr.msg_control = control_buf;
-    msg_hdr.msg_controllen = static_cast<cbuf_len_t>(CMSG_SPACE(sizeof(int)));
+    msg_hdr.msg_controllen = static_cast<CBufLenType>(CMSG_SPACE(sizeof(int)));
     PERFETTO_CHECK(msg_hdr.msg_controllen <= sizeof(control_buf));
   }
   const ssize_t sz = PERFETTO_EINTR(recvmsg(*fd_, &msg_hdr, kNoSigPipe));
@@ -348,8 +364,8 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
   }
   PERFETTO_CHECK(static_cast<size_t>(sz) <= len);
 
-  int* wire_fds = nullptr;
-  uint32_t wire_fds_len = 0;
+  int* fds = nullptr;
+  uint32_t fds_len = 0;
 
   if (msg_hdr.msg_controllen > 0) {
     for (cmsghdr* cmsg = CMSG_FIRSTHDR(&msg_hdr); cmsg;
@@ -357,26 +373,26 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
       const size_t payload_len = cmsg->cmsg_len - CMSG_LEN(0);
       if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
         PERFETTO_DCHECK(payload_len % sizeof(int) == 0u);
-        PERFETTO_DCHECK(wire_fds == nullptr);
-        wire_fds = reinterpret_cast<int*>(CMSG_DATA(cmsg));
-        wire_fds_len = static_cast<uint32_t>(payload_len / sizeof(int));
+        PERFETTO_DCHECK(fds == nullptr);
+        fds = reinterpret_cast<int*>(CMSG_DATA(cmsg));
+        fds_len = static_cast<uint32_t>(payload_len / sizeof(int));
       }
     }
   }
 
   if (msg_hdr.msg_flags & MSG_TRUNC || msg_hdr.msg_flags & MSG_CTRUNC) {
-    for (size_t i = 0; i < wire_fds_len; ++i)
-      close(wire_fds[i]);
+    for (size_t i = 0; fds && i < fds_len; ++i)
+      close(fds[i]);
     last_error_ = EMSGSIZE;
     Shutdown();
     return 0;
   }
 
-  for (size_t i = 0; wire_fds && i < wire_fds_len; ++i) {
-    if (wired_fd && i == 0) {
-      wired_fd->reset(wire_fds[i]);
+  for (size_t i = 0; fds && i < fds_len; ++i) {
+    if (recv_fd && i == 0) {
+      recv_fd->reset(fds[i]);
     } else {
-      close(wire_fds[i]);
+      close(fds[i]);
     }
   }
 
@@ -384,9 +400,9 @@ size_t UnixSocket::Recv(void* msg, size_t len, base::ScopedFile* wired_fd) {
   return static_cast<size_t>(sz);
 }
 
-std::string UnixSocket::RecvString(size_t max_length) {
+std::string UnixSocket::ReceiveString(size_t max_length) {
   std::unique_ptr<char[]> buf(new char[max_length + 1]);
-  size_t rsize = Recv(buf.get(), max_length);
+  size_t rsize = Receive(buf.get(), max_length);
   PERFETTO_CHECK(static_cast<size_t>(rsize) <= max_length);
   buf[static_cast<size_t>(rsize)] = '\0';
   return std::string(buf.get());
