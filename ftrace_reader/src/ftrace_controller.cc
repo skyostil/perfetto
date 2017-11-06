@@ -53,7 +53,7 @@ bool WriteToFile(const std::string& path, const std::string& str) {
   base::ScopedFile fd(open(path.c_str(), O_WRONLY));
   if (!fd)
     return false;
-  ssize_t written = write(fd.get(), str.c_str(), str.length());
+  ssize_t written = PERFETTO_EINTR(write(fd.get(), str.c_str(), str.length()));
   ssize_t length = static_cast<ssize_t>(str.length());
   // This should either fail or write fully.
   PERFETTO_DCHECK(written == length || written == -1);
@@ -65,7 +65,7 @@ char ReadOneCharFromFile(const std::string& path) {
   if (!fd)
     return '\0';
   char result = '\0';
-  ssize_t bytes = read(fd.get(), &result, 1);
+  ssize_t bytes = PERFETTO_EINTR(read(fd.get(), &result, 1));
   PERFETTO_DCHECK(bytes == 1 || bytes == -1);
   return result;
 }

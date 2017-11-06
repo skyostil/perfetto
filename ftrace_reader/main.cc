@@ -15,6 +15,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "ftrace_reader/ftrace_controller.h"
 #include "ftrace_reader/ftrace_cpu_reader.h"

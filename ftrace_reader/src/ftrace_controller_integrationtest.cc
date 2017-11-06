@@ -41,11 +41,6 @@ std::string GetTraceOutput() {
   return stream.str();
 }
 
-TEST(FtraceController, HaveRoot) {
-  // These tests use the debugfs and so have to be run with sudo.
-  EXPECT_EQ(geteuid(), 0u) << "These tests must be run with sudo.";
-}
-
 TEST(FtraceController, ClearTrace) {
   FtraceController ftrace_controller;
   ftrace_controller.WriteTraceMarker("Hello, World!");
