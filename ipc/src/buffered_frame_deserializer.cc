@@ -50,21 +50,27 @@ BufferedFrameDeserializer::~BufferedFrameDeserializer() {
 
 std::pair<char*, size_t> BufferedFrameDeserializer::BeginRecv() {
   // Upon the first recv initialize the buffer to the max message size but
-  // release the physical memory for all but the first page (the kernel will
-  // automatically give us physical pages as soon as we page-fault on it).
-  // Also create a guard region after the buffer to prevent overflows.
+  // release the physical memory for all but the first page. The kernel will
+  // automatically give us physical pages back as soon as we page-fault on them.
+  // Also add a guard page after the buffer as a safety net against overflows.
   if (!buf_) {
     PERFETTO_DCHECK(size_ == 0);
     buf_ = reinterpret_cast<char*>(mmap(nullptr, capacity_ + kGuardRegionSize,
                                         PROT_READ | PROT_WRITE,
                                         MAP_ANONYMOUS | MAP_PRIVATE, 0, 0));
     PERFETTO_CHECK(buf_ != MAP_FAILED);
+
+    // Surely we are going to use at least the first page. There is very little
+    // point in madvising that as well and immedately after telling the kernel
+    // that we want it back (via recv()).
     int res = madvise(buf_ + kPageSize,
                       capacity_ + kGuardRegionSize - kPageSize, MADV_DONTNEED);
     PERFETTO_DCHECK(res == 0);
+
     res = mprotect(buf_ + capacity_, kGuardRegionSize, PROT_NONE);
     PERFETTO_DCHECK(res == 0);
   }
+
   PERFETTO_CHECK(capacity_ > size_);
   return std::make_pair(buf_ + size_, capacity_ - size_);
 }
