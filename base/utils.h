@@ -40,6 +40,13 @@ constexpr size_t ArraySize(const T& array) {
 template <typename... T>
 inline void ignore_result(const T&...) {}
 
+template <typename T>
+constexpr T AssumeLittleEndian(T value) {
+  static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
+                "Unimplemented on big-endian archs");
+  return value;
+}
+
 }  // namespace base
 }  // namespace perfetto
 
