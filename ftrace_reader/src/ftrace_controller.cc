@@ -26,28 +26,11 @@
 
 #include "base/scoped_file.h"
 #include "base/utils.h"
+#include "ftrace_paths.h"
 
 namespace perfetto {
 
 namespace {
-
-// TODO(b/68242551): Do not hardcode these paths.
-// This directory contains the 'format' and 'enable' files for each event.
-// These are nested like so: group_name/event_name/{format, enable}
-const char kTraceEventPath[] = "/sys/kernel/debug/tracing/events/";
-
-// Reading this file produces human readable trace output.
-// Writing to this file clears all trace buffers for all CPUS.
-const char kTracePath[] = "/sys/kernel/debug/tracing/trace";
-
-// Writing to this file injects an event into the trace buffer.
-const char kTraceMarkerPath[] = "/sys/kernel/debug/tracing/trace_marker";
-
-// Reading this file returns 1/0 if tracing is enabled/disabled.
-// Writing 1/0 to this file enables/disables tracing.
-// Disabling tracing with this file prevents further writes but
-// does not clear the buffer.
-const char kTracingOnPath[] = "/sys/kernel/debug/tracing/tracing_on";
 
 bool WriteToFile(const std::string& path, const std::string& str) {
   base::ScopedFile fd(open(path.c_str(), O_WRONLY));
@@ -72,37 +55,37 @@ char ReadOneCharFromFile(const std::string& path) {
 
 }  // namespace
 
-FtraceController::FtraceController() {}
+FtraceController::FtraceController(const FtracePaths* paths) : paths_(paths) {}
 
 void FtraceController::ClearTrace() {
-  base::ScopedFile fd(open(kTracePath, O_WRONLY | O_TRUNC));
+  base::ScopedFile fd(open(paths_->trace().c_str(), O_WRONLY | O_TRUNC));
   PERFETTO_CHECK(fd);  // Could not clear.
 }
 
 bool FtraceController::WriteTraceMarker(const std::string& str) {
-  return WriteToFile(kTraceMarkerPath, str);
+  return WriteToFile(paths_->trace_marker(), str);
 }
 
 bool FtraceController::EnableTracing() {
-  return WriteToFile(kTracingOnPath, "1");
+  return WriteToFile(paths_->tracing_on(), "1");
 }
 
 bool FtraceController::DisableTracing() {
-  return WriteToFile(kTracingOnPath, "0");
+  return WriteToFile(paths_->tracing_on(), "0");
 }
 
 bool FtraceController::IsTracingEnabled() {
-  return ReadOneCharFromFile(kTracingOnPath) == '1';
+  return ReadOneCharFromFile(paths_->tracing_on()) == '1';
 }
 
-bool FtraceController::EnableEvent(const std::string& name) {
-  std::string path = std::string(kTraceEventPath) + name + "/enable";
-  return WriteToFile(path, "1");
+bool FtraceController::EnableEvent(const std::string& group,
+                                   const std::string& name) {
+  return WriteToFile(paths_->Enable(group, name), "1");
 }
 
-bool FtraceController::DisableEvent(const std::string& name) {
-  std::string path = std::string(kTraceEventPath) + name + "/enable";
-  return WriteToFile(path, "0");
+bool FtraceController::DisableEvent(const std::string& group,
+                                    const std::string& name) {
+  return WriteToFile(paths_->Enable(group, name), "0");
 }
 
 }  // namespace perfetto

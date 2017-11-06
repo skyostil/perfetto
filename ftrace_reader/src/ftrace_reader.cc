@@ -14,30 +14,18 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-
-#include "ftrace_reader/ftrace_controller.h"
 #include "ftrace_reader/ftrace_reader.h"
 
-int main(int argc, const char** argv) {
-  perfetto::FtraceReader ftrace;
-  perfetto::FtraceController* ftrace_controller = ftrace.GetController();
+#include "ftrace_paths.h"
 
-  ftrace_controller->ClearTrace();
-  ftrace_controller->WriteTraceMarker("Hello, world!");
+namespace perfetto {
 
-  for (int i = 1; i < argc; i++) {
-    printf("Enabling: %s\n", argv[i]);
-    ftrace_controller->EnableEvent("sched", argv[i]);
-  }
+FtraceReader::FtraceReader()
+    : paths_(new FtracePaths("/sys/kernel/debug/tracing/")),
+      controller_(paths_.get()) {}
 
-  // Sleep for one second so we get some events
-  sleep(1);
-
-  for (int i = 1; i < argc; i++) {
-    printf("Disable: %s\n", argv[i]);
-    ftrace_controller->DisableEvent("sched", argv[i]);
-  }
-
-  return 0;
+FtraceController* FtraceReader::GetController() {
+  return &controller_;
 }
+
+}  // namespace perfetto

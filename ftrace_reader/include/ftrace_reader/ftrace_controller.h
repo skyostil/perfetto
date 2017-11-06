@@ -24,10 +24,12 @@
 
 namespace perfetto {
 
+class FtracePaths;
+
 // Utility class for controling ftrace.
 class FtraceController {
  public:
-  FtraceController();
+  FtraceController(const FtracePaths*);
 
   // Clears the trace buffers for all CPUs. Blocks until this is done.
   void ClearTrace();
@@ -47,14 +49,16 @@ class FtraceController {
   bool IsTracingEnabled();
 
   // Enable the event |name|.
-  bool EnableEvent(const std::string& name);
+  bool EnableEvent(const std::string& group, const std::string& name);
 
   // Disable the event |name|.
-  bool DisableEvent(const std::string& name);
+  bool DisableEvent(const std::string& group, const std::string& name);
 
  private:
   FtraceController(const FtraceController&) = delete;
   FtraceController& operator=(const FtraceController&) = delete;
+
+  const FtracePaths* paths_;
 };
 
 }  // namespace perfetto

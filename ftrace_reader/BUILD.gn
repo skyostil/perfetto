@@ -26,6 +26,7 @@ executable("ftrace_reader_unittests") {
   ]
   sources = [
     "src/ftrace_cpu_reader_unittest.cc",
+    "src/ftrace_paths_unittest.cc",
   ]
 }
 
@@ -57,7 +58,11 @@ source_set("ftrace_reader") {
   sources = [
     "include/ftrace_reader/ftrace_controller.h",
     "include/ftrace_reader/ftrace_cpu_reader.h",
+    "include/ftrace_reader/ftrace_reader.h",
     "src/ftrace_controller.cc",
     "src/ftrace_cpu_reader.cc",
+    "src/ftrace_paths.cc",
+    "src/ftrace_paths.h",
+    "src/ftrace_reader.cc",
   ]
 }
