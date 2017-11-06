@@ -23,9 +23,12 @@
 
 namespace perfetto {
 
+class FtracePaths;
+
 class FtraceReader {
  public:
   FtraceReader();
+  ~FtraceReader();
   FtraceController* GetController();
 
  private:

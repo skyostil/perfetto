@@ -24,6 +24,8 @@ FtraceReader::FtraceReader()
     : paths_(new FtracePaths("/sys/kernel/debug/tracing/")),
       controller_(paths_.get()) {}
 
+FtraceReader::~FtraceReader() = default;
+
 FtraceController* FtraceReader::GetController() {
   return &controller_;
 }

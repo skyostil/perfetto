@@ -42,13 +42,8 @@ class FtraceControllerTest : public ::testing::Test {
     return stream.str();
   }
 
-  FtracePaths paths_ = FtracePaths("/sys/kernel/debug/");
+  FtracePaths paths_ = FtracePaths("/sys/kernel/debug/tracing/");
 };
-
-TEST_F(FtraceControllerTest, HaveRoot) {
-  // These tests use the debugfs and so have to be run with sudo.
-  EXPECT_EQ(geteuid(), 0u) << "These tests must be run with sudo.";
-}
 
 TEST_F(FtraceControllerTest, ClearTrace) {
   FtraceController ftrace_controller(&paths_);
