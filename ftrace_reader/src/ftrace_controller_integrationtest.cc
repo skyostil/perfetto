@@ -32,7 +32,7 @@ const char kTracePath[] = "/sys/kernel/debug/tracing/trace";
 std::string GetTraceOutput() {
   std::ifstream fin(kTracePath, std::ios::in);
   if (!fin) {
-    EXPECT_TRUE(false);
+    ADD_FAILURE() << "Could not read trace output";
     return "";
   }
   std::ostringstream stream;
@@ -67,6 +67,7 @@ TEST(FtraceController, EnableDisableEvent) {
 
   ftrace_controller.DisableEvent("sched/sched_switch");
   ftrace_controller.ClearTrace();
+  sleep(1);
   EXPECT_THAT(GetTraceOutput(), Not(HasSubstr("sched_switch")));
 }
 
