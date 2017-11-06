@@ -29,9 +29,10 @@ namespace perfetto {
 namespace ipc {
 namespace {
 
+constexpr size_t kHeaderSize = sizeof(uint32_t);
+
 // Generates a parsable Frame of exactly |size| bytes (including header).
 std::vector<char> GetSimpleFrame(size_t size) {
-  Frame frame;
   // A bit of reverse math of the proto encoding: a Frame which has only the
   // |data_for_testing| fields, will require for each data_for_testing that is
   // up to 127 bytes:
@@ -40,9 +41,10 @@ std::vector<char> GetSimpleFrame(size_t size) {
   // - N bytes for the actual content (|padding| below).
   // So below we split the payload into chunks of <= 127 bytes, keeping into
   // account the extra 2 bytes for each chunk.
+  Frame frame;
   std::vector<char> padding;
   char padding_char = '0';
-  const size_t payload_size = size - sizeof(uint32_t);
+  const size_t payload_size = size - kHeaderSize;
   for (size_t size_left = payload_size; size_left > 0;) {
     PERFETTO_CHECK(size_left >= 2);  // We cannot produce frames < 2 bytes.
     size_t padding_size;
@@ -64,9 +66,8 @@ std::vector<char> GetSimpleFrame(size_t size) {
   std::vector<char> encoded_frame;
   encoded_frame.resize(size);
   char* enc_buf = encoded_frame.data();
-  PERFETTO_CHECK(
-      frame.SerializeToArray(enc_buf + sizeof(uint32_t), payload_size));
-  memcpy(enc_buf, base::AssumeLittleEndian(&payload_size), sizeof(uint32_t));
+  PERFETTO_CHECK(frame.SerializeToArray(enc_buf + kHeaderSize, payload_size));
+  memcpy(enc_buf, base::AssumeLittleEndian(&payload_size), kHeaderSize);
   PERFETTO_CHECK(encoded_frame.size() == size);
   return encoded_frame;
 }
@@ -81,13 +82,13 @@ void CheckedMemcpy(std::pair<char*, size_t> rbuf,
 bool FrameEq(std::vector<char> expected_frame_with_header, const Frame& frame) {
   std::string reserialized_frame = frame.SerializeAsString();
 
-  size_t expected_size = expected_frame_with_header.size() - sizeof(uint32_t);
+  size_t expected_size = expected_frame_with_header.size() - kHeaderSize;
   EXPECT_EQ(expected_size, reserialized_frame.size());
   if (expected_size != reserialized_frame.size())
     return false;
 
   return memcmp(reserialized_frame.data(),
-                expected_frame_with_header.data() + sizeof(uint32_t),
+                expected_frame_with_header.data() + kHeaderSize,
                 reserialized_frame.size()) == 0;
 }
 
@@ -106,7 +107,7 @@ TEST(BufferedFrameDeserializerTest, WholeMessages) {
     // Excactly one frame should be decoded, with no leftover buffer.
     auto decoded_frame = bfd.PopNextFrame();
     ASSERT_TRUE(decoded_frame);
-    ASSERT_EQ(size - sizeof(uint32_t), decoded_frame->ByteSize());
+    ASSERT_EQ(size - kHeaderSize, decoded_frame->ByteSize());
     ASSERT_FALSE(bfd.PopNextFrame());
     ASSERT_EQ(0u, bfd.size());
   }
@@ -131,11 +132,11 @@ TEST(BufferedFrameDeserializerTest, FragmentedFrameIsCorrectlyDeserialized) {
   std::vector<char> serialized_frame;
   uint32_t payload_size = frame.ByteSize();
 
-  serialized_frame.resize(sizeof(uint32_t) + payload_size);
-  ASSERT_TRUE(frame.SerializeToArray(serialized_frame.data() + sizeof(uint32_t),
+  serialized_frame.resize(kHeaderSize + payload_size);
+  ASSERT_TRUE(frame.SerializeToArray(serialized_frame.data() + kHeaderSize,
                                      payload_size));
   memcpy(serialized_frame.data(), base::AssumeLittleEndian(&payload_size),
-         sizeof(uint32_t));
+         kHeaderSize);
 
   std::vector<char> simple_frame = GetSimpleFrame(32);
   std::vector<char> frame_chunk1(serialized_frame.begin(),
@@ -160,7 +161,7 @@ TEST(BufferedFrameDeserializerTest, FragmentedFrameIsCorrectlyDeserialized) {
   // Validate the received frame2.
   std::unique_ptr<Frame> decoded_simple_frame = bfd.PopNextFrame();
   ASSERT_TRUE(decoded_simple_frame);
-  ASSERT_EQ(simple_frame.size() - sizeof(uint32_t),
+  ASSERT_EQ(simple_frame.size() - kHeaderSize,
             decoded_simple_frame->ByteSize());
 
   std::unique_ptr<Frame> decoded_frame = bfd.PopNextFrame();
@@ -213,7 +214,7 @@ TEST(BufferedFrameDeserializerTest, MultipleFramesInOneRecv) {
     for (size_t expected_size : batch) {
       auto frame = bfd.PopNextFrame();
       ASSERT_TRUE(frame);
-      ASSERT_EQ(expected_size - sizeof(uint32_t), frame->ByteSize());
+      ASSERT_EQ(expected_size - kHeaderSize, frame->ByteSize());
     }
     ASSERT_FALSE(bfd.PopNextFrame());
     ASSERT_EQ(0u, bfd.size());
@@ -224,9 +225,9 @@ TEST(BufferedFrameDeserializerTest, RejectVeryLargeFrames) {
   BufferedFrameDeserializer bfd;
   std::pair<char*, size_t> rbuf = bfd.BeginRecv();
   const uint32_t kBigSize = 32 * 1000 * 1000;
-  memcpy(rbuf.first, base::AssumeLittleEndian(&kBigSize), sizeof(uint32_t));
-  memcpy(rbuf.first + sizeof(uint32_t), "some initial payload", 20);
-  ASSERT_FALSE(bfd.EndRecv(sizeof(uint32_t) + 20));
+  memcpy(rbuf.first, base::AssumeLittleEndian(&kBigSize), kHeaderSize);
+  memcpy(rbuf.first + kHeaderSize, "some initial payload", 20);
+  ASSERT_FALSE(bfd.EndRecv(kHeaderSize + 20));
 }
 
 // Tests the extreme case of recv() fragmentation. Two valid frames are received
@@ -262,7 +263,7 @@ TEST(BufferedFrameDeserializerTest, CanRecoverAfterUnparsableFrames) {
     std::vector<char> frame = GetSimpleFrame(size);
     const bool unparsable = (i % 3) == 1;
     if (unparsable)
-      memset(frame.data() + sizeof(uint32_t), 0xFF, size - sizeof(uint32_t));
+      memset(frame.data() + kHeaderSize, 0xFF, size - kHeaderSize);
 
     std::pair<char*, size_t> rbuf = bfd.BeginRecv();
     CheckedMemcpy(rbuf, frame);
@@ -275,7 +276,7 @@ TEST(BufferedFrameDeserializerTest, CanRecoverAfterUnparsableFrames) {
       ASSERT_FALSE(decoded_frame);
     } else {
       ASSERT_TRUE(decoded_frame);
-      ASSERT_EQ(size - sizeof(uint32_t), decoded_frame->ByteSize());
+      ASSERT_EQ(size - kHeaderSize, decoded_frame->ByteSize());
     }
     ASSERT_EQ(0u, bfd.size());
   }
