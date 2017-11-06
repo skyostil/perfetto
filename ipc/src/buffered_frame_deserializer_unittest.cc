@@ -29,10 +29,8 @@ namespace perfetto {
 namespace ipc {
 namespace {
 
-// Generates a meaningless but parsable Frame of exactly |payload_size| bytes.
-// The returned frame contains the 4 bytes header, so for a |payload_size| of 3
-// bytes, this returns 4 + 3 = 7 bytes for the encoded frame and so on.
-std::vector<char> GetSimpleFrame(size_t payload_size) {
+// Generates a parsable Frame of exactly |size| bytes (including header).
+std::vector<char> GetSimpleFrame(size_t size) {
   Frame frame;
   // A bit of reverse math of the proto encoding: a Frame which has only the
   // |data_for_testing| fields, will require for each data_for_testing that is
@@ -44,6 +42,7 @@ std::vector<char> GetSimpleFrame(size_t payload_size) {
   // account the extra 2 bytes for each chunk.
   std::vector<char> padding;
   char padding_char = '0';
+  const size_t payload_size = size - sizeof(uint32_t);
   for (size_t size_left = payload_size; size_left > 0;) {
     PERFETTO_CHECK(size_left >= 2);  // We cannot produce frames < 2 bytes.
     size_t padding_size;
@@ -61,36 +60,64 @@ std::vector<char> GetSimpleFrame(size_t payload_size) {
     }
     frame.add_data_for_testing(padding.data(), padding_size);
   }
-  PERFETTO_CHECK(payload_size == frame.ByteSize());
+  PERFETTO_CHECK(frame.ByteSize() == payload_size);
   std::vector<char> encoded_frame;
-  encoded_frame.resize(sizeof(uint32_t) + payload_size);
+  encoded_frame.resize(size);
   char* enc_buf = encoded_frame.data();
   PERFETTO_CHECK(
       frame.SerializeToArray(enc_buf + sizeof(uint32_t), payload_size));
   memcpy(enc_buf, base::AssumeLittleEndian(&payload_size), sizeof(uint32_t));
-  PERFETTO_CHECK(sizeof(uint32_t) + payload_size == encoded_frame.size());
+  PERFETTO_CHECK(encoded_frame.size() == size);
   return encoded_frame;
 }
 
-void SimulateRecv(std::pair<char*, size_t> rbuf,
-                  const std::vector<char>& encoded_frame,
-                  size_t offset = 0) {
+void CheckedMemcpy(std::pair<char*, size_t> rbuf,
+                   const std::vector<char>& encoded_frame,
+                   size_t offset = 0) {
   ASSERT_GE(rbuf.second, encoded_frame.size() + offset);
   memcpy(rbuf.first + offset, encoded_frame.data(), encoded_frame.size());
 }
 
-void AssertFrameEq(std::vector<char> expected_frame_with_header,
-                   const Frame& frame) {
+bool FrameEq(std::vector<char> expected_frame_with_header, const Frame& frame) {
   std::string reserialized_frame = frame.SerializeAsString();
-  ASSERT_EQ(expected_frame_with_header.size() - sizeof(uint32_t),
-            reserialized_frame.size());
-  ASSERT_EQ(0, memcmp(reserialized_frame.data(),
-                      expected_frame_with_header.data() + sizeof(uint32_t),
-                      reserialized_frame.size()));
+
+  size_t expected_size = expected_frame_with_header.size() - sizeof(uint32_t);
+  EXPECT_EQ(expected_size, reserialized_frame.size());
+  if (expected_size != reserialized_frame.size())
+    return false;
+
+  return memcmp(reserialized_frame.data(),
+                expected_frame_with_header.data() + sizeof(uint32_t),
+                reserialized_frame.size()) == 0;
 }
 
-// Creates a realistic Frame, simulates Recv() fragmenting it in three chunks
-// and tests that the decoded Frame matches the original one.
+// Tests the simple case where each recv() just returns one whole header+frame.
+TEST(BufferedFrameDeserializerTest, WholeMessages) {
+  BufferedFrameDeserializer bfd;
+  for (int i = 1; i <= 50; i++) {
+    const size_t size = i * 10;
+    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
+
+    ASSERT_NE(nullptr, rbuf.first);
+    std::vector<char> frame = GetSimpleFrame(size);
+    CheckedMemcpy(rbuf, frame);
+    ASSERT_TRUE(bfd.EndRecv(frame.size()));
+
+    // Excactly one frame should be decoded, with no leftover buffer.
+    auto decoded_frame = bfd.PopNextFrame();
+    ASSERT_TRUE(decoded_frame);
+    ASSERT_EQ(size - sizeof(uint32_t), decoded_frame->ByteSize());
+    ASSERT_FALSE(bfd.PopNextFrame());
+    ASSERT_EQ(0u, bfd.size());
+  }
+}
+
+// Sends first a simple test frame. Then creates a realistic Frame fragmenting
+// it in three chunks and tests that the decoded Frame matches the original one.
+// The recv() sequence is as follows:
+// 1. [ simple_frame ] [ frame_chunk1 ... ]
+// 2. [ ... frame_chunk2 ... ]
+// 3. [ ... frame_chunk3 ]
 TEST(BufferedFrameDeserializerTest, FragmentedFrameIsCorrectlyDeserialized) {
   BufferedFrameDeserializer bfd;
   Frame frame;
@@ -110,47 +137,35 @@ TEST(BufferedFrameDeserializerTest, FragmentedFrameIsCorrectlyDeserialized) {
   memcpy(serialized_frame.data(), base::AssumeLittleEndian(&payload_size),
          sizeof(uint32_t));
 
+  std::vector<char> simple_frame = GetSimpleFrame(32);
   std::vector<char> frame_chunk1(serialized_frame.begin(),
                                  serialized_frame.begin() + 5);
   std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-  SimulateRecv(rbuf, frame_chunk1);
-  ASSERT_TRUE(bfd.EndRecv(frame_chunk1.size()));
+  CheckedMemcpy(rbuf, simple_frame);
+  CheckedMemcpy(rbuf, frame_chunk1, simple_frame.size());
+  ASSERT_TRUE(bfd.EndRecv(simple_frame.size() + frame_chunk1.size()));
 
   std::vector<char> frame_chunk2(serialized_frame.begin() + 5,
                                  serialized_frame.begin() + 10);
   rbuf = bfd.BeginRecv();
-  SimulateRecv(rbuf, frame_chunk2);
+  CheckedMemcpy(rbuf, frame_chunk2);
   ASSERT_TRUE(bfd.EndRecv(frame_chunk2.size()));
 
   std::vector<char> frame_chunk3(serialized_frame.begin() + 10,
                                  serialized_frame.end());
   rbuf = bfd.BeginRecv();
-  SimulateRecv(rbuf, frame_chunk3);
+  CheckedMemcpy(rbuf, frame_chunk3);
   ASSERT_TRUE(bfd.EndRecv(frame_chunk3.size()));
 
-  // Validate the received frame.
+  // Validate the received frame2.
+  std::unique_ptr<Frame> decoded_simple_frame = bfd.PopNextFrame();
+  ASSERT_TRUE(decoded_simple_frame);
+  ASSERT_EQ(simple_frame.size() - sizeof(uint32_t),
+            decoded_simple_frame->ByteSize());
+
   std::unique_ptr<Frame> decoded_frame = bfd.PopNextFrame();
   ASSERT_TRUE(decoded_frame);
-  AssertFrameEq(serialized_frame, *decoded_frame);
-}
-
-// Tests the simple case where each recv() just returns one whole header+frame.
-TEST(BufferedFrameDeserializerTest, WholeMessages) {
-  BufferedFrameDeserializer bfd;
-  for (int i = 1; i <= 50; i++) {
-    const size_t payload_size = i * 5;
-    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-
-    ASSERT_NE(nullptr, rbuf.first);
-    std::vector<char> frame = GetSimpleFrame(payload_size);
-    SimulateRecv(rbuf, frame);
-    ASSERT_TRUE(bfd.EndRecv(frame.size()));
-
-    // Excactly one frame should be decoded, with no leftover buffer.
-    ASSERT_TRUE(bfd.PopNextFrame());
-    ASSERT_FALSE(bfd.PopNextFrame());
-    ASSERT_EQ(0u, bfd.size());
-  }
+  ASSERT_TRUE(FrameEq(serialized_frame, *decoded_frame));
 }
 
 // Tests the case of a EndRecv(0) while receiving a valid frame in chunks.
@@ -161,20 +176,20 @@ TEST(BufferedFrameDeserializerTest, ZeroSizedRecv) {
   std::vector<char> frame_chunk2(frame.begin() + 50, frame.end());
 
   std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-  SimulateRecv(rbuf, frame_chunk1);
+  CheckedMemcpy(rbuf, frame_chunk1);
   ASSERT_TRUE(bfd.EndRecv(frame_chunk1.size()));
 
   rbuf = bfd.BeginRecv();
   ASSERT_TRUE(bfd.EndRecv(0));
 
   rbuf = bfd.BeginRecv();
-  SimulateRecv(rbuf, frame_chunk2);
+  CheckedMemcpy(rbuf, frame_chunk2);
   ASSERT_TRUE(bfd.EndRecv(frame_chunk2.size()));
 
   // Excactly one frame should be decoded, with no leftover buffer.
   std::unique_ptr<Frame> decoded_frame = bfd.PopNextFrame();
   ASSERT_TRUE(decoded_frame);
-  AssertFrameEq(frame, *decoded_frame);
+  ASSERT_TRUE(FrameEq(frame, *decoded_frame));
   ASSERT_FALSE(bfd.PopNextFrame());
   ASSERT_EQ(0u, bfd.size());
 }
@@ -184,19 +199,22 @@ TEST(BufferedFrameDeserializerTest, ZeroSizedRecv) {
 TEST(BufferedFrameDeserializerTest, MultipleFramesInOneRecv) {
   BufferedFrameDeserializer bfd;
   std::vector<std::vector<size_t>> frame_batch_sizes(
-      {{5}, {7, 11, 13}, {17}, {19, 23}});
+      {{11}, {13, 17, 19}, {23}, {29, 31}});
 
   for (std::vector<size_t>& batch : frame_batch_sizes) {
     std::pair<char*, size_t> rbuf = bfd.BeginRecv();
     size_t frame_offset_in_batch = 0;
     for (size_t frame_size : batch) {
       auto frame = GetSimpleFrame(frame_size);
-      SimulateRecv(rbuf, frame, frame_offset_in_batch);
+      CheckedMemcpy(rbuf, frame, frame_offset_in_batch);
       frame_offset_in_batch += frame.size();
     }
     ASSERT_TRUE(bfd.EndRecv(frame_offset_in_batch));
-    for (size_t i = 0; i < batch.size(); i++)
-      ASSERT_TRUE(bfd.PopNextFrame());
+    for (size_t expected_size : batch) {
+      auto frame = bfd.PopNextFrame();
+      ASSERT_TRUE(frame);
+      ASSERT_EQ(expected_size - sizeof(uint32_t), frame->ByteSize());
+    }
     ASSERT_FALSE(bfd.PopNextFrame());
     ASSERT_EQ(0u, bfd.size());
   }
@@ -220,7 +238,7 @@ TEST(BufferedFrameDeserializerTest, HighlyFragmentedFrames) {
     std::vector<char> frame = GetSimpleFrame(i * 100);
     for (size_t off = 0; off < frame.size(); off++) {
       std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-      SimulateRecv(rbuf, {frame[off]});
+      CheckedMemcpy(rbuf, {frame[off]});
 
       // The frame should be available only when receiving the last byte.
       ASSERT_TRUE(bfd.EndRecv(1));
@@ -240,59 +258,95 @@ TEST(BufferedFrameDeserializerTest, HighlyFragmentedFrames) {
 TEST(BufferedFrameDeserializerTest, CanRecoverAfterUnparsableFrames) {
   BufferedFrameDeserializer bfd;
   for (int i = 1; i <= 50; i++) {
-    const size_t payload_size = i * 5;
-    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-
-    ASSERT_NE(nullptr, rbuf.first);
-    std::vector<char> frame = GetSimpleFrame(payload_size);
-    ASSERT_EQ(payload_size + sizeof(uint32_t), frame.size());
-    ASSERT_GE(rbuf.second, frame.size());
-    memcpy(rbuf.first, frame.data(), frame.size());  // fake the recv().
+    const size_t size = i * 10;
+    std::vector<char> frame = GetSimpleFrame(size);
     const bool unparsable = (i % 3) == 1;
     if (unparsable)
-      memset(rbuf.first + sizeof(uint32_t), 0xFF, payload_size);
+      memset(frame.data() + sizeof(uint32_t), 0xFF, size - sizeof(uint32_t));
+
+    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
+    CheckedMemcpy(rbuf, frame);
     ASSERT_TRUE(bfd.EndRecv(frame.size()));
 
     // Excactly one frame should be decoded if |parsable|. In any case no
     // leftover bytes should be left in the buffer.
-    ASSERT_EQ(!unparsable, !!bfd.PopNextFrame());
+    auto decoded_frame = bfd.PopNextFrame();
+    if (unparsable) {
+      ASSERT_FALSE(decoded_frame);
+    } else {
+      ASSERT_TRUE(decoded_frame);
+      ASSERT_EQ(size - sizeof(uint32_t), decoded_frame->ByteSize());
+    }
     ASSERT_EQ(0u, bfd.size());
   }
 }
 
-// Test the case of recv()s that always max up the max_capacity.
-// Alternate the receival of one recv() that returns two frames which total
-// size is exactly |max_capacity| and one recv() that returns one frame, also
-// big |max_capacity|.
+// Test that we can sustain recvs() which constatntly max out the capacity.
+// It sets up three frames:
+// |frame1|: small, 1024 + 4 bytes.
+// |frame2|: as big as the |kMaxCapacity|. Its recv() is split into two chunks.
+// |frame3|: together with the 2nd part of |frame2| it maxes out capacity again.
+// |frame4|: as big as the |kMaxCapacity|. Received in one recv(), no splits.
+//
+// Which are then recv()'d in a loop in the following way.
+//    |------------ max recv capacity ------------|
+// 1. [       frame1      ] [ frame2_chunk1 ..... ]
+// 2. [ ... frame2_chunk2 ]
+// 3. [  frame3  ]
+// 4. [               frame 4                     ]
 TEST(BufferedFrameDeserializerTest, FillCapacity) {
-  size_t max_capacity = 1024 * 16;
-  BufferedFrameDeserializer bfd(max_capacity);
+  size_t kMaxCapacity = 1024 * 16;
+  BufferedFrameDeserializer bfd(kMaxCapacity);
 
   for (int i = 0; i < 3; i++) {
-    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
     std::vector<char> frame1 = GetSimpleFrame(1024);
-    std::vector<char> frame2 =
-        GetSimpleFrame(max_capacity - frame1.size() - sizeof(uint32_t));
-    SimulateRecv(rbuf, frame1);
-    SimulateRecv(rbuf, frame2, frame1.size());
-    ASSERT_TRUE(bfd.EndRecv(frame1.size() + frame2.size()));
+    std::vector<char> frame2 = GetSimpleFrame(kMaxCapacity);
+    std::vector<char> frame2_chunk1(
+        frame2.begin(), frame2.begin() + kMaxCapacity - frame1.size());
+    std::vector<char> frame2_chunk2(frame2.begin() + frame2_chunk1.size(),
+                                    frame2.end());
+    std::vector<char> frame3 =
+        GetSimpleFrame(kMaxCapacity - frame2_chunk2.size());
+    std::vector<char> frame4 = GetSimpleFrame(kMaxCapacity);
+    ASSERT_EQ(kMaxCapacity, frame1.size() + frame2_chunk1.size());
+    ASSERT_EQ(kMaxCapacity, frame2_chunk1.size() + frame2_chunk2.size());
+    ASSERT_EQ(kMaxCapacity, frame2_chunk2.size() + frame3.size());
+    ASSERT_EQ(kMaxCapacity, frame4.size());
+
+    std::pair<char*, size_t> rbuf = bfd.BeginRecv();
+    CheckedMemcpy(rbuf, frame1);
+    CheckedMemcpy(rbuf, frame2_chunk1, frame1.size());
+    ASSERT_TRUE(bfd.EndRecv(frame1.size() + frame2_chunk1.size()));
 
     rbuf = bfd.BeginRecv();
-    std::vector<char> frame3 = GetSimpleFrame(max_capacity - sizeof(uint32_t));
-    SimulateRecv(rbuf, frame3);
+    CheckedMemcpy(rbuf, frame2_chunk2);
+    ASSERT_TRUE(bfd.EndRecv(frame2_chunk2.size()));
+
+    rbuf = bfd.BeginRecv();
+    CheckedMemcpy(rbuf, frame3);
     ASSERT_TRUE(bfd.EndRecv(frame3.size()));
 
+    rbuf = bfd.BeginRecv();
+    CheckedMemcpy(rbuf, frame4);
+    ASSERT_TRUE(bfd.EndRecv(frame4.size()));
+
     std::unique_ptr<Frame> decoded_frame_1 = bfd.PopNextFrame();
-    std::unique_ptr<Frame> decoded_frame_2 = bfd.PopNextFrame();
-    std::unique_ptr<Frame> decoded_frame_3 = bfd.PopNextFrame();
     ASSERT_TRUE(decoded_frame_1);
-    AssertFrameEq(frame1, *decoded_frame_1);
+    ASSERT_TRUE(FrameEq(frame1, *decoded_frame_1));
 
+    std::unique_ptr<Frame> decoded_frame_2 = bfd.PopNextFrame();
     ASSERT_TRUE(decoded_frame_2);
-    AssertFrameEq(frame2, *decoded_frame_2);
+    ASSERT_TRUE(FrameEq(frame2, *decoded_frame_2));
 
+    std::unique_ptr<Frame> decoded_frame_3 = bfd.PopNextFrame();
     ASSERT_TRUE(decoded_frame_3);
-    AssertFrameEq(frame3, *decoded_frame_3);
+    ASSERT_TRUE(FrameEq(frame3, *decoded_frame_3));
+
+    std::unique_ptr<Frame> decoded_frame_4 = bfd.PopNextFrame();
+    ASSERT_TRUE(decoded_frame_4);
+    ASSERT_TRUE(FrameEq(frame4, *decoded_frame_4));
+
+    ASSERT_FALSE(bfd.PopNextFrame());
   }
 }
 

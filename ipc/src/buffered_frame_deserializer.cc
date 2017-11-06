@@ -103,23 +103,20 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
   // The header is just the number of bytes of the Frame protobuf message.
   const size_t kHeaderSize = sizeof(uint32_t);
 
-  size_t next_frame_size = 0;
   size_t consumed_size = 0;
-  const char* const begin = buf_;
-  const char* const end = buf_ + size_;
-  const char* rd_ptr = begin;
   for (;;) {
-    if (rd_ptr + kHeaderSize > end)
+    if (size_ < consumed_size + kHeaderSize)
       break;  // Case A, not enough data to read even the header.
 
-    // Read the header into (payload_size, next_frame_size).
+    // Read the header into |payload_size|.
     uint32_t payload_size = 0;
+    const char* rd_ptr = buf_ + consumed_size;
     memcpy(base::AssumeLittleEndian(&payload_size), rd_ptr, kHeaderSize);
+    const size_t next_frame_size = kHeaderSize + payload_size;
     rd_ptr += kHeaderSize;
 
-    if (rd_ptr + payload_size > end) {
+    if (size_ < consumed_size + next_frame_size) {
       // Case B. We got the header but not the whole frame.
-      next_frame_size = kHeaderSize + payload_size;
       if (next_frame_size > capacity_) {
         // The caller is expected to shut down the socket and give up at this
         // point. If it doesn't do that and insists going on at some point it
@@ -130,10 +127,9 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
       break;
     }
 
-    // Case C. We got at least the header and the whole frame.
+    // Case C. We got at least one header and whole frame.
     DecodeFrame(rd_ptr, payload_size);
-    consumed_size += kHeaderSize + payload_size;
-    rd_ptr += payload_size;
+    consumed_size += next_frame_size;
   }
 
   PERFETTO_DCHECK(consumed_size <= size_);
@@ -146,8 +142,10 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
       // Case D. We consumed some frames but there is a leftover at the end of
       // the buffer. Shift out the consumed bytes, so that on the next round
       // |buf_| starts with the header of the next unconsumed frame.
-      PERFETTO_DCHECK(rd_ptr > begin && rd_ptr + size_ <= end);
-      memmove(buf_, rd_ptr, size_);
+      const char* move_begin = buf_ + consumed_size;
+      PERFETTO_CHECK(move_begin > buf_);
+      PERFETTO_CHECK(move_begin + size_ <= buf_ + capacity_);
+      memmove(buf_, move_begin, size_);
     }
     // If we just finished decoding a large frame that used more than one page,
     // release the extra memory in the buffer. Large frames should be quite
@@ -155,8 +153,11 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
     if (consumed_size > kPageSize) {
       size_t size_rounded_up = (size_ / kPageSize + 1) * kPageSize;
       if (size_rounded_up < capacity_) {
-        int res = madvise(buf_ + size_rounded_up, capacity_ - size_rounded_up,
-                          MADV_DONTNEED);
+        char* madvise_begin = buf_ + size_rounded_up;
+        const size_t madvise_size = capacity_ - size_rounded_up;
+        PERFETTO_CHECK(madvise_begin > buf_ + size_);
+        PERFETTO_CHECK(madvise_begin + madvise_size <= buf_ + capacity_);
+        int res = madvise(madvise_begin, madvise_size, MADV_DONTNEED);
         PERFETTO_DCHECK(res == 0);
       }
     }
