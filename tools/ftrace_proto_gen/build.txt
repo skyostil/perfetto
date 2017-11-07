@@ -1,0 +1,1 @@
+swig -python -c++ -o swig.cc swig.i && python setup.py build_ext --inplace --swig-cpp -I $(pwd) -I $HOME/code/perfetto

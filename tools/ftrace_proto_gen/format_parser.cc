@@ -112,17 +112,17 @@ bool ParseFtraceEvent(const std::string& input, FtraceEvent* output) {
 
   return true;
 }
-
-::std::ostream& operator<<(::std::ostream& os,
-                           const FtraceEvent::Field& field) {
-  PrintTo(field, &os);
-  return os;
-}
-
-// Allow gtest to pretty print FtraceEvent::Field.
-void PrintTo(const FtraceEvent::Field& field, ::std::ostream* os) {
-  *os << "FtraceEvent::Field(" << field.type_and_name << ", " << field.offset
-      << ", " << field.size << ", " << field.is_signed << ")";
-}
+//
+// ::std::ostream& operator<<(::std::ostream& os,
+//                            const FtraceEvent::Field& field) {
+//   PrintTo(field, &os);
+//   return os;
+// }
+//
+// // Allow gtest to pretty print FtraceEvent::Field.
+// void PrintTo(const FtraceEvent::Field& field, ::std::ostream* os) {
+//   *os << "FtraceEvent::Field(" << field.type_and_name << ", " << field.offset
+//       << ", " << field.size << ", " << field.is_signed << ")";
+// }
 
 }  // namespace perfetto
