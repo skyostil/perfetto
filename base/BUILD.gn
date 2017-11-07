@@ -19,7 +19,7 @@ source_set("base") {
     "scoped_file.h",
     "task_runner.h",
     "utils.h",
-    "weak_ref.h",
+    "weak_ptr.h",
   ]
 }
 
@@ -44,6 +44,6 @@ executable("base_unittests") {
   sources = [
     "scoped_file_unittest.cc",
     "utils_unittest.cc",
-    "weakptr_unittest.cc",
+    "weak_ptr_unittest.cc",
   ]
 }

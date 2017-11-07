@@ -35,10 +35,10 @@ namespace base {
 // int main() {
 //  std::unique_ptr<MyClass> foo(new MyClass);
 //  auto wptr = foo.GetWeakPtr();
-//  ASSERT_TRUE(wptr.is_valid());
+//  ASSERT_TRUE(wptr);
 //  ASSERT_EQ(foo.get(), wptr->get());
 //  foo.reset();
-//  ASSERT_FALSE(wptr.is_valid());
+//  ASSERT_FALSE(wptr);
 //  ASSERT_EQ(nullptr, wptr->get());
 // }
 
@@ -65,8 +65,6 @@ class WeakPtr {
   std::shared_ptr<T*> handle_;
 };
 
-// The factory object is meant to be a used as a field of the class T to
-// obtain weak pointers to it.
 template <typename T>
 class WeakPtrFactory {
  public:
