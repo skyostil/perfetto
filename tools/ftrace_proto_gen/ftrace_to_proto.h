@@ -27,44 +27,51 @@
 
 namespace perfetto {
 
+struct FtraceEventField {
+  std::string type_and_name;
+  int offset;
+  int size;
+  bool is_signed;
+
+  bool operator==(const FtraceEventField& other) const {
+    return std::tie(type_and_name, offset, size, is_signed) ==
+           std::tie(other.type_and_name, other.offset, other.size,
+                    other.is_signed);
+  }
+};
+
+
 struct FtraceEvent {
-  struct Field {
-    std::string type_and_name;
-    int offset;
-    int size;
-    bool is_signed;
-
-    bool operator==(const Field& other) const {
-      return std::tie(type_and_name, offset, size, is_signed) ==
-             std::tie(other.type_and_name, other.offset, other.size,
-                      other.is_signed);
-    }
-  };
-
+  using Field = FtraceEventField;
   std::string name;
   int id;
-  std::vector<Field> fields;
+  std::vector<FtraceEventField> fields;
+};
+
+
+struct ProtoField {
+  std::string type;
+  std::string name;
+  uint32_t number;
 };
 
 struct Proto {
-  struct Field {
-    std::string type;
-    std::string name;
-    uint32_t number;
-  };
+  using Field = ProtoField;
   std::string name;
-  std::vector<Field> fields;
+  std::vector<ProtoField> fields;
 
   std::string ToString();
 };
 
+FtraceEvent Test();
+
 bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
-std::string InferProtoType(const FtraceEvent::Field& field);
+std::string InferProtoType(const FtraceEventField& field);
 std::string GetNameFromTypeAndName(const std::string& type_and_name);
 
-// Allow gtest to pretty print FtraceEvent::Field.
-::std::ostream& operator<<(::std::ostream& os, const FtraceEvent::Field&);
-void PrintTo(const FtraceEvent::Field& args, ::std::ostream* os);
+// Allow gtest to pretty print FtraceEventField.
+// ::std::ostream& operator<<(::std::ostream& os, const FtraceEventField&);
+// void PrintTo(const FtraceEventField& args, ::std::ostream* os);
 
 }  // namespace perfetto
 
