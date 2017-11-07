@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FTRACE_READER_FTRACE_CPU_READER_H_
-#define FTRACE_READER_FTRACE_CPU_READER_H_
+#ifndef FTRACE_TO_PROTO_TRANSLATION_TABLE_H_
+#define FTRACE_TO_PROTO_TRANSLATION_TABLE_H_
 
 #include <stdint.h>
 
@@ -24,29 +24,17 @@
 
 namespace perfetto {
 
-class FtraceToProtoTranslationTable;
-
-class FtraceCpuReader {
+class FtraceToProtoTranslationTable {
  public:
-  class Config {};
-
-  FtraceCpuReader(const FtraceToProtoTranslationTable*, size_t cpu, int fd);
-  ~FtraceCpuReader();
-  FtraceCpuReader(FtraceCpuReader&&);
-
-  void Read(const Config&, pbzero::FtraceEventBundle*);
-
-  int GetFileDescriptor();
+  FtraceToProtoTranslationTable();
+  ~FtraceToProtoTranslationTable();
 
  private:
-  FtraceCpuReader(const FtraceCpuReader&) = delete;
-  FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
-
-  const FtraceToProtoTranslationTable* table_;
-  const size_t cpu_;
-  base::ScopedFile fd_;
+  FtraceToProtoTranslationTable(const FtraceToProtoTranslationTable&) = delete;
+  FtraceToProtoTranslationTable& operator=(
+      const FtraceToProtoTranslationTable&) = delete;
 };
 
-} // namespace perfetto
+}  // namespace perfetto
 
-#endif  // FTRACE_READER_FTRACE_CPU_READER_H_
+#endif  // FTRACE_TO_PROTO_TRANSLATION_TABLE_H_

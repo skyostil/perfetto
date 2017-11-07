@@ -14,30 +14,12 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#include "ftrace_to_proto_translation_table.h"
 
-#include "ftrace_reader/ftrace_controller.h"
-#include "ftrace_reader/ftrace_cpu_reader.h"
+namespace perfetto {
 
-int main(int argc, const char** argv) {
-  auto ftrace = perfetto::FtraceController::Create();
+FtraceToProtoTranslationTable::FtraceToProtoTranslationTable() {}
 
-  ftrace->ClearTrace();
-  ftrace->WriteTraceMarker("Hello, world!");
+FtraceToProtoTranslationTable::~FtraceToProtoTranslationTable() = default;
 
-  for (int i = 1; i < argc; i++) {
-    printf("Enabling: %s\n", argv[i]);
-    ftrace->EnableEvent(argv[i]);
-  }
-
-  // Sleep for one second so we get some events
-  sleep(1);
-
-  for (int i = 1; i < argc; i++) {
-    printf("Disable: %s\n", argv[i]);
-    ftrace->DisableEvent(argv[i]);
-  }
-
-  return 0;
-}
+}  // namespace perfetto

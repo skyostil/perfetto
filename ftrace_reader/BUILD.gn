@@ -54,6 +54,7 @@ executable("ftrace_reader_demo") {
 source_set("ftrace_reader") {
   all_dependent_configs = [ ":ftrace_reader_config" ]
   deps += [
+    "//base",
     "//buildtools:protobuf_full",  # TODO: I shouldn't have to include this.
     "//protozero",
   ]
@@ -65,5 +66,7 @@ source_set("ftrace_reader") {
     "include/ftrace_reader/ftrace_cpu_reader.h",
     "src/ftrace_controller.cc",
     "src/ftrace_cpu_reader.cc",
+    "src/ftrace_to_proto_translation_table.cc",
+    "src/ftrace_to_proto_translation_table.h",
   ]
 }
