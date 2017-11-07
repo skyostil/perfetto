@@ -18,21 +18,51 @@
 #define FTRACE_READER_FTRACE_READER_H_
 
 #include <map>
+#include <memory>
+
+#include "ftrace_reader/ftrace_controller.h"
 
 #include "ftrace_reader/ftrace_cpu_reader.h"
 
 namespace perfetto {
 
+class FtracePaths;
+
+// Root of the ftrace_reader API.
+// When initialized it reads:
+//  available_events    - to figure out which events exist
+//  events/header_event - as a sanitiy check
+//  events/page_header  - as a snaitiy check
+//  events/*/*/format   - to get the format of the common and non-common fields
+// and uses this data creates the configuration the FtraceCpuReaders uses to
+// parse the raw ftrace format.
+//
+// FtraceReader owns each FtraceCpuReader. Users call |GetCpuReader(int cpu)|
+// to access the reader for a specific CPU.
+//
+// TODO(hjd): Implement the above.
 class FtraceReader {
  public:
   FtraceReader();
-  const FtraceCpuReader* GetCpuReader(size_t cpu_id);
+  ~FtraceReader();
+
+  FtraceController* GetController() const;
+
+  // Returns a cached FtraceCpuReader for |cpu|.
+  // FtraceCpuReaders are constructed lazily.
+  const FtraceCpuReader* GetCpuReader(size_t cpu) const;
+
+  // Returns the number of CPUs.
+  // This will match the number of tracing/per_cpu/cpuXX directories.
+  size_t NumberOfCpus() const;
 
  private:
   FtraceReader(const FtraceReader&) = delete;
   FtraceReader& operator=(const FtraceReader&) = delete;
 
-  std::map<size_t, FtraceCpuReader> readers_;
+  std::unique_ptr<FtracePaths> paths_;
+  mutable FtraceController controller_;
+  mutable std::map<size_t, FtraceCpuReader> readers_;
 };
 
 }  // namespace perfetto

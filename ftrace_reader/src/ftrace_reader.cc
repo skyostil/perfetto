@@ -16,12 +16,38 @@
 
 #include "ftrace_reader/ftrace_reader.h"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#include "ftrace_paths.h"
+
 namespace perfetto {
 
-FtraceReader::FtraceReader() {}
+FtraceReader::FtraceReader()
+    : paths_(new FtracePaths("/sys/kernel/debug/tracing/")),
+      controller_(paths_.get()) {}
 
-const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) {
-  return nullptr;
+FtraceReader::~FtraceReader() = default;
+
+FtraceController* FtraceReader::GetController() const {
+  return &controller_;
+}
+
+const FtraceCpuReader* FtraceReader::GetCpuReader(size_t cpu) const {
+  PERFETTO_CHECK(cpu < NumberOfCpus());
+  if (!readers_.count(cpu)) {
+    int fd = open(paths_.get()->TracePipeRaw(cpu).c_str(), O_RDONLY);
+    if (fd == -1)
+      return nullptr;
+    readers_.emplace(cpu, FtraceCpuReader(cpu, fd));
+  }
+
+  return &readers_.at(cpu);
+}
+
+size_t FtraceReader::NumberOfCpus() const {
+  return sysconf(_SC_NPROCESSORS_CONF);
 }
 
 }  // namespace perfetto

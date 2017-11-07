@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import("//protozero/protozero_library.gni")
+
 config("ftrace_reader_config") {
   include_dirs = [ "include" ]
 }
@@ -20,14 +22,13 @@ executable("ftrace_reader_unittests") {
   testonly = true
   deps += [
     ":ftrace_reader",
-    "//base",
     "//buildtools:gmock",
     "//buildtools:gtest",
     "//buildtools:gtest_main",
-    "//protos/ftrace",
   ]
   sources = [
     "src/ftrace_cpu_reader_unittest.cc",
+    "src/ftrace_paths_unittest.cc",
   ]
 }
 
@@ -61,8 +62,10 @@ source_set("ftrace_reader") {
 
     # Hmm, should I need this?
     "//buildtools:protobuf_full",
-    "//protos/ftrace",
     "//protozero",
+  ]
+  public_deps = [
+    "//protos/ftrace",
   ]
   sources = [
     "include/ftrace_reader/ftrace_controller.h",
@@ -70,6 +73,8 @@ source_set("ftrace_reader") {
     "include/ftrace_reader/ftrace_reader.h",
     "src/ftrace_controller.cc",
     "src/ftrace_cpu_reader.cc",
+    "src/ftrace_paths.cc",
+    "src/ftrace_paths.h",
     "src/ftrace_reader.cc",
   ]
 }

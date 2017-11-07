@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#include "ftrace_reader/ftrace_cpu_reader.h"
-#include "gtest/gtest.h"
+#include "ftrace_paths.h"
+
+#include "base/logging.h"
 
 namespace perfetto {
-namespace {
 
-}  // namespace
+FtracePaths::FtracePaths(const std::string& root) : root_(root) {
+  PERFETTO_CHECK(root_ != "" && root_[root_.length() - 1] == '/');
+}
+
 }  // namespace perfetto

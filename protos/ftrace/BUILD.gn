@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//protozero//protozero_library.gni")
+import("//protozero/protozero_library.gni")
 
 # We don't generate headers for the individual events
 # (e.g. sched_switch.proto etc) instead using a table we generate separately to

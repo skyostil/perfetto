@@ -20,41 +20,31 @@
 #include <stdint.h>
 
 #include "base/scoped_file.h"
+#include "ftrace_event_bundle.pbzero.h"
 #include "gtest/gtest_prod.h"
 
 namespace perfetto {
 
 class FtraceCpuReader {
  public:
-  class Region {
-   public:
-    virtual ~Region();
-    uint8_t* start;
-    uint8_t* end;
-    virtual void DoneWriting(uint8_t* end_ptr) = 0;
-  };
+  FtraceCpuReader(size_t cpu, int fd);
 
-  class Delegate {
-   public:
-    virtual ~Delegate();
-    virtual Region* NewRegion() = 0;
-  };
+  void Read(pbzero::FtraceEventBundle*);
 
-  FtraceCpuReader(uint32_t cpu, int fd);
-
-  void Read(Delegate* delegate);
   int GetFileDescriptor();
+
+  FtraceCpuReader(FtraceCpuReader&&) = default;
 
  private:
   friend class FtraceCpuReaderTest;
   FRIEND_TEST(FtraceCpuReaderTest, ParseEmpty);
 
-  static void ParsePage(uint32_t cpu, const uint8_t* ptr, Delegate* delegate);
+  static void ParsePage(size_t cpu, const uint8_t*, pbzero::FtraceEventBundle*);
 
   FtraceCpuReader(const FtraceCpuReader&) = delete;
   FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
 
-  uint32_t cpu_;
+  size_t cpu_;
   base::ScopedFile fd_;
 };
 

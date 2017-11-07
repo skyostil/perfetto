@@ -55,51 +55,12 @@ T ReadAndAdvance(const uint8_t** ptr) {
   return ret;
 }
 
-class DelegateAdaptor : public protozero::ScatteredStreamWriter::Delegate {
- public:
-  explicit DelegateAdaptor(FtraceCpuReader::Delegate* delegate);
-  ~DelegateAdaptor() override;
-
-  // ScatteredStreamWriter::Delegate implementation.
-  protozero::ContiguousMemoryRange GetNewBuffer() override;
-
-  void Done(size_t message_size);
-
- private:
-  FtraceCpuReader::Delegate* delegate_;
-  FtraceCpuReader::Region* current_region_;
-};
-
-DelegateAdaptor::DelegateAdaptor(FtraceCpuReader::Delegate* delegate)
-    : delegate_(delegate), current_region_(nullptr) {}
-
-DelegateAdaptor::~DelegateAdaptor() {}
-
-// ScatteredStreamWriter::Delegate implementation.
-protozero::ContiguousMemoryRange DelegateAdaptor::GetNewBuffer() {
-  FtraceCpuReader::Region* region = delegate_->NewRegion();
-  if (current_region_ != nullptr) {
-    // TODO(hjd): handle this case.
-    PERFETTO_CHECK(false);
-  }
-  current_region_ = region;
-  return {region->start, region->end};
-}
-
-void DelegateAdaptor::Done(size_t message_size) {
-  PERFETTO_CHECK(current_region_);
-  current_region_->DoneWriting(current_region_->start + message_size);
-}
-
 }  // namespace
 
-FtraceCpuReader::Region::~Region() {}
-FtraceCpuReader::Delegate::~Delegate() {}
-
-FtraceCpuReader::FtraceCpuReader(uint32_t cpu, int fd)
+FtraceCpuReader::FtraceCpuReader(size_t cpu, int fd)
     : cpu_(cpu), fd_(base::ScopedFile(fd)) {}
 
-void FtraceCpuReader::Read(Delegate* delegate) {
+void FtraceCpuReader::Read(pbzero::FtraceEventBundle* bundle) {
   if (fd_.get() == -1)
     return;
 
@@ -112,7 +73,7 @@ void FtraceCpuReader::Read(Delegate* delegate) {
 
   PERFETTO_DCHECK(bytes == kPageSize);
 
-  ParsePage(cpu_, buffer.get(), delegate);
+  ParsePage(cpu_, buffer.get(), bundle);
 }
 
 // The structure of a raw trace buffer page is as follows:
@@ -124,14 +85,10 @@ void FtraceCpuReader::Read(Delegate* delegate) {
 // space at: /sys/kernel/debug/tracing/events/header_event
 // This method is deliberately static so it can be tested independently.
 // static
-void FtraceCpuReader::ParsePage(uint32_t cpu,
+void FtraceCpuReader::ParsePage(size_t cpu,
                                 const uint8_t* ptr,
-                                Delegate* delegate) {
-  DelegateAdaptor adaptor(delegate);
-  protozero::ScatteredStreamWriter stream_writer(&adaptor);
-  pbzero::FtraceEventBundle message;
-  message.Reset(&stream_writer);
-  message.set_cpu(cpu);
+                                pbzero::FtraceEventBundle* message) {
+  message->set_cpu(cpu);
 
   // TODO(hjd): Read this format dynamically?
   uint64_t timestamp = ReadAndAdvance<uint64_t>(&ptr);
@@ -198,7 +155,7 @@ void FtraceCpuReader::ParsePage(uint32_t cpu,
         uint32_t pid = ReadAndAdvance<uint32_t>(&ptr);
         printf("Event type=%d pid=%d\n", event_type, pid);
 
-        pbzero::FtraceEvent* event = message.add_event();
+        pbzero::FtraceEvent* event = message->add_event();
         event->set_pid(pid);
 
         if (event_type == 5) {
@@ -216,8 +173,6 @@ void FtraceCpuReader::ParsePage(uint32_t cpu,
       }
     }
   }
-  size_t message_size = message.Finalize();
-  adaptor.Done(message_size);
 }
 
 }  // namespace perfetto

@@ -16,10 +16,8 @@
 
 #include "ftrace_reader/ftrace_controller.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,66 +26,66 @@
 
 #include "base/scoped_file.h"
 #include "base/utils.h"
+#include "ftrace_paths.h"
 
 namespace perfetto {
 
 namespace {
 
-// TODO(b/68242551): Do not hardcode these paths.
-// This directory contains the 'format' and 'enable' files for each event.
-// These are nested like so: group_name/event_name/{format, enable}
-const char kTraceEventPath[] = "/sys/kernel/debug/tracing/events/";
-
-// Reading this file produces human readable trace output.
-// Writing to this file clears all trace buffers for all CPUS.
-const char kTracePath[] = "/sys/kernel/debug/tracing/trace";
-
-// Writing to this file injects an event into the trace buffer.
-const char kTraceMarkerPath[] = "/sys/kernel/debug/tracing/trace_marker";
-
-bool WriteToFile(const char* path, const char* str) {
-  base::ScopedFile fd(open(path, O_WRONLY));
-  if (fd.get() == -1)
+bool WriteToFile(const std::string& path, const std::string& str) {
+  base::ScopedFile fd(open(path.c_str(), O_WRONLY));
+  if (!fd)
     return false;
-  PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
-  long result = PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
-  PERFETTO_DCHECK(result != -1);
-  return result != -1;
+  ssize_t written = PERFETTO_EINTR(write(fd.get(), str.c_str(), str.length()));
+  ssize_t length = static_cast<ssize_t>(str.length());
+  // This should either fail or write fully.
+  PERFETTO_DCHECK(written == length || written == -1);
+  return written == length;
+}
+
+char ReadOneCharFromFile(const std::string& path) {
+  base::ScopedFile fd(open(path.c_str(), O_RDONLY));
+  if (!fd)
+    return '\0';
+  char result = '\0';
+  ssize_t bytes = PERFETTO_EINTR(read(fd.get(), &result, 1));
+  PERFETTO_DCHECK(bytes == 1 || bytes == -1);
+  return result;
 }
 
 }  // namespace
 
-FtraceController::FtraceController() {}
+FtraceController::FtraceController(const FtracePaths* paths) : paths_(paths) {}
 
 void FtraceController::ClearTrace() {
-  base::ScopedFile fd(open(kTracePath, O_WRONLY | O_TRUNC));
-  if (fd.get() == -1) {
-    PERFETTO_DCHECK(false);  // Could not clear.
-    return;
-  }
+  base::ScopedFile fd(open(paths_->trace().c_str(), O_WRONLY | O_TRUNC));
+  PERFETTO_CHECK(fd);  // Could not clear.
 }
 
-void FtraceController::WriteTraceMarker(const char* str) {
-  base::ScopedFile fd(open(kTraceMarkerPath, O_WRONLY));
-  if (fd.get() == -1) {
-    PERFETTO_DCHECK(false);  // Could not open.
-    return;
-  }
-
-  ssize_t result = PERFETTO_EINTR(write(fd.get(), str, strlen(str)));
-  PERFETTO_DCHECK(result != -1);
+bool FtraceController::WriteTraceMarker(const std::string& str) {
+  return WriteToFile(paths_->trace_marker(), str);
 }
 
-void FtraceController::EnableEvent(const char* name) {
-  std::string path = std::string(kTraceEventPath) + name + "/enable";
-  bool success = WriteToFile(path.c_str(), "1");
-  PERFETTO_DCHECK(success);
+bool FtraceController::EnableTracing() {
+  return WriteToFile(paths_->tracing_on(), "1");
 }
 
-void FtraceController::DisableEvent(const char* name) {
-  std::string path = std::string(kTraceEventPath) + name + "/enable";
-  bool success = WriteToFile(path.c_str(), "0");
-  PERFETTO_DCHECK(success);
+bool FtraceController::DisableTracing() {
+  return WriteToFile(paths_->tracing_on(), "0");
+}
+
+bool FtraceController::IsTracingEnabled() {
+  return ReadOneCharFromFile(paths_->tracing_on()) == '1';
+}
+
+bool FtraceController::EnableEvent(const std::string& group,
+                                   const std::string& name) {
+  return WriteToFile(paths_->Enable(group, name), "1");
+}
+
+bool FtraceController::DisableEvent(const std::string& group,
+                                    const std::string& name) {
+  return WriteToFile(paths_->Enable(group, name), "0");
 }
 
 }  // namespace perfetto

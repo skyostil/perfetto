@@ -15,23 +15,22 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "ftrace_reader/ftrace_controller.h"
 #include "ftrace_reader/ftrace_cpu_reader.h"
 #include "ftrace_reader/ftrace_reader.h"
 
 int main(int argc, const char** argv) {
-  if (argc > 1)
-    printf("Usage: %s\n", argv[0]);
+  perfetto::FtraceReader ftrace;
+  perfetto::FtraceController* ftrace_controller = ftrace.GetController();
 
-  perfetto::FtraceController ftrace_controller;
-
-  ftrace_controller.ClearTrace();
-  ftrace_controller.WriteTraceMarker("Hello, world!");
+  ftrace_controller->ClearTrace();
+  ftrace_controller->WriteTraceMarker("Hello, world!");
 
   for (int i = 1; i < argc; i++) {
     printf("Enabling: %s\n", argv[i]);
-    ftrace_controller.EnableEvent(argv[i]);
+    ftrace_controller->EnableEvent("sched", argv[i]);
   }
 
   // Sleep for one second so we get some events
@@ -39,7 +38,7 @@ int main(int argc, const char** argv) {
 
   for (int i = 1; i < argc; i++) {
     printf("Disable: %s\n", argv[i]);
-    ftrace_controller.DisableEvent(argv[i]);
+    ftrace_controller->DisableEvent("sched", argv[i]);
   }
 
   return 0;
