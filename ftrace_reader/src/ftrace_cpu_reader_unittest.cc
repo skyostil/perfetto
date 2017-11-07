@@ -23,7 +23,7 @@ namespace {
 
 TEST(FtraceCpuReader, ParseEmpty) {
   FtraceToProtoTranslationTable table;
-  FtraceCpuReader(&table, 42, -1);
+  FtraceCpuReader(&table, 42, base::ScopedFile());
 }
 
 }  // namespace

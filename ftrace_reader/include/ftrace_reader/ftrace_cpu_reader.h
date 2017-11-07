@@ -30,7 +30,9 @@ class FtraceCpuReader {
  public:
   class Config {};
 
-  FtraceCpuReader(const FtraceToProtoTranslationTable*, size_t cpu, int fd);
+  FtraceCpuReader(const FtraceToProtoTranslationTable*,
+                  size_t cpu,
+                  base::ScopedFile fd);
   ~FtraceCpuReader();
   FtraceCpuReader(FtraceCpuReader&&);
 

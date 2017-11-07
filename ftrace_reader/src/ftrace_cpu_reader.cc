@@ -23,8 +23,8 @@ namespace perfetto {
 
 FtraceCpuReader::FtraceCpuReader(const FtraceToProtoTranslationTable* table,
                                  size_t cpu,
-                                 int fd)
-    : table_(table), cpu_(cpu), fd_(base::ScopedFile(fd)) {}
+                                 base::ScopedFile fd)
+    : table_(table), cpu_(cpu), fd_(std::move(fd)) {}
 
 void FtraceCpuReader::Read(const Config&, pbzero::FtraceEventBundle*) {}
 

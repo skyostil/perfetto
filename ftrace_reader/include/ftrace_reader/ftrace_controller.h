@@ -59,7 +59,7 @@ class FtraceController {
 
   // Returns a cached FtraceCpuReader for |cpu|.
   // FtraceCpuReaders are constructed lazily.
-  const FtraceCpuReader* GetCpuReader(size_t cpu) const;
+  const FtraceCpuReader* GetCpuReader(size_t cpu);
 
   // Returns the number of CPUs.
   // This will match the number of tracing/per_cpu/cpuXX directories.
@@ -67,12 +67,11 @@ class FtraceController {
 
  private:
   FtraceController(std::unique_ptr<FtraceToProtoTranslationTable>);
-  FtraceController();
   FtraceController(const FtraceController&) = delete;
   FtraceController& operator=(const FtraceController&) = delete;
 
   std::unique_ptr<FtraceToProtoTranslationTable> table_;
-  mutable std::map<size_t, FtraceCpuReader> readers_;
+  std::map<size_t, FtraceCpuReader> readers_;
 };
 
 }  // namespace perfetto

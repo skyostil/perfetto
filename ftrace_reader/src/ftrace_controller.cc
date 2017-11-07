@@ -123,19 +123,21 @@ bool FtraceController::DisableEvent(const std::string& name) {
   return WriteToFile(path, "0");
 }
 
-const FtraceCpuReader* FtraceController::GetCpuReader(size_t cpu) const {
-  PERFETTO_CHECK(cpu < NumberOfCpus());
+const FtraceCpuReader* FtraceController::GetCpuReader(size_t cpu) {
+  if (cpu >= NumberOfCpus())
+    return nullptr;
   if (!readers_.count(cpu)) {
-    int fd = open(TracePipeRawPath(cpu).c_str(), O_RDONLY);
-    if (fd == -1)
+    auto fd = base::ScopedFile(open(TracePipeRawPath(cpu).c_str(), O_RDONLY));
+    if (!fd)
       return nullptr;
-    readers_.emplace(cpu, FtraceCpuReader(table_.get(), cpu, fd));
+    readers_.emplace(cpu, FtraceCpuReader(table_.get(), cpu, std::move(fd)));
   }
   return &readers_.at(cpu);
 }
 
 size_t FtraceController::NumberOfCpus() const {
-  return sysconf(_SC_NPROCESSORS_CONF);
+  static size_t num_cpus = sysconf(_SC_NPROCESSORS_CONF);
+  return num_cpus;
 }
 
 }  // namespace perfetto
