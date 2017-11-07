@@ -26,8 +26,8 @@
 namespace perfetto {
 namespace ipc {
 
-// Wraps the result of an asynchronous invocation. This is just a
-// std::pair<unique_ptr<T>, bool> with syntactic sugar. Is used as callback
+// Wraps the result of an asynchronous invocation. This is the equivalent of a
+// std::pair<unique_ptr<T>, bool> with syntactic sugar. It is used as callback
 // argument by Deferred<T>.
 template <typename T = ProtoMessage>
 class AsyncResult {

@@ -17,8 +17,6 @@
 #ifndef IPC_INCLUDE_IPC_DEFERRED_H_
 #define IPC_INCLUDE_IPC_DEFERRED_H_
 
-#include <assert.h>
-
 #include <functional>
 #include <memory>
 #include <utility>
@@ -32,8 +30,8 @@ namespace ipc {
 // This class is a wrapper for a callback handling async results.
 // The problem this is solving is the following: For each result argument of the
 // methods generated from the .proto file:
-//  - The client wants to see something on which it can Bind() a callback, which
-//    is invoked asynchrnously once reply is received fromt he host.
+// - The client wants to see something on which it can Bind() a callback, which
+//   is invoked asynchrnously once reply is received fromt he host.
 // - The host wants to expose something to embedder that implements the IPC
 //   methods to allow them to provide an asynchronous reply back to the client.
 //   Eventually even more than once, for the case streaming replies.
@@ -76,7 +74,7 @@ class Deferred {
 
   // Operators for std::move().
 
-  // Can't just use =default here because the default move operator for
+  // Can't just use "= default" here because the default move operator for
   // std::function doesn't necessarily swap and hence can leave a copy of the
   // bind state around, which is undesirable.
   Deferred(Deferred&& other) noexcept { swap(other); }
@@ -106,7 +104,7 @@ class Deferred {
       callback_ = nullptr;
   }
 
-  // Resolves with a nullptr |msg_|, signalling failure to the other end.
+  // Resolves with a nullptr |msg_|, signalling failure to |callback_|.
   void Reject() { Resolve(AsyncResult<T>()); }
 
  private:
