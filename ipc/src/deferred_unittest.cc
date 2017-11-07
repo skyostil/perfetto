@@ -25,208 +25,209 @@ namespace ipc {
 namespace {
 
 TEST(DeferredTest, BindAndResolve) {
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  int num_callbacks = 0;
-  deferred.Bind([&num_callbacks](Deferred<TestMessageFoo> msg) {
+  Deferred<TestMessage> deferred;
+  std::shared_ptr<int> num_callbacks(new int{0});
+  deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_TRUE(msg.success());
     ASSERT_EQ(42, msg->num());
     ASSERT_EQ("foo", msg->str());
-    num_callbacks++;
+    (*num_callbacks)++;
   });
 
-  deferred->set_num(42);
-  (*deferred).set_str("foo");
-  deferred.Resolve();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  res->set_num(42);
+  (*res).set_str("foo");
+  deferred.Resolve(std::move(res));
 
-  // A second call to Resolve() or Fail() shouldn't have any effect beause we
+  // A second call to Resolve() or Reject() shouldn't have any effect beause we
   // didn't set has_more.
-  deferred.Resolve();
-  deferred.Fail();
+  deferred.Resolve(std::move(res));
+  deferred.Reject();
 
-  ASSERT_EQ(1, num_callbacks);
+  ASSERT_EQ(1, *num_callbacks);
 }
 
-// In case of a Fail() a callback with a nullptr should be received.
+// In case of a Reject() a callback with a nullptr should be received.
 TEST(DeferredTest, BindAndFail) {
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  int num_callbacks = 0;
-  deferred.Bind([&num_callbacks](Deferred<TestMessageFoo> msg) {
+  Deferred<TestMessage> deferred;
+  std::shared_ptr<int> num_callbacks(new int{0});
+  deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_FALSE(msg.success());
-    ASSERT_EQ(nullptr, msg.unchecked_msg());
-    num_callbacks++;
+    ASSERT_EQ(nullptr, &*msg);
+    (*num_callbacks)++;
   });
 
-  deferred->set_num(42);
-  (*deferred).set_str("foo");
-  deferred.Fail();
-  deferred.Resolve();  // This should have no effect.
-  deferred.Fail();     // ditto.
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  deferred.Reject();
+  deferred.Resolve(std::move(res));  // This should have no effect.
+  deferred.Reject();                 // ditto.
 
-  ASSERT_EQ(1, num_callbacks);
+  ASSERT_EQ(1, *num_callbacks);
 }
 
-// In case of a Fail() a callback with a nullptr should be received.
-TEST(DeferredTest, AutoFailIfOutOfScope) {
-  int num_callbacks = 0;
+// Test the RAII behavior.
+TEST(DeferredTest, AutoRejectIfOutOfScope) {
+  std::shared_ptr<int> num_callbacks(new int{0});
   {
-    Deferred<TestMessageFoo> deferred(
-        std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-    deferred.Bind([&num_callbacks](Deferred<TestMessageFoo> msg) {
+    Deferred<TestMessage> deferred;
+    deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
       ASSERT_FALSE(msg.success());
-      num_callbacks++;
+      (*num_callbacks)++;
     });
-    deferred->set_num(42);
   }
-  ASSERT_EQ(1, num_callbacks);
+  ASSERT_EQ(1, *num_callbacks);
 }
 
-// Binds two callbacks one after the other, tests that the bind state of the
+// Binds two callbacks one after the other and tests that the bind state of the
 // first callback is released.
-TEST(DeferredTest, BindTwice) {
-  // shared_ptr has a very nice use_count() that we can leverage to check that
-  // the bind state is not leaked.
-  std::shared_ptr<int> shared_bind_state(new int{13});
+TEST(DeferredTest, BindTwiceDoesNotHoldBindState) {
+  // Use shared_ptr's use_count() to infer the bind state of the callback.
+  std::shared_ptr<int> num_callbacks(new int{0});
+  Deferred<TestMessage> deferred;
+  deferred.Bind(
+      [num_callbacks](AsyncResult<TestMessage>) { (*num_callbacks)++; });
 
-  int num_callbacks = 0;
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  deferred.Bind([shared_bind_state](Deferred<TestMessageFoo>) {
-    *shared_bind_state = 0;
-  });
-  // At this point both us (|shared_bind_state|) and the Deferred are
+  // At this point both the shared_ptr above and the callback in |deferred| are
   // refcounting the bind state.
-  ASSERT_GE(shared_bind_state.use_count(), 2);
+  ASSERT_GE(num_callbacks.use_count(), 2);
 
   // Re-binding the callback should release the bind state, without invoking the
   // old callback.
-  deferred.Bind([&num_callbacks](Deferred<TestMessageFoo> msg) {
+  deferred.Bind([](AsyncResult<TestMessage> msg) {});
+  ASSERT_EQ(1, num_callbacks.use_count());
+  ASSERT_EQ(0, *num_callbacks);
+
+  // Test that the new callback is invoked when re-bindings.
+  deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_TRUE(msg.success());
-    ASSERT_EQ(42, msg->num());
-    num_callbacks++;
+    ASSERT_EQ(4242, msg->num());
+    (*num_callbacks)++;
   });
-  ASSERT_EQ(1, shared_bind_state.use_count());
-  ASSERT_EQ(13, *shared_bind_state);
-
-  // Test that the new callback is invoked.
-  deferred->set_num(42);
-  deferred.Resolve();
-  ASSERT_EQ(1, num_callbacks);
-}
-
-// Converts a Deferred<Specialized> into a Deferred<ProtoMessage> and
-// invokes the callback from the latter. The callback should work consistently.
-TEST(DeferredTest, UpcastAndResolve) {
-  std::shared_ptr<int> shared_bind_state(new int{13});
-
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  deferred->set_num(42);
-  deferred->set_str("foo");
-  int num_callbacks = 0;
-  deferred.Bind(
-      [shared_bind_state, &num_callbacks](Deferred<TestMessageFoo> msg) {
-        ASSERT_TRUE(msg.success());
-        ASSERT_EQ(42, msg->num());
-        ASSERT_EQ("foo", msg->str());
-        num_callbacks++;
-      });
-  const int refcount_after_first_bind = shared_bind_state.use_count();
-
-  ASSERT_TRUE(deferred.is_bound());
-  Deferred<ProtoMessage> generic_deferred =
-      deferred.template CovnvertInternal<ProtoMessage>();
-  ASSERT_FALSE(deferred.is_bound());
-  ASSERT_TRUE(generic_deferred.is_bound());
-  ASSERT_EQ(refcount_after_first_bind, shared_bind_state.use_count());
-  ASSERT_EQ(0, num_callbacks);
-
-  // Resolving the upcasted deferred should still trigger the callback.
-  std::weak_ptr<int> weak_bind_state(shared_bind_state);
-  shared_bind_state.reset();
-
-  // The bind state should be retained by the callback in |generic_deferred|.
-  ASSERT_GT(weak_bind_state.use_count(), 0);
-
-  generic_deferred.Resolve();
-  ASSERT_EQ(1, num_callbacks);
-
-  // And at this point nothing else should be retaining the bind state, as
-  // Resolve() with has_more = false releases it.
-  ASSERT_EQ(0, weak_bind_state.use_count());
-}
-
-// Like UpcastAndResolve but goes back and forth between
-// Deferred<Specialized> -> Deferred<ProtoMessage> -> Deferred<Specialized>.
-TEST(DeferredTest, UpAndDowncast) {
-  std::shared_ptr<int> shared_bind_state(new int{13});
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  deferred->set_num(42);
-  deferred->set_str("foo");
-
-  int num_callbacks = 0;
-  deferred.Bind(
-      [shared_bind_state, &num_callbacks](Deferred<TestMessageFoo> msg) {
-        ASSERT_TRUE(msg.success());
-        ASSERT_EQ(42, msg->num());
-        ASSERT_EQ("foo", msg->str());
-        num_callbacks++;
-      });
-
-  Deferred<ProtoMessage> generic_deferred =
-      deferred.template CovnvertInternal<ProtoMessage>();
-  // Deferred<TestMessageFoo> downcast
-  // TODO WIP.
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  res->set_num(4242);
+  deferred.Resolve(std::move(res));
+  ASSERT_EQ(1, *num_callbacks);
+  ASSERT_EQ(1, num_callbacks.use_count());
 }
 
 TEST(DeferredTest, MoveOperators) {
-  int num_callbacks = 0;
-  Deferred<TestMessageFoo> deferred(
-      std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  auto callback = [&num_callbacks](Deferred<TestMessageFoo> msg) {
-    ASSERT_TRUE(msg.success());
-    ASSERT_GE(msg->num(), 42);
-    ASSERT_LE(msg->num(), 43);
-    ASSERT_EQ("foo_" + std::to_string(msg->num()), msg->str());
-    num_callbacks++;
-  };
-  deferred->set_num(42);
+  Deferred<TestMessage> deferred;
+  std::shared_ptr<int> num_callbacks(new int{0});
+  std::function<void(AsyncResult<TestMessage>)> callback =
+      [num_callbacks](AsyncResult<TestMessage> msg) {
+        ASSERT_TRUE(msg.success());
+        ASSERT_GE(msg->num(), 42);
+        ASSERT_LE(msg->num(), 43);
+        ASSERT_EQ(std::to_string(msg->num()), msg->str());
+        (*num_callbacks)++;
+      };
   deferred.Bind(callback);
 
-  // The result of the 3 statements below should be: moved_deferred <- deferred.
-  Deferred<TestMessageFoo> moved_deferred(std::move(deferred));
-  deferred = std::move(moved_deferred);
-  moved_deferred = std::move(deferred);
+  // Do a bit of std::move() dance with both the Deferred and the AsyncResult.
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  res->set_num(42);
+  AsyncResult<TestMessage> res_moved(std::move(res));
+  res = std::move(res_moved);
+  res->set_str("42");
+  res_moved = std::move(res);
 
-  moved_deferred->set_str("foo_42");
-  deferred
-      .Resolve();  // Nothing should happen yet, |deferred| has been cleared.
-  ASSERT_EQ(0, num_callbacks);
+  Deferred<TestMessage> deferred_moved(std::move(deferred));
+  deferred = std::move(deferred_moved);
+  deferred_moved = std::move(deferred);
 
-  moved_deferred.Resolve();
-  ASSERT_EQ(1, num_callbacks);
+  deferred.Reject();  // Nothing should happen yet, |deferred| has been cleared.
+  ASSERT_EQ(0, *num_callbacks);
 
-  // |deferred| has lost all its state but shoould remain reusable.
+  deferred_moved.Resolve(std::move(res_moved));  // This, instead, should fire.
+  ASSERT_EQ(1, *num_callbacks);
+
+  // |deferred| and |res| have lost their state but shoould remain reusable.
   deferred.Bind(callback);
-  deferred.set_msg(std::unique_ptr<ProtoMessage>(new TestMessageFoo()));
-  deferred->set_num(43);
-  deferred->set_str("foo_43");
-  deferred.Resolve();
-  ASSERT_EQ(2, num_callbacks);
+  res = AsyncResult<TestMessage>::New();
+  res->set_num(43);
+  res->set_str("43");
+  deferred.Resolve(std::move(res));
+  ASSERT_EQ(2, *num_callbacks);
 
   // Finally re-bind |deferred|, move it to a new scoped Deferred and verify
   // that the moved-into object still auto-nacks the callback.
-  deferred.Bind([&num_callbacks](Deferred<TestMessageFoo> msg) {
+  deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_FALSE(msg.success());
-    num_callbacks++;
+    (*num_callbacks)++;
   });
-  { Deferred<TestMessageFoo> scoped_deferred(std::move(deferred)); }
-  ASSERT_EQ(3, num_callbacks);
+  { Deferred<TestMessage> scoped_deferred(std::move(deferred)); }
+  ASSERT_EQ(3, *num_callbacks);
+  callback = nullptr;
+  ASSERT_EQ(1, num_callbacks.use_count());
 }
 
-TEST(DeferredTest, HasMore) {}
+// Covers the case of a streaming reply, where the deferred keeps being resolved
+// until has_more == true.
+TEST(DeferredTest, StreamingReply) {
+  Deferred<TestMessage> deferred;
+  std::shared_ptr<int> num_callbacks(new int{0});
+  std::function<void(AsyncResult<TestMessage>)> callback =
+      [num_callbacks](AsyncResult<TestMessage> msg) {
+        ASSERT_TRUE(msg.success());
+        ASSERT_EQ(*num_callbacks, msg->num());
+        ASSERT_EQ(std::to_string(*num_callbacks), msg->str());
+        ASSERT_EQ(msg->num() < 3, msg.has_more());
+        (*num_callbacks)++;
+      };
+  deferred.Bind(callback);
+
+  for (int i = 0; i < 3; i++) {
+    AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+    res->set_num(i);
+    res->set_str(std::to_string(i));
+    res.set_has_more(true);
+    AsyncResult<TestMessage> res_moved(std::move(res));
+    deferred.Resolve(std::move(res_moved));
+  }
+
+  Deferred<TestMessage> deferred_moved(std::move(deferred));
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  res->set_num(3);
+  res->set_str(std::to_string(3));
+  res.set_has_more(false);
+  deferred_moved.Resolve(std::move(res));
+  ASSERT_EQ(4, *num_callbacks);
+
+  // At this point reject should have no effect.
+  deferred_moved.Reject();
+  ASSERT_EQ(4, *num_callbacks);
+  callback = nullptr;
+  ASSERT_EQ(1, num_callbacks.use_count());
+}
+
+// Similar to the above, but checks that destroying a Deferred without having
+// resolved with has_more == true automatically rejects once out of scope.
+TEST(DeferredTest, StreamingReplyIsRejectedOutOfScope) {
+  std::shared_ptr<int> num_callbacks(new int{0});
+
+  {
+    Deferred<TestMessage> deferred;
+    deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
+      ASSERT_EQ((*num_callbacks) < 3, msg.success());
+      ASSERT_EQ(msg.success(), msg.has_more());
+      (*num_callbacks)++;
+    });
+
+    for (int i = 0; i < 3; i++) {
+      AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+      res.set_has_more(true);
+      deferred.Resolve(std::move(res));
+    }
+
+    // |deferred_moved| going out of scope should cause a Reject().
+    { Deferred<TestMessage> deferred_moved = std::move(deferred); }
+    ASSERT_EQ(4, *num_callbacks);
+  }
+
+  // |deferred| going out of scope should do noting, it has been std::move()'d.
+  ASSERT_EQ(4, *num_callbacks);
+  ASSERT_EQ(1, num_callbacks.use_count());
+}
 
 }  // namespace
 }  // namespace ipc

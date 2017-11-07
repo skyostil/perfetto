@@ -19,13 +19,7 @@ option optimize_for = LITE_RUNTIME;
 
 package perfetto.ipc;
 
-message TestMessageFoo {
+message TestMessage {
   int32 num = 1;
   string str = 2;
-}
-
-message TestMessageBar {
-  // Fields deliberately in the opposite order of TestMessageFoo.
-  string str = 1;
-  int32 num = 2;
 }
