@@ -167,7 +167,7 @@ class UnixSocket {
   // of UnixSocket.
   struct WeakRef {
     explicit WeakRef(UnixSocket* s) : sock(s) {}
-    ~WeakRef() { sock = nullptr; }
+    ~WeakRef() = default;
     WeakRef(const WeakRef&) = delete;
     WeakRef& operator=(const WeakRef&) = delete;
 
