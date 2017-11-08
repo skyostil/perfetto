@@ -142,8 +142,8 @@ void FtraceCpuReader::ParsePage(size_t cpu,
         PERFETTO_CHECK(type <= kTypeDataTypeLengthMax);
         // Where type is <=28 it represents the length of a data record
         if (type == 0) {
-          PERFETTO_CHECK(
-              false);  // TODO(hjd): Look at the next few bytes for real size.
+          // TODO(hjd): Look at the next few bytes for real size.
+          PERFETTO_CHECK(false);
         }
         const uint8_t* next = ptr + 4 * type;
 
