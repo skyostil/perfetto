@@ -48,6 +48,7 @@ class WeakPtrFactory;  // Forward declaration, defined below.
 template <typename T>
 class WeakPtr {
  public:
+  WeakPtr() {}
   WeakPtr(const WeakPtr&) = default;
   WeakPtr& operator=(const WeakPtr&) = default;
   WeakPtr(WeakPtr&&) noexcept = default;
