@@ -19,6 +19,7 @@
 #include <inttypes.h>
 #include <sys/mman.h>
 
+#include <algorithm>
 #include <type_traits>
 #include <utility>
 
@@ -112,7 +113,12 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
     uint32_t payload_size = 0;
     const char* rd_ptr = buf_ + consumed_size;
     memcpy(base::AssumeLittleEndian(&payload_size), rd_ptr, kHeaderSize);
-    const size_t next_frame_size = kHeaderSize + payload_size;
+
+    // Saturate the |payload_size| to prevent overflows. The > capacity_ check
+    // below will abort the parsing.
+    size_t next_frame_size =
+        std::min(static_cast<size_t>(payload_size), capacity_);
+    next_frame_size += kHeaderSize;
     rd_ptr += kHeaderSize;
 
     if (size_ < consumed_size + next_frame_size) {
