@@ -17,6 +17,8 @@
 #ifndef PERFETTO_BASE_WEAK_PTR_H_
 #define PERFETTO_BASE_WEAK_PTR_H_
 
+#include "base/thread_checker.h"
+
 #include <memory>
 
 namespace perfetto {
@@ -54,7 +56,10 @@ class WeakPtr {
   WeakPtr(WeakPtr&&) noexcept = default;
   WeakPtr& operator=(WeakPtr&&) = default;
 
-  T* get() const { return handle_ ? *handle_.get() : nullptr; }
+  T* get() const {
+    PERFETTO_DCHECK_THREAD(thread_checker);
+    return handle_ ? *handle_.get() : nullptr;
+  }
   T* operator->() const { return get(); }
   T& operator*() const { return *get(); }
 
@@ -63,22 +68,33 @@ class WeakPtr {
  private:
   friend class WeakPtrFactory<T>;
   explicit WeakPtr(const std::shared_ptr<T*>& handle) : handle_(handle) {}
+
   std::shared_ptr<T*> handle_;
+  PERFETTO_THREAD_CHECKER(thread_checker);
 };
 
 template <typename T>
 class WeakPtrFactory {
  public:
-  explicit WeakPtrFactory(T* owner) : handle_(new T* {owner}) {}
-  ~WeakPtrFactory() { *(handle_.get()) = nullptr; }
+  explicit WeakPtrFactory(T* owner) : handle_(new T* {owner}) {
+    PERFETTO_DCHECK_THREAD(thread_checker);
+  }
+  ~WeakPtrFactory() {
+    PERFETTO_DCHECK_THREAD(thread_checker);
+    *(handle_.get()) = nullptr;
+  }
 
-  WeakPtr<T> GetWeakPtr() const { return WeakPtr<T>(handle_); }
+  WeakPtr<T> GetWeakPtr() const {
+    PERFETTO_DCHECK_THREAD(thread_checker);
+    return WeakPtr<T>(handle_);
+  }
 
  private:
   WeakPtrFactory(const WeakPtrFactory&) = delete;
   WeakPtrFactory& operator=(const WeakPtrFactory&) = delete;
 
   std::shared_ptr<T*> handle_;
+  PERFETTO_THREAD_CHECKER(thread_checker);
 };
 
 }  // namespace base

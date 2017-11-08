@@ -109,8 +109,8 @@ void TestTaskRunner::QueueFileDescriptorWatches(bool blocking) {
       continue;
     auto callback = fd_and_callback->second;
     task_queue_.emplace_back([this, callback, fd]() {
-      callback();
       fd_watch_task_queued_[fd] = false;
+      callback();
     });
     fd_watch_task_queued_[fd] = true;
   }
