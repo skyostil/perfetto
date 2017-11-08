@@ -33,16 +33,16 @@ DeferredBase::~DeferredBase() {
 // std::function doesn't necessarily swap and hence can leave a copy of the
 // bind state around, which is undesirable.
 DeferredBase::DeferredBase(DeferredBase&& other) noexcept {
-  swap(other);
+  Move(other);
 }
 
 DeferredBase& DeferredBase::operator=(DeferredBase&& other) {
   Reject();  // Will do nothing if callback_ is not bound.
-  swap(other);
+  Move(other);
   return *this;
 }
 
-void DeferredBase::swap(DeferredBase& other) {
+void DeferredBase::Move(DeferredBase& other) {
   callback_ = std::move(other.callback_);
   other.callback_ = nullptr;
 }

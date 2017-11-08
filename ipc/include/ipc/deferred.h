@@ -69,13 +69,14 @@ class DeferredBase {
   ~DeferredBase();
   DeferredBase(DeferredBase&&) noexcept;
   DeferredBase& operator=(DeferredBase&&);
-  void swap(DeferredBase&);
   void Bind(std::function<void(AsyncResult<ProtoMessage>)> callback);
   bool IsBound() const;
   void Resolve(AsyncResult<ProtoMessage>);
   void Reject();
 
  protected:
+  void Move(DeferredBase&);
+
   std::function<void(AsyncResult<ProtoMessage>)> callback_;
 };
 

@@ -29,6 +29,7 @@ TEST(DeferredTest, BindAndResolve) {
   std::shared_ptr<int> num_callbacks(new int{0});
   deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_TRUE(msg.success());
+    ASSERT_TRUE(msg);
     ASSERT_EQ(42, msg->num());
     ASSERT_EQ("foo", msg->str());
     (*num_callbacks)++;
@@ -53,6 +54,7 @@ TEST(DeferredTest, BindAndFail) {
   std::shared_ptr<int> num_callbacks(new int{0});
   deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_FALSE(msg.success());
+    ASSERT_FALSE(msg);
     ASSERT_EQ(nullptr, &*msg);
     (*num_callbacks)++;
   });
