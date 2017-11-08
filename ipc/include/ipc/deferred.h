@@ -62,53 +62,58 @@ namespace ipc {
 // Or for more complex cases, the deferred object can be std::move()'d outside
 // and the reply can continue asynchrnously later.
 
-template <typename T = ProtoMessage>
-class Deferred {
+class DeferredBase {
  public:
-  Deferred(std::function<void(AsyncResult<T>)> callback = nullptr)
-      : callback_(std::move(callback)) {
-    static_assert(std::is_base_of<ProtoMessage, T>::value, "T->ProtoMessage");
+  DeferredBase(
+      std::function<void(AsyncResult<ProtoMessage>)> callback = nullptr);
+  ~DeferredBase();
+  DeferredBase(DeferredBase&&) noexcept;
+  DeferredBase& operator=(DeferredBase&&);
+  void swap(DeferredBase&);
+  void Bind(std::function<void(AsyncResult<ProtoMessage>)> callback);
+  bool IsBound() const;
+  void Resolve(AsyncResult<ProtoMessage>);
+  void Reject();
+
+ protected:
+  std::function<void(AsyncResult<ProtoMessage>)> callback_;
+};
+
+template <typename T = ProtoMessage>
+class Deferred : public DeferredBase {
+ public:
+  Deferred(std::function<void(AsyncResult<T>)> callback = nullptr) {
+    Bind(std::move(callback));
   }
 
-  ~Deferred() { Reject(); }
-
-  // Operators for std::move().
-
-  // Can't just use "= default" here because the default move operator for
-  // std::function doesn't necessarily swap and hence can leave a copy of the
-  // bind state around, which is undesirable.
-  Deferred(Deferred&& other) noexcept { swap(other); }
-
-  Deferred& operator=(Deferred&& other) {
-    Reject();  // Will do nothing if callback_ is not bound.
-    swap(other);
-    return *this;
-  }
-
-  void swap(Deferred& other) {
-    callback_ = std::move(other.callback_);
-    other.callback_ = nullptr;
-  }
+  DeferredBase MoveAsBase() { return DeferredBase(std::move(callback_)); }
 
   void Bind(std::function<void(AsyncResult<T>)> callback) {
-    callback_ = std::move(callback);
+    // Here we need a callback adapter to downcast the callback to a generic
+    // callback that takes an AsyncResult<ProtoMessage>, so that it can be
+    // stored in the base class |callback_|. This is what allows MoveAsBase().
+    auto callback_adapter = [callback](
+                                AsyncResult<ProtoMessage> async_result_base) {
+      if (!callback)
+        return;
+      // Upcast the async_result from <ProtoMessage> -> <T : ProtoMessage>.
+      static_assert(std::is_base_of<ProtoMessage, T>::value, "T:ProtoMessage");
+      AsyncResult<T> async_result(
+          std::unique_ptr<T>(static_cast<T*>(async_result_base.release_msg())),
+          async_result_base.has_more());
+      callback(std::move(async_result));
+    };
+    DeferredBase::Bind(callback_adapter);
   }
 
   // If no more messages are expected, |callback_| is released.
   void Resolve(AsyncResult<T> async_result) {
-    if (!callback_)
-      return;
-    bool has_more = async_result.has_more();
-    callback_(std::move(async_result));
-    if (!has_more)
-      callback_ = nullptr;
+    // Convert the |async_result| to the generic base one (T -> ProtoMessage).
+    AsyncResult<ProtoMessage> async_result_base(
+        std::unique_ptr<ProtoMessage>(async_result.release_msg()),
+        async_result.has_more());
+    DeferredBase::Resolve(std::move(async_result_base));
   }
-
-  // Resolves with a nullptr |msg_|, signalling failure to |callback_|.
-  void Reject() { Resolve(AsyncResult<T>()); }
-
- private:
-  std::function<void(AsyncResult<T>)> callback_;
 };
 
 }  // namespace ipc

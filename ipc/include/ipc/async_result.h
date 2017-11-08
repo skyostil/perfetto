@@ -46,7 +46,7 @@ class AsyncResult {
   bool has_more() const { return has_more_; }
   void set_has_more(bool has_more) { has_more_ = has_more; }
   void set_msg(std::unique_ptr<T> msg) { msg_ = std::move(msg); }
-
+  T* release_msg() { return msg_.release(); }
   T* operator->() { return msg_.get(); }
   T& operator*() { return *msg_; }
 
