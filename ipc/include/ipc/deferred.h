@@ -64,7 +64,7 @@ namespace ipc {
 
 class DeferredBase {
  public:
-  DeferredBase(
+  explicit DeferredBase(
       std::function<void(AsyncResult<ProtoMessage>)> callback = nullptr);
   ~DeferredBase();
   DeferredBase(DeferredBase&&) noexcept;
@@ -83,7 +83,7 @@ class DeferredBase {
 template <typename T = ProtoMessage>
 class Deferred : public DeferredBase {
  public:
-  Deferred(std::function<void(AsyncResult<T>)> callback = nullptr) {
+  explicit Deferred(std::function<void(AsyncResult<T>)> callback = nullptr) {
     Bind(std::move(callback));
   }
 
