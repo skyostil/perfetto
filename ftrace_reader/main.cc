@@ -34,6 +34,9 @@ int main(int argc, const char** argv) {
   // Sleep for one second so we get some events
   sleep(1);
 
+  const perfetto::FtraceCpuReader* reader = ftrace->GetCpuReader(0);
+  reader->Read(perfetto::FtraceCpuReader::Config(), nullptr);
+
   for (int i = 1; i < argc; i++) {
     printf("Disable: %s\n", argv[i]);
     ftrace->DisableEvent(argv[i]);
