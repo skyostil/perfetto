@@ -86,31 +86,12 @@ const ServiceDescriptor& GreeterProxy::GetDescriptor() {
 
 void GreeterProxy::SayHello(const GreeterRequestMsg& request,
                             DeferredGreeterReply reply) {
-  // This boilerplate is essentially a callback upcast-er. It Adapts a
-  // callback<AsyncResult<ProtoMessage>> to
-  // callback<AsyncResult<GreeterReplyMsg>>
-  _Deferred<_ProtoMessage> deferred_adapter(
-      [reply](_AsyncResult<_ProtoMessage> async_result) mutable {
-        std::unique_ptr<GreeterReplyMsg> reply_ojb(
-            static_cast<GreeterReplyMsg*>(async_result.release_msg()));
-        reply.Resolve(_AsyncResult<GreeterReplyMsg>(std::move(reply_ojb),
-                                                    async_result.has_more()));
-      });
-  ::perfetto::ipc::ServiceProxy::BeginInvoke("SayHello", request,
-                                             std::move(deferred_adapter));
+  BeginInvoke("SayHello", request, reply.MoveAsBase());
 }
 
 void GreeterProxy::WaveGoodbye(const GreeterRequestMsg& request,
                                DeferredGreeterReply reply) {
-  _Deferred<_ProtoMessage> deferred_adapter(
-      [reply](_AsyncResult<_ProtoMessage> async_result) mutable {
-        std::unique_ptr<GreeterReplyMsg> reply_ojb(
-            static_cast<GreeterReplyMsg*>(async_result.release_msg()));
-        reply.Resolve(_AsyncResult<GreeterReplyMsg>(std::move(reply_ojb),
-                                                    async_result.has_more()));
-      });
-  ::perfetto::ipc::ServiceProxy::BeginInvoke("WaveGoodbye", request,
-                                             std::move(deferred_adapter));
+  BeginInvoke("WaveGoodbye", request, reply.MoveAsBase());
 }
 
 }  // namespace ipc_test

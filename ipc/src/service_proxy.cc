@@ -55,7 +55,7 @@ void ServiceProxy::InitializeBinding(
 
 void ServiceProxy::BeginInvoke(const std::string& method_name,
                                const ProtoMessage& request,
-                               Deferred<ProtoMessage> reply) {
+                               DeferredBase reply) {
   // |reply| will auto-resolve if it gets out of scope early.
   if (!connected()) {
     PERFETTO_DCHECK(false);
@@ -86,7 +86,7 @@ void ServiceProxy::EndInvoke(RequestID request_id,
     PERFETTO_DCHECK(false);
     return;
   }
-  Deferred<ProtoMessage>& reply_callback = callback_it->second;
+  DeferredBase& reply_callback = callback_it->second;
   AsyncResult<ProtoMessage> reply(std::move(result), has_more);
   reply_callback.Resolve(std::move(reply));
   if (!has_more)

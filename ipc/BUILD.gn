@@ -30,6 +30,7 @@ source_set("ipc") {
     "include/ipc/deferred.h",
     "src/buffered_frame_deserializer.cc",
     "src/client_impl.cc",
+    "src/deferred.cc",
     "src/service_proxy.cc",
     "src/unix_socket.cc",
   ]

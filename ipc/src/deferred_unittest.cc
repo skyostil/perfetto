@@ -229,6 +229,36 @@ TEST(DeferredTest, StreamingReplyIsRejectedOutOfScope) {
   ASSERT_EQ(1, num_callbacks.use_count());
 }
 
+// Tests that a Deferred<Specialized> still behaves sanely after it has been
+// moved into a DeferredBase via MoveAsBase().
+TEST(DeferredTest, MoveAsBase) {
+  Deferred<TestMessage> deferred;
+  std::shared_ptr<int> num_callbacks(new int{0});
+  deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
+    ASSERT_TRUE(msg.success());
+    ASSERT_EQ(42, msg->num());
+    ASSERT_EQ("foo", msg->str());
+    (*num_callbacks)++;
+  });
+
+  DeferredBase deferred_base = deferred.MoveAsBase();
+  ASSERT_FALSE(deferred.IsBound());
+  ASSERT_TRUE(deferred_base.IsBound());
+
+  std::unique_ptr<TestMessage> msg(new TestMessage());
+  msg->set_num(42);
+  msg->set_str("foo");
+
+  AsyncResult<ProtoMessage> async_result_base(std::move(msg));
+  deferred_base.Resolve(std::move(async_result_base));
+
+  // These should have no effect.
+  deferred_base.Resolve(std::move(async_result_base));
+  deferred_base.Reject();
+
+  ASSERT_EQ(1, *num_callbacks);
+}
+
 }  // namespace
 }  // namespace ipc
 }  // namespace perfetto
