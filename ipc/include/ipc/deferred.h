@@ -72,9 +72,6 @@ class Deferred {
 
   ~Deferred() { Reject(); }
 
-  Deferred(const Deferred&) = default;
-  Deferred& operator=(const Deferred&) = default;
-
   // Operators for std::move().
 
   // Can't just use "= default" here because the default move operator for
