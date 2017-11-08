@@ -99,6 +99,41 @@ TEST(Utils, EintrWrapper) {
   sigaction(SIGUSR2, &old_sa, nullptr);
 }
 
+class DeleteCounter {
+ public:
+  DeleteCounter() { ++count_; }
+  ~DeleteCounter() { --count_; }
+
+  static size_t count() { return count_; }
+
+ private:
+  static size_t count_;
+};
+
+size_t DeleteCounter::count_ = 0;
+
+TEST(Utils, MakeUniqueScalar) {
+  auto s = MakeUnique<std::string>();
+  EXPECT_EQ("", *s);
+
+  auto s2 = MakeUnique<std::string>("test");
+  EXPECT_EQ("test", *s2);
+}
+
+TEST(Utils, MakeUniqueScalarWithMoveOnlyType) {
+  using MoveOnly = std::unique_ptr<std::string>;
+  auto p = MakeUnique<MoveOnly>(MakeUnique<std::string>("test"));
+  EXPECT_EQ("test", **p);
+}
+
+TEST(Utils, MakeUniqueArray) {
+  EXPECT_EQ(0u, DeleteCounter::count());
+  auto a = MakeUnique<DeleteCounter[]>(5);
+  EXPECT_EQ(5u, DeleteCounter::count());
+  a.reset();
+  EXPECT_EQ(0u, DeleteCounter::count());
+}
+
 }  // namespace
 }  // namespace base
 }  // namespace perfetto

@@ -21,6 +21,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include <memory>
+#include <utility>
+
 #define PERFETTO_EINTR(x)                                   \
   ({                                                        \
     decltype(x) eintr_wrapper_result;                       \
@@ -51,6 +54,43 @@ struct FreeDeleter {
     free(ptr);
   }
 };
+
+namespace {
+
+template <typename T>
+struct MakeUniqueResult {
+  using Scalar = std::unique_ptr<T>;
+};
+
+template <typename T>
+struct MakeUniqueResult<T[]> {
+  using Array = std::unique_ptr<T[]>;
+};
+
+template <typename T, size_t N>
+struct MakeUniqueResult<T[N]> {
+  using Invalid = void;
+};
+
+}  // namespace
+
+// Overload for non-array types. Arguments are forwarded to T's constructor.
+template <typename T, typename... Args>
+typename MakeUniqueResult<T>::Scalar MakeUnique(Args&&... args) {
+  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
+// Overload for array types of unknown bound, e.g. T[]. The array is allocated
+// with `new T[n]()` and value-initialized: note that this is distinct from
+// `new T[n]`, which default-initializes.
+template <typename T>
+typename MakeUniqueResult<T>::Array MakeUnique(size_t size) {
+  return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
+}
+
+// Overload to reject array types of known bound, e.g. T[n].
+template <typename T, typename... Args>
+typename MakeUniqueResult<T>::Invalid MakeUnique(Args&&... args) = delete;
 
 }  // namespace base
 }  // namespace perfetto
