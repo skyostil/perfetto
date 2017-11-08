@@ -36,6 +36,7 @@ using DeferredGreeterReply = ::perfetto::ipc::Deferred<GreeterReplyMsg>;
 
 class GreeterProxy : public ::perfetto::ipc::ServiceProxy {
  public:
+  GreeterProxy(::perfetto::ipc::ServiceProxy::EventListener*);
   ~GreeterProxy() override;
 
   // ServiceProxy implementation.

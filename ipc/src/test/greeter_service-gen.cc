@@ -68,6 +68,7 @@ ServiceDescriptor* CreateDescriptor() {
       &Decoder<::ipc_test::GreeterReplyMsg>,
       &Factory<::ipc_test::GreeterReplyMsg>});
 
+  desc->methods.shrink_to_fit();
   return desc;
 }
 
@@ -78,6 +79,9 @@ const ServiceDescriptor& GetDescriptorLazy() {
 
 }  // namespace
 
+GreeterProxy::GreeterProxy(
+    ::perfetto::ipc::ServiceProxy::EventListener* event_listener)
+    : ::perfetto::ipc::ServiceProxy(event_listener) {}
 GreeterProxy::~GreeterProxy() = default;
 
 const ServiceDescriptor& GreeterProxy::GetDescriptor() {

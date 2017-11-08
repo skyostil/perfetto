@@ -41,7 +41,7 @@ ClientImpl::ClientImpl(const char* socket_name, base::TaskRunner* task_runner)
 }
 
 ClientImpl::~ClientImpl() {
-  OnDisconnect(nullptr);
+  OnDisconnect(nullptr);  // The UnixSocket* ptr is not used in OnDisconnect().
 }
 
 void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
@@ -55,7 +55,7 @@ void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
   req->set_service_name(service_name);
   if (!SendFrame(frame)) {
     PERFETTO_DLOG("BindService(%s) failed", service_name.c_str());
-    service_proxy->event_listener()->OnConnectionFailed();
+    service_proxy->OnConnect(false /* success */);
   }
   QueuedRequest qr;
   qr.type = Frame::kMsgBindService;
@@ -117,7 +117,7 @@ void ClientImpl::OnDisconnect(UnixSocket*) {
   for (auto it : service_bindings_) {
     base::WeakPtr<ServiceProxy>& service_proxy = it.second;
     if (service_proxy)
-      service_proxy->event_listener()->OnConnectionFailed();
+      service_proxy->OnDisconnect();
   }
   service_bindings_.clear();
 }
@@ -168,8 +168,8 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
     return;
   if (!reply.success()) {
     PERFETTO_DLOG("Failed BindService(%s)",
-                  service_proxy->GetDescriptor().service_name.c_str());
-    return service_proxy->event_listener()->OnConnectionFailed();
+                  service_proxy->GetDescriptor().service_name);
+    return service_proxy->OnConnect(false /* success */);
   }
 
   // Build the method [name] -> [remote_id] map.
@@ -185,7 +185,7 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   service_proxy->InitializeBinding(weak_ptr_factory_.GetWeakPtr(),
                                    reply.service_id(), std::move(methods));
   service_bindings_[reply.service_id()] = service_proxy;
-  service_proxy->event_listener()->OnConnect();
+  service_proxy->OnConnect(true /* success */);
 }
 
 void ClientImpl::OnInvokeMethodReply(QueuedRequest req,

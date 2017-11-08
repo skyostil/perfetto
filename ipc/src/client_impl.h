@@ -60,7 +60,7 @@ class ClientImpl : public Client, public UnixSocket::EventListener {
   RequestID BeginInvoke(ServiceID,
                         const std::string& method_name,
                         MethodID remote_method_id,
-                        const ProtoMessage&,
+                        const ProtoMessage& method_args,
                         base::WeakPtr<ServiceProxy>);
 
  private:

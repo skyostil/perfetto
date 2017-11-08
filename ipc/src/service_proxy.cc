@@ -27,17 +27,8 @@
 namespace perfetto {
 namespace ipc {
 
-namespace {
-// A default implementation just to avoid having to null-check the event
-// listener all the times.
-ServiceProxy::EventListener* GetNoOpEventListener() {
-  static auto* instance = new ServiceProxy::EventListener();
-  return instance;
-}
-}  // namespace
-
-ServiceProxy::ServiceProxy()
-    : weak_ptr_factory_(this), event_listener_(GetNoOpEventListener()) {}
+ServiceProxy::ServiceProxy(EventListener* event_listener)
+    : weak_ptr_factory_(this), event_listener_(event_listener) {}
 
 ServiceProxy::~ServiceProxy() {
   if (client_ && connected())
@@ -91,6 +82,15 @@ void ServiceProxy::EndInvoke(RequestID request_id,
   reply_callback.Resolve(std::move(reply));
   if (!has_more)
     pending_callbacks_.erase(callback_it);
+}
+
+void ServiceProxy::OnConnect(bool success) {
+  event_listener_->OnConnect(success);
+}
+
+void ServiceProxy::OnDisconnect() {
+  pending_callbacks_.clear();  // Will Reject() all the pending callbacks.
+  event_listener_->OnDisconnect();
 }
 
 }  // namespace ipc
