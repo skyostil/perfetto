@@ -57,7 +57,6 @@ source_set("ftrace_reader") {
   all_dependent_configs = [ ":ftrace_reader_config" ]
   deps += [
     "//base",
-    "//buildtools:protobuf_full",  # TODO: I shouldn't have to include this.
     "//protozero",
   ]
   public_deps = [
