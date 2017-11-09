@@ -32,7 +32,9 @@ namespace ipc {
 template <typename T = ProtoMessage>
 class AsyncResult {
  public:
-  static AsyncResult New() { return AsyncResult(std::unique_ptr<T>(new T())); }
+  static AsyncResult Create() {
+    return AsyncResult(std::unique_ptr<T>(new T()));
+  }
 
   AsyncResult(std::unique_ptr<T> msg = nullptr, bool has_more = false)
       : msg_(std::move(msg)), has_more_(has_more) {

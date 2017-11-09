@@ -31,8 +31,8 @@ namespace ipc {
 // The problem this is solving is the following: For each result argument of the
 // methods generated from the .proto file:
 // - The client wants to see something on which it can Bind() a callback, which
-//   is invoked asynchrnously once reply is received fromt he host.
-// - The host wants to expose something to embedder that implements the IPC
+//   is invoked asynchronously once reply is received from the host.
+// - The host wants to expose something to user code that implements the IPC
 //   methods to allow them to provide an asynchronous reply back to the client.
 //   Eventually even more than once, for the case streaming replies.
 //
@@ -54,18 +54,26 @@ namespace ipc {
 // The host instead is supposed to use this as follows:
 //   class GreeterImpl : public Greeter {
 //     void SayHello(const HelloRequest& req, Deferred<HelloReply> reply) {
-//        AsyncResult<HelloReply> reply = AsyncResult<HelloReply>::New();
+//        AsyncResult<HelloReply> reply = AsyncResult<HelloReply>::Create();
 //        reply->set_greeting("Hello " + req.name)
 //        reply.Resolve(std::move(reply));
 //     }
 //   }
 // Or for more complex cases, the deferred object can be std::move()'d outside
-// and the reply can continue asynchrnously later.
+// and the reply can continue asynchronously later.
+
+template <typename T>
+class Deferred;
 
 class DeferredBase {
  public:
   explicit DeferredBase(
       std::function<void(AsyncResult<ProtoMessage>)> callback = nullptr);
+
+  template <typename T>
+  explicit DeferredBase(Deferred<T> other)
+      : callback_(std::move(other.callback_)) {}
+
   ~DeferredBase();
   DeferredBase(DeferredBase&&) noexcept;
   DeferredBase& operator=(DeferredBase&&);
@@ -86,8 +94,6 @@ class Deferred : public DeferredBase {
   explicit Deferred(std::function<void(AsyncResult<T>)> callback = nullptr) {
     Bind(std::move(callback));
   }
-
-  DeferredBase MoveAsBase() { return DeferredBase(std::move(callback_)); }
 
   void Bind(std::function<void(AsyncResult<T>)> callback) {
     // Here we need a callback adapter to downcast the callback to a generic

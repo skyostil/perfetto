@@ -82,8 +82,10 @@ class BufferedFrameDeserializer {
   // not initialized.
   std::pair<char*, size_t> BeginRecv();
 
-  // Must be called soon after BeginRecv() with the return value of recv().
-  // Return false if a header > |max_capacity| is received, in which case the
+  // Must be called soon after BeginRecv().
+  // |recv_size| is the number of valid bytes that have been written into the
+  // buffer previously returned by BeginRecv() (the return value of recv()).
+  // Returns false if a header > |max_capacity| is received, in which case the
   // caller is expected to shutdown the socket and terminate the ipc.
   bool EndRecv(size_t recv_size) __attribute__((warn_unused_result));
 

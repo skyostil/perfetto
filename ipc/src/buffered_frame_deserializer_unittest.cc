@@ -224,7 +224,7 @@ TEST(BufferedFrameDeserializerTest, MultipleFramesInOneRecv) {
 TEST(BufferedFrameDeserializerTest, RejectVeryLargeFrames) {
   BufferedFrameDeserializer bfd;
   std::pair<char*, size_t> rbuf = bfd.BeginRecv();
-  const uint32_t kBigSize = 32 * 1000 * 1000;
+  const uint32_t kBigSize = std::numeric_limits<uint32_t>::max() - 2;
   memcpy(rbuf.first, base::AssumeLittleEndian(&kBigSize), kHeaderSize);
   memcpy(rbuf.first + kHeaderSize, "some initial payload", 20);
   ASSERT_FALSE(bfd.EndRecv(kHeaderSize + 20));
@@ -282,8 +282,8 @@ TEST(BufferedFrameDeserializerTest, CanRecoverAfterUnparsableFrames) {
   }
 }
 
-// Test that we can sustain recvs() which constatntly max out the capacity.
-// It sets up three frames:
+// Test that we can sustain recvs() which constantly max out the capacity.
+// It sets up four frames:
 // |frame1|: small, 1024 + 4 bytes.
 // |frame2|: as big as the |kMaxCapacity|. Its recv() is split into two chunks.
 // |frame3|: together with the 2nd part of |frame2| it maxes out capacity again.
