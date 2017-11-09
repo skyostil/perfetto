@@ -50,6 +50,8 @@ ClientImpl::~ClientImpl() {
 void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
   if (!service_proxy)
     return;
+  if (!sock_->is_connected())
+    return queued_bindings_.emplace_back(service_proxy);
   RequestID request_id = ++last_request_id_;
   Frame frame;
   frame.set_request_id(request_id);
@@ -107,7 +109,15 @@ bool ClientImpl::SendFrame(const Frame& frame) {
   return sock_->Send(buf_and_size.first.get(), buf_and_size.second);
 }
 
-void ClientImpl::OnConnect(UnixSocket*, bool connected) {}
+void ClientImpl::OnConnect(UnixSocket*, bool connected) {
+  // Drain the BindService() calls that were queued before establishig the
+  // connection with the host.
+  if (connected) {
+    for (base::WeakPtr<ServiceProxy>& service_proxy : queued_bindings_)
+      BindService(service_proxy);
+  }
+  queued_bindings_.clear();
+}
 
 void ClientImpl::OnDisconnect(UnixSocket*) {
   for (auto it : service_bindings_) {
@@ -116,6 +126,7 @@ void ClientImpl::OnDisconnect(UnixSocket*) {
       service_proxy->OnDisconnect();
   }
   service_bindings_.clear();
+  queued_bindings_.clear();
 }
 
 void ClientImpl::OnDataAvailable(UnixSocket*) {
@@ -153,7 +164,7 @@ void ClientImpl::OnFrameReceived(const Frame& frame) {
   }
 
   PERFETTO_DLOG(
-      "We requestes msg_type=%d but received msg_type=%d in reply to "
+      "Requested msg_type=%d but received msg_type=%d in reply to "
       "request_id=%" PRIu64,
       req.type, frame.msg_case(), static_cast<uint64_t>(frame.request_id()));
 }
