@@ -121,9 +121,9 @@ void ClientImpl::OnDisconnect(UnixSocket*) {
 void ClientImpl::OnDataAvailable(UnixSocket*) {
   size_t rsize;
   do {
-    std::pair<char*, size_t> buf = frame_deserializer_.BeginRecv();
-    rsize = sock_->Receive(buf.first, buf.second);
-    if (!frame_deserializer_.EndRecv(rsize)) {
+    auto buf = frame_deserializer_.BeginReceive();
+    rsize = sock_->Receive(buf.data, buf.size);
+    if (!frame_deserializer_.EndReceive(rsize)) {
       // The endpoint tried to send a frame that is way too large.
       return sock_->Shutdown();  // In turn will trigger an OnDisconnect().
       // TODO check this.
