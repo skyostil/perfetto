@@ -147,6 +147,7 @@ script:
     tracing_unittests
     tracing_benchmarks
     sanitizers_unittests
+    ftrace_reader_unittests
     "
 
     if [[ "$CFG" != android-* ]]; then

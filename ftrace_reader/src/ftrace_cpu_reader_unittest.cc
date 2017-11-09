@@ -15,13 +15,15 @@
  */
 
 #include "ftrace_reader/ftrace_cpu_reader.h"
+#include "ftrace_to_proto_translation_table.h"
 #include "gtest/gtest.h"
 
 namespace perfetto {
 namespace {
 
-TEST(LibFtrace, SomePublicApi) {
-  EXPECT_EQ(42, SomePublicApi());
+TEST(FtraceCpuReader, ParseEmpty) {
+  auto table = FtraceToProtoTranslationTable::Create("");
+  FtraceCpuReader(table.get(), 42, base::ScopedFile());
 }
 
 }  // namespace
