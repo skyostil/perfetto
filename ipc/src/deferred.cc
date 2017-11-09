@@ -16,6 +16,7 @@
 
 #include "ipc/deferred.h"
 
+#include "base/logging.h"
 #include "google/protobuf/message_lite.h"
 
 namespace perfetto {
@@ -26,7 +27,8 @@ DeferredBase::DeferredBase(
     : callback_(std::move(callback)) {}
 
 DeferredBase::~DeferredBase() {
-  Reject();
+  if (callback_)
+    Reject();
 }
 
 // Can't just use "= default" here because the default move operator for
@@ -37,7 +39,8 @@ DeferredBase::DeferredBase(DeferredBase&& other) noexcept {
 }
 
 DeferredBase& DeferredBase::operator=(DeferredBase&& other) {
-  Reject();  // Will do nothing if callback_ is not bound.
+  if (callback_)
+    Reject();
   Move(other);
   return *this;
 }
@@ -57,8 +60,10 @@ bool DeferredBase::IsBound() const {
 }
 
 void DeferredBase::Resolve(AsyncResult<ProtoMessage> async_result) {
-  if (!callback_)
+  if (!callback_) {
+    PERFETTO_DCHECK(false);
     return;
+  }
   bool has_more = async_result.has_more();
   callback_(std::move(async_result));
   if (!has_more)
