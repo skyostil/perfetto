@@ -35,7 +35,7 @@ using _AsyncResult = ::perfetto::ipc::AsyncResult<T>;
 
 template <typename T>
 using _Deferred = ::perfetto::ipc::Deferred<T>;
-
+using _DeferredBase = ::perfetto::ipc::DeferredBase;
 using _ProtoMessage = ::perfetto::ipc::ProtoMessage;
 
 // A templated protobuf message decoder. Returns nullptr in case of failure.
@@ -47,11 +47,6 @@ std::unique_ptr<_ProtoMessage> Decoder(const std::string& proto_data) {
   return nullptr;
 }
 
-template <typename T>
-std::unique_ptr<_ProtoMessage> Factory() {
-  return std::unique_ptr<_ProtoMessage>(new T());
-}
-
 ServiceDescriptor* CreateDescriptor() {
   ServiceDescriptor* desc = new ServiceDescriptor();
   desc->service_name = "Greeter";
@@ -59,14 +54,12 @@ ServiceDescriptor* CreateDescriptor() {
   // rpc SayHello(GreeterRequestMsg) returns (GreeterReplyMsg) {}
   desc->methods.emplace_back(ServiceDescriptor::Method{
       "SayHello", &Decoder<::ipc_test::GreeterRequestMsg>,
-      &Decoder<::ipc_test::GreeterReplyMsg>,
-      &Factory<::ipc_test::GreeterReplyMsg>});
+      &Decoder<::ipc_test::GreeterReplyMsg>});
 
   // rpc WaveGoodbye(GreeterRequestMsg) returns (GreeterReplyMsg) {}
   desc->methods.emplace_back(ServiceDescriptor::Method{
       "WaveGoodbye", &Decoder<::ipc_test::GreeterRequestMsg>,
-      &Decoder<::ipc_test::GreeterReplyMsg>,
-      &Factory<::ipc_test::GreeterReplyMsg>});
+      &Decoder<::ipc_test::GreeterReplyMsg>});
 
   desc->methods.shrink_to_fit();
   return desc;
@@ -90,12 +83,12 @@ const ServiceDescriptor& GreeterProxy::GetDescriptor() {
 
 void GreeterProxy::SayHello(const GreeterRequestMsg& request,
                             DeferredGreeterReply reply) {
-  BeginInvoke("SayHello", request, reply.MoveAsBase());
+  BeginInvoke("SayHello", request, _DeferredBase(std::move(reply)));
 }
 
 void GreeterProxy::WaveGoodbye(const GreeterRequestMsg& request,
                                DeferredGreeterReply reply) {
-  BeginInvoke("WaveGoodbye", request, reply.MoveAsBase());
+  BeginInvoke("WaveGoodbye", request, _DeferredBase(std::move(reply)));
 }
 
 }  // namespace ipc_test

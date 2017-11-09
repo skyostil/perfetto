@@ -78,12 +78,19 @@ class BufferedFrameDeserializer {
   explicit BufferedFrameDeserializer(size_t max_capacity = 128 * 1024);
   ~BufferedFrameDeserializer();
 
+  // This function doesn't really belong here as it does Serialization, unlike
+  // the rest of this class. However it is so small and has so many dependencies
+  // in common that doesn't justify its own class.
+  static std::pair<std::unique_ptr<char[]>, size_t> Serialize(const Frame&);
+
   // Returns a buffer that can be passed to recv(). The buffer is deliberately
   // not initialized.
   std::pair<char*, size_t> BeginRecv();
 
-  // Must be called soon after BeginRecv() with the return value of recv().
-  // Return false if a header > |max_capacity| is received, in which case the
+  // Must be called soon after BeginRecv().
+  // |recv_size| is the number of valid bytes that have been written into the
+  // buffer previously returned by BeginRecv() (the return value of recv()).
+  // Returns false if a header > |max_capacity| is received, in which case the
   // caller is expected to shutdown the socket and terminate the ipc.
   bool EndRecv(size_t recv_size) __attribute__((warn_unused_result));
 

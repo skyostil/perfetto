@@ -25,6 +25,8 @@
 
 // TODO(primiano): Add ThreadChecker everywhere.
 
+// TODO(primiano): Add timeouts.
+
 namespace perfetto {
 namespace ipc {
 
@@ -37,6 +39,7 @@ std::unique_ptr<Client> Client::CreateInstance(const char* socket_name,
 
 ClientImpl::ClientImpl(const char* socket_name, base::TaskRunner* task_runner)
     : task_runner_(task_runner), weak_ptr_factory_(this) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
   sock_ = UnixSocket::Connect(socket_name, this, task_runner);
 }
 
@@ -96,19 +99,12 @@ RequestID ClientImpl::BeginInvoke(ServiceID service_id,
 
 bool ClientImpl::SendFrame(const Frame& frame) {
   // Serialize the frame into protobuf, add the size header, and send it.
-  uint32_t payload_len = static_cast<uint32_t>(frame.ByteSize());
-  static constexpr size_t kHeaderSize = sizeof(uint32_t);
-  std::unique_ptr<char[]> buf(new char[kHeaderSize + payload_len]);
-  if (!frame.SerializeToArray(buf.get() + kHeaderSize, payload_len)) {
-    PERFETTO_DCHECK(false);
-    return false;
-  }
-  memcpy(buf.get(), base::AssumeLittleEndian(&payload_len), kHeaderSize);
+  auto buf_and_size = BufferedFrameDeserializer::Serialize(frame);
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  return sock_->Send(buf.get(), kHeaderSize + payload_len);
+  return sock_->Send(buf_and_size.first.get(), buf_and_size.second);
 }
 
 void ClientImpl::OnConnect(UnixSocket*, bool connected) {}
@@ -130,6 +126,7 @@ void ClientImpl::OnDataAvailable(UnixSocket*) {
     if (!frame_deserializer_.EndRecv(rsize)) {
       // The endpoint tried to send a frame that is way too large.
       return sock_->Shutdown();  // In turn will trigger an OnDisconnect().
+      // TODO check this.
     }
   } while (rsize > 0);
 

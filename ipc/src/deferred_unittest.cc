@@ -29,12 +29,13 @@ TEST(DeferredTest, BindAndResolve) {
   std::shared_ptr<int> num_callbacks(new int{0});
   deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_TRUE(msg.success());
+    ASSERT_TRUE(msg);
     ASSERT_EQ(42, msg->num());
     ASSERT_EQ("foo", msg->str());
     (*num_callbacks)++;
   });
 
-  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
   res->set_num(42);
   (*res).set_str("foo");
   deferred.Resolve(std::move(res));
@@ -53,11 +54,12 @@ TEST(DeferredTest, BindAndFail) {
   std::shared_ptr<int> num_callbacks(new int{0});
   deferred.Bind([num_callbacks](AsyncResult<TestMessage> msg) {
     ASSERT_FALSE(msg.success());
+    ASSERT_FALSE(msg);
     ASSERT_EQ(nullptr, &*msg);
     (*num_callbacks)++;
   });
 
-  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
   deferred.Reject();
   deferred.Resolve(std::move(res));  // This should have no effect.
   deferred.Reject();                 // ditto.
@@ -103,7 +105,7 @@ TEST(DeferredTest, BindTwiceDoesNotHoldBindState) {
     ASSERT_EQ(4242, msg->num());
     (*num_callbacks)++;
   });
-  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
   res->set_num(4242);
   deferred.Resolve(std::move(res));
   ASSERT_EQ(1, *num_callbacks);
@@ -124,7 +126,7 @@ TEST(DeferredTest, MoveOperators) {
   deferred.Bind(callback);
 
   // Do a bit of std::move() dance with both the Deferred and the AsyncResult.
-  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
   res->set_num(42);
   AsyncResult<TestMessage> res_moved(std::move(res));
   res = std::move(res_moved);
@@ -143,7 +145,7 @@ TEST(DeferredTest, MoveOperators) {
 
   // |deferred| and |res| have lost their state but shoould remain reusable.
   deferred.Bind(callback);
-  res = AsyncResult<TestMessage>::New();
+  res = AsyncResult<TestMessage>::Create();
   res->set_num(43);
   res->set_str("43");
   deferred.Resolve(std::move(res));
@@ -177,7 +179,7 @@ TEST(DeferredTest, StreamingReply) {
   deferred.Bind(callback);
 
   for (int i = 0; i < 3; i++) {
-    AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+    AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
     res->set_num(i);
     res->set_str(std::to_string(i));
     res.set_has_more(true);
@@ -186,7 +188,7 @@ TEST(DeferredTest, StreamingReply) {
   }
 
   Deferred<TestMessage> deferred_moved(std::move(deferred));
-  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+  AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
   res->set_num(3);
   res->set_str(std::to_string(3));
   res.set_has_more(false);
@@ -214,7 +216,7 @@ TEST(DeferredTest, StreamingReplyIsRejectedOutOfScope) {
     });
 
     for (int i = 0; i < 3; i++) {
-      AsyncResult<TestMessage> res = AsyncResult<TestMessage>::New();
+      AsyncResult<TestMessage> res = AsyncResult<TestMessage>::Create();
       res.set_has_more(true);
       deferred.Resolve(std::move(res));
     }
@@ -230,7 +232,7 @@ TEST(DeferredTest, StreamingReplyIsRejectedOutOfScope) {
 }
 
 // Tests that a Deferred<Specialized> still behaves sanely after it has been
-// moved into a DeferredBase via MoveAsBase().
+// moved into a DeferredBase.
 TEST(DeferredTest, MoveAsBase) {
   Deferred<TestMessage> deferred;
   std::shared_ptr<int> num_callbacks(new int{0});
@@ -241,7 +243,7 @@ TEST(DeferredTest, MoveAsBase) {
     (*num_callbacks)++;
   });
 
-  DeferredBase deferred_base = deferred.MoveAsBase();
+  DeferredBase deferred_base(std::move(deferred));
   ASSERT_FALSE(deferred.IsBound());
   ASSERT_TRUE(deferred_base.IsBound());
 
