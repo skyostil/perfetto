@@ -102,7 +102,7 @@ class FakeHost : public UnixSocket::EventListener {
   void Reply(const Frame& frame) {
     auto buf = BufferedFrameDeserializer::Serialize(frame);
     ASSERT_TRUE(client_sock->is_connected());
-    EXPECT_TRUE(client_sock->Send(buf.first.get(), buf.second));
+    EXPECT_TRUE(client_sock->Send(buf.data(), buf.size()));
   }
 
   BufferedFrameDeserializer frame_deserializer;
@@ -189,6 +189,7 @@ TEST(ClientImplTest, BindAndInvokeMethod) {
 }
 
 // TODO(primiano): add the tests below in next CLs.
+// TEST(ClientImplTest, UnbindService) {}
 // TEST(ClientImplTest, BindAndInvokeStreamingMethod) {}
 // TEST(ClientImplTest, HostConnectionFailure) {}
 // TEST(ClientImplTest, HostPrematureDisconnect) {}

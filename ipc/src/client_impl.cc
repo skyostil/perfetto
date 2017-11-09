@@ -56,10 +56,10 @@ void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
   Frame frame;
   frame.set_request_id(request_id);
   Frame::BindService* req = frame.mutable_msg_bind_service();
-  const std::string& service_name = service_proxy->GetDescriptor().service_name;
+  const char* const service_name = service_proxy->GetDescriptor().service_name;
   req->set_service_name(service_name);
   if (!SendFrame(frame)) {
-    PERFETTO_DLOG("BindService(%s) failed", service_name.c_str());
+    PERFETTO_DLOG("BindService(%s) failed", service_name);
     service_proxy->OnConnect(false /* success */);
   }
   QueuedRequest qr;
@@ -101,12 +101,12 @@ RequestID ClientImpl::BeginInvoke(ServiceID service_id,
 
 bool ClientImpl::SendFrame(const Frame& frame) {
   // Serialize the frame into protobuf, add the size header, and send it.
-  auto buf_and_size = BufferedFrameDeserializer::Serialize(frame);
+  std::string buf = BufferedFrameDeserializer::Serialize(frame);
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  return sock_->Send(buf_and_size.first.get(), buf_and_size.second);
+  return sock_->Send(buf.data(), buf.size());
 }
 
 void ClientImpl::OnConnect(UnixSocket*, bool connected) {
@@ -148,7 +148,8 @@ void ClientImpl::OnDataAvailable(UnixSocket*) {
 void ClientImpl::OnFrameReceived(const Frame& frame) {
   auto queued_requests_it = queued_requests_.find(frame.request_id());
   if (queued_requests_it == queued_requests_.end()) {
-    PERFETTO_DLOG("OnFrameReceived() unknown request");
+    PERFETTO_DLOG("OnFrameReceived(): got invalid request_id=%" PRIu64,
+                  static_cast<uint64_t>(frame.request_id()));
     return;
   }
   QueuedRequest req = std::move(queued_requests_it->second);
@@ -164,7 +165,7 @@ void ClientImpl::OnFrameReceived(const Frame& frame) {
   }
 
   PERFETTO_DLOG(
-      "Requested msg_type=%d but received msg_type=%d in reply to "
+      "OnFrameReceived() request msg_type=%d, received msg_type=%d in reply to "
       "request_id=%" PRIu64,
       req.type, frame.msg_case(), static_cast<uint64_t>(frame.request_id()));
 }
@@ -175,7 +176,7 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   if (!service_proxy)
     return;
   if (!reply.success()) {
-    PERFETTO_DLOG("Failed BindService(%s)",
+    PERFETTO_DLOG("BindService(): unknown service_name=\"%s\"",
                   service_proxy->GetDescriptor().service_name);
     return service_proxy->OnConnect(false /* success */);
   }
@@ -184,7 +185,7 @@ void ClientImpl::OnBindServiceReply(QueuedRequest req,
   std::map<std::string, MethodID> methods;
   for (const auto& method : reply.methods()) {
     if (method.name().empty() || method.id() <= 0) {
-      PERFETTO_DLOG("OnBindServiceReply() invalid method \"%s\" -> %" PRIu32,
+      PERFETTO_DLOG("OnBindServiceReply(): invalid method \"%s\" -> %" PRIu32,
                     method.name().c_str(), method.id());
       continue;
     }

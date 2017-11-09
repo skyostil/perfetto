@@ -25,7 +25,6 @@
 
 #include "base/logging.h"
 #include "base/utils.h"
-#include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 
 #include "wire_protocol.pb.h"  // protobuf generated header.
@@ -36,6 +35,9 @@ namespace ipc {
 namespace {
 constexpr size_t kPageSize = 4096;
 constexpr size_t kGuardRegionSize = kPageSize;
+
+// The header is just the number of bytes of the Frame protobuf message.
+constexpr size_t kHeaderSize = sizeof(uint32_t);
 }  // namespace
 
 BufferedFrameDeserializer::BufferedFrameDeserializer(size_t max_capacity)
@@ -102,9 +104,6 @@ bool BufferedFrameDeserializer::EndReceive(size_t recv_size) {
   // The invariant of this function is that, when it returns, buf_ is either
   // empty (we drained all the complete frames) or starts with the header of the
   // next, still incomplete, frame.
-
-  // The header is just the number of bytes of the Frame protobuf message.
-  const size_t kHeaderSize = sizeof(uint32_t);
 
   size_t consumed_size = 0;
   for (;;) {
@@ -191,18 +190,17 @@ void BufferedFrameDeserializer::DecodeFrame(const char* data, size_t size) {
 }
 
 // static
-std::pair<std::unique_ptr<char[]>, size_t> BufferedFrameDeserializer::Serialize(
-    const Frame& frame) {
-  uint32_t payload_size = static_cast<uint32_t>(frame.ByteSize());
-  static constexpr size_t kHeaderSize = sizeof(uint32_t);
-  const size_t frame_size = kHeaderSize + payload_size;
-  std::unique_ptr<char[]> buf(new char[frame_size]);
-  google::protobuf::io::ArrayOutputStream ostream(buf.get() + kHeaderSize,
-                                                  payload_size);
-  google::protobuf::io::CodedOutputStream cstream(&ostream);
-  frame.SerializeWithCachedSizes(&cstream);
-  memcpy(buf.get(), base::AssumeLittleEndian(&payload_size), kHeaderSize);
-  return std::make_pair(std::move(buf), frame_size);
+std::string BufferedFrameDeserializer::Serialize(const Frame& frame) {
+  std::string buf;
+  buf.reserve(1024);  // Just an educated guess to avoid trivial expansions.
+  buf.insert(0, kHeaderSize, 0);  // Reserve the space for the header.
+  frame.AppendToString(&buf);
+  const uint32_t payload_size = static_cast<uint32_t>(buf.size() - kHeaderSize);
+  PERFETTO_DCHECK(payload_size == frame.GetCachedSize());
+  char header[kHeaderSize];
+  memcpy(header, base::AssumeLittleEndian(&payload_size), kHeaderSize);
+  buf.replace(0, kHeaderSize, header, kHeaderSize);
+  return buf;
 }
 
 }  // namespace ipc
