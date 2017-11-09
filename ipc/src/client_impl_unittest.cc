@@ -75,7 +75,7 @@ class FakeHost : public UnixSocket::EventListener {
     EXPECT_TRUE(listening_sock->is_listening());
   }
 
-  ~FakeHost() { unlink(kSockName); }
+  ~FakeHost() override { unlink(kSockName); }
 
   // UnixSocket::EventListener implementation.
   void OnNewIncomingConnection(

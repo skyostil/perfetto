@@ -52,11 +52,6 @@ class ClientImpl : public Client, public UnixSocket::EventListener {
   void OnDisconnect(UnixSocket*) override;
   void OnDataAvailable(UnixSocket*) override;
 
-  // Establishes the connection to the host using the unix socket. Calls
-  // asynchronously EventListener::OnConnect() in case of success and
-  // EventListener::OnConnectionFailure() otherwise.
-  void Connect();
-
   RequestID BeginInvoke(ServiceID,
                         const std::string& method_name,
                         MethodID remote_method_id,
@@ -70,7 +65,7 @@ class ClientImpl : public Client, public UnixSocket::EventListener {
     RequestID request_id = 0;
     base::WeakPtr<ServiceProxy> service_proxy;
 
-    // only for type == kMsgInvokeMethod.
+    // Only for type == kMsgInvokeMethod.
     std::string method_name;
   };
 

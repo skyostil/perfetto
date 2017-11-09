@@ -185,11 +185,12 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
 
   auto* reply_frame_data = reply_frame.mutable_msg_invoke_method_reply();
   reply_frame_data->set_has_more(reply.has_more());
-  reply_frame_data->set_success(reply.success());
   if (reply.success()) {
     std::string reply_proto;
-    if (reply->SerializeToString(&reply_proto))
+    if (reply->SerializeToString(&reply_proto)) {
       reply_frame_data->set_reply_proto(reply_proto);
+      reply_frame_data->set_success(true);
+    }
   }
   SendFrame(client, reply_frame);
 }
@@ -201,7 +202,8 @@ void HostImpl::SendFrame(ClientConnection* client, const Frame& frame) {
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  client->sock->Send(buf.data(), buf.size());
+  bool res = client->sock->Send(buf.data(), buf.size());
+  PERFETTO_CHECK(res);
 }
 
 void HostImpl::OnDisconnect(UnixSocket* sock) {
