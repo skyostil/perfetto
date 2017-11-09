@@ -33,4 +33,20 @@ void FtraceCpuReader::Read(const Config&, pbzero::FtraceEventBundle*) {}
 FtraceCpuReader::~FtraceCpuReader() = default;
 FtraceCpuReader::FtraceCpuReader(FtraceCpuReader&&) = default;
 
+FtraceCpuReader::Config FtraceCpuReader::CreateConfig() {
+  std::vector<bool> enabled(table_->largest_id());
+  return Config(std::move(enabled));
+}
+
+FtraceCpuReader::Config::~Config() = default;
+FtraceCpuReader::Config::Config(Config&&) = default;
+
+FtraceCpuReader::Config::Config(std::vector<bool> enabled)
+    : enabled_(enabled){};
+bool FtraceCpuReader::Config::IsEnabled(size_t ftrace_event_id) const {
+  PERFETTO_DCHECK(ftrace_event_id < enabled_.size());
+  // FtraceEventIds are 1-indexed.
+  return enabled_[ftrace_event_id - 1];
+}
+
 }  // namespace perfetto

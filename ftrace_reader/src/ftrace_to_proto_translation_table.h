@@ -59,6 +59,8 @@ class FtraceToProtoTranslationTable {
       std::string path_to_event_dir);
   ~FtraceToProtoTranslationTable();
 
+  size_t largest_id() const { return largest_id_; }
+
  private:
   FtraceToProtoTranslationTable(std::map<size_t, Event> events,
                                 std::vector<Field> common_fields);
@@ -68,6 +70,7 @@ class FtraceToProtoTranslationTable {
 
   std::map<size_t, Event> events_;
   std::vector<Field> common_fields_;
+  size_t largest_id_;
 };
 
 }  // namespace perfetto

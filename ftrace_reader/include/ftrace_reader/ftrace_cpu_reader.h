@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+#include <vector>
+
 #include "base/scoped_file.h"
 #include "ftrace_event_bundle.pbzero.h"
 
@@ -28,7 +30,25 @@ class FtraceToProtoTranslationTable;
 
 class FtraceCpuReader {
  public:
-  class Config {};
+  class Config {
+   public:
+    Config(Config&&);
+    ~Config();
+
+   private:
+    friend class FtraceCpuReader;
+    Config(std::vector<bool> enabled);
+    Config(const Config&) = delete;
+    Config& operator=(const Config&) = delete;
+
+    bool IsEnabled(size_t ftrace_event_id) const;
+
+    // Vector representing whether or not an ftrace event is enabled.
+    // Entry i is true iff ftrace event with id i+1 is enabled.
+    // Ftrace event id's are almost contiguous, over the course of ~500
+    // events there will 1-2 gaps.
+    std::vector<bool> enabled_;
+  };
 
   FtraceCpuReader(const FtraceToProtoTranslationTable*,
                   size_t cpu,
@@ -43,6 +63,7 @@ class FtraceCpuReader {
  private:
   FtraceCpuReader(const FtraceCpuReader&) = delete;
   FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
+  Config CreateConfig();
 
   const FtraceToProtoTranslationTable* table_;
   const size_t cpu_;
