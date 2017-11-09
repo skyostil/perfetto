@@ -34,6 +34,9 @@ namespace ipc {
 
 namespace {
 constexpr size_t kPageSize = 4096;
+
+// Size of the PROT_NONE guard region, adjactent to the end of the buffer.
+// It's a safety net to spot any out-of-bounds writes early.
 constexpr size_t kGuardRegionSize = kPageSize;
 
 // The header is just the number of bytes of the Frame protobuf message.
@@ -58,7 +61,6 @@ BufferedFrameDeserializer::BeginReceive() {
   // Upon the first recv initialize the buffer to the max message size but
   // release the physical memory for all but the first page. The kernel will
   // automatically give us physical pages back as soon as we page-fault on them.
-  // Also add a guard page after the buffer as a safety net against overflows.
   if (!buf_) {
     PERFETTO_DCHECK(size_ == 0);
     buf_ = reinterpret_cast<char*>(mmap(nullptr, capacity_ + kGuardRegionSize,
@@ -142,7 +144,7 @@ bool BufferedFrameDeserializer::EndReceive(size_t recv_size) {
   PERFETTO_DCHECK(consumed_size <= size_);
   if (consumed_size > 0) {
     // Shift out the consumed data from the buffer. In the typical case (C)
-    // there is nothig to shift really, just setting size_ = 0 is enough.
+    // there is nothing to shift really, just setting size_ = 0 is enough.
     // Shifting is only for the (unlikely) case D.
     size_ -= consumed_size;
     if (size_ > 0) {
@@ -182,6 +184,8 @@ std::unique_ptr<Frame> BufferedFrameDeserializer::PopNextFrame() {
 }
 
 void BufferedFrameDeserializer::DecodeFrame(const char* data, size_t size) {
+  if (size == 0)
+    return;
   std::unique_ptr<Frame> frame(new Frame);
   const int sz = static_cast<int>(size);
   ::google::protobuf::io::ArrayInputStream stream(data, sz);

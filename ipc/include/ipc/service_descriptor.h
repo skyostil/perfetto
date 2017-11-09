@@ -55,7 +55,7 @@ class ServiceDescriptor {
 
   // Note that methods order is not stable. Client and Host might have different
   // method indexes, depending on their versions. The Client can't just rely
-  // on the indexes and has to keep a string -> remote indexe translation map.
+  // on the indexes and has to keep a [string -> remote index] translation map.
   std::vector<Method> methods;
 };
 

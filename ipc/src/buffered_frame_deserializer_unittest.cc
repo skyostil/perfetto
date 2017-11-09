@@ -195,6 +195,28 @@ TEST(BufferedFrameDeserializerTest, ZeroSizedReceive) {
   ASSERT_EQ(0u, bfd.size());
 }
 
+// Tests the case of a EndReceive(4) where the header has no payload. The frame
+// should be just skipped and not returned by PopNextFrame().
+TEST(BufferedFrameDeserializerTest, EmptyPayload) {
+  BufferedFrameDeserializer bfd;
+  std::vector<char> frame = GetSimpleFrame(100);
+
+  BufferedFrameDeserializer::ReceiveBuffer rbuf = bfd.BeginReceive();
+  std::vector<char> empty_frame(kHeaderSize, 0);
+  CheckedMemcpy(rbuf, empty_frame);
+  ASSERT_TRUE(bfd.EndReceive(kHeaderSize));
+
+  rbuf = bfd.BeginReceive();
+  CheckedMemcpy(rbuf, frame);
+  ASSERT_TRUE(bfd.EndReceive(frame.size()));
+
+  // |fram| should be properly decoded.
+  std::unique_ptr<Frame> decoded_frame = bfd.PopNextFrame();
+  ASSERT_TRUE(decoded_frame);
+  ASSERT_TRUE(FrameEq(frame, *decoded_frame));
+  ASSERT_FALSE(bfd.PopNextFrame());
+}
+
 // Test the case where a single Receive() returns batches of > 1 whole frames.
 // See case C in the comments for BufferedFrameDeserializer::EndReceive().
 TEST(BufferedFrameDeserializerTest, MultipleFramesInOneReceive) {

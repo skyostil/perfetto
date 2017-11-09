@@ -98,7 +98,7 @@ class Deferred : public DeferredBase {
   void Bind(std::function<void(AsyncResult<T>)> callback) {
     // Here we need a callback adapter to downcast the callback to a generic
     // callback that takes an AsyncResult<ProtoMessage>, so that it can be
-    // stored in the base class |callback_|. This is what allows MoveAsBase().
+    // stored in the base class |callback_|.
     auto callback_adapter = [callback](
                                 AsyncResult<ProtoMessage> async_result_base) {
       if (!callback)

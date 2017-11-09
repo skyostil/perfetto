@@ -115,7 +115,11 @@ class BufferedFrameDeserializer {
 
   char* buf_ = nullptr;
   const size_t capacity_ = 0;  // sizeof(|buf_|), excluding the guard region.
-  size_t size_ = 0;  // The num. <= |capacity_| of EndReceive() bytes in |buf_|.
+
+  // THe number of bytes in |buf_| that contain valid data (as a result of
+  // EndReceive()). This is always <= |capacity_|.
+  size_t size_ = 0;
+
   std::list<std::unique_ptr<Frame>> decoded_frames_;
 };
 
