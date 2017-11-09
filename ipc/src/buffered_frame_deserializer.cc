@@ -25,6 +25,7 @@
 
 #include "base/logging.h"
 #include "base/utils.h"
+#include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 
 #include "wire_protocol.pb.h"  // protobuf generated header.
@@ -186,6 +187,21 @@ void BufferedFrameDeserializer::DecodeFrame(const char* data, size_t size) {
   ::google::protobuf::io::ArrayInputStream stream(data, sz);
   if (frame->ParseFromBoundedZeroCopyStream(&stream, sz))
     decoded_frames_.push_back(std::move(frame));
+}
+
+// static
+std::pair<std::unique_ptr<char[]>, size_t> BufferedFrameDeserializer::Serialize(
+    const Frame& frame) {
+  uint32_t payload_size = static_cast<uint32_t>(frame.ByteSize());
+  static constexpr size_t kHeaderSize = sizeof(uint32_t);
+  const size_t frame_size = kHeaderSize + payload_size;
+  std::unique_ptr<char[]> buf(new char[frame_size]);
+  google::protobuf::io::ArrayOutputStream ostream(buf.get() + kHeaderSize,
+                                                  payload_size);
+  google::protobuf::io::CodedOutputStream cstream(&ostream);
+  frame.SerializeWithCachedSizes(&cstream);
+  memcpy(buf.get(), base::AssumeLittleEndian(&payload_size), kHeaderSize);
+  return std::make_pair(std::move(buf), frame_size);
 }
 
 }  // namespace ipc
