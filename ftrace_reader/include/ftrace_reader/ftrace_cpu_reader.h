@@ -41,6 +41,16 @@ class FtraceCpuReader {
 
   int GetFileDescriptor();
 
+  // TODO(hjd): Move to private once gtest-prod works.
+  template <typename T>
+  static bool ReadAndAdvance(const uint8_t** ptr, const uint8_t* end, T* out) {
+    if (*ptr + sizeof(T) > end)
+      return false;
+    memcpy(out, *ptr, sizeof(T));
+    *ptr += sizeof(T);
+    return true;
+  }
+
  private:
   static bool ParsePage(size_t cpu,
                         const uint8_t* ptr,

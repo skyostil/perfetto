@@ -18,9 +18,9 @@
 
 #include <utility>
 
+#include "base/logging.h"
 #include "ftrace_event.pbzero.h"
 #include "ftrace_to_proto_translation_table.h"
-#include "base/logging.h"
 
 namespace perfetto {
 
@@ -37,13 +37,22 @@ const uint32_t kTypeTimeStamp = 31;
 
 const size_t kPageSize = 4096;
 
-template <typename T>
-T ReadAndAdvance(const uint8_t** ptr) {
-  T ret;
-  memcpy(&ret, *ptr, sizeof(T));
-  *ptr += sizeof(T);
-  return ret;
-}
+struct PageHeader {
+  uint64_t timestamp;
+  uint32_t size;
+  uint32_t : 24;
+  uint32_t overwrite : 8;
+};
+
+struct EventHeader {
+  uint32_t type_or_length : 5;
+  uint32_t time_delta : 27;
+};
+
+struct TimeStamp {
+  uint64_t tv_nsec;
+  uint64_t tv_sec;
+};
 
 }  // namespace
 
@@ -87,31 +96,30 @@ uint8_t* FtraceCpuReader::GetBuffer() {
 // This method is deliberately static so it can be tested independently.
 bool FtraceCpuReader::ParsePage(size_t cpu,
                                 const uint8_t* ptr,
-                                size_t ptr_size,
+                                size_t size,
                                 pbzero::FtraceEventBundle* bundle) {
+  const uint8_t* const start = ptr;
+  const uint8_t* const end = ptr + size;
   bundle->set_cpu(cpu);
 
   // TODO(hjd): Read this format dynamically?
-  uint64_t timestamp = ReadAndAdvance<uint64_t>(&ptr);
-  uint64_t page_length = ReadAndAdvance<uint64_t>(&ptr) & 0xfffful;
-  PERFETTO_CHECK(page_length <= kPageSize - sizeof(uint64_t) * 2);
-  const uint8_t* const start = ptr;
-  const uint8_t* const end = ptr + page_length;
+  PageHeader page_header;
+  if (!ReadAndAdvance(&ptr, end, &page_header))
+    return false;
+  PERFETTO_CHECK(ptr + page_header.size <= end);
 
   // TODO(hjd): Remove.
   (void)start;
-  (void)timestamp;
 
   while (ptr < end) {
-    const uint32_t event_header = ReadAndAdvance<uint32_t>(&ptr);
-    const uint32_t type = event_header & 0x1f;
-    const uint32_t time_delta = event_header >> 5;
-
-    switch (type) {
+    EventHeader event_header;
+    if (!ReadAndAdvance(&ptr, end, &event_header))
+      return false;
+    switch (event_header.type_or_length) {
       case kTypePadding: {
         // Left over page padding or discarded event.
         PERFETTO_DLOG("Padding");
-        if (time_delta == 0) {
+        if (event_header.time_delta == 0) {
           // TODO(hjd): Look at the next few bytes for read size;
         }
         PERFETTO_CHECK(false);  // TODO(hjd): Handle
@@ -120,7 +128,9 @@ bool FtraceCpuReader::ParsePage(size_t cpu,
       case kTypeTimeExtend: {
         // Extend the time delta.
         PERFETTO_DLOG("Extended Time Delta");
-        const uint32_t time_delta_ext = ReadAndAdvance<uint32_t>(&ptr);
+        uint32_t time_delta_ext;
+        if (!ReadAndAdvance<uint32_t>(&ptr, end, &time_delta_ext))
+          return false;
         (void)time_delta_ext;
         // TODO(hjd): Handle.
         break;
@@ -128,32 +138,38 @@ bool FtraceCpuReader::ParsePage(size_t cpu,
       case kTypeTimeStamp: {
         // Sync time stamp with external clock.
         PERFETTO_DLOG("Time Stamp");
-        const uint64_t tv_nsec = ReadAndAdvance<uint64_t>(&ptr);
-        const uint64_t tv_sec = ReadAndAdvance<uint64_t>(&ptr);
+        TimeStamp time_stamp;
+        if (!ReadAndAdvance<TimeStamp>(&ptr, end, &time_stamp))
+          return false;
         // TODO(hjd): Handle.
-
-        // TODO(hjd): Remove.
-        (void)tv_nsec;
-        (void)tv_sec;
         break;
       }
       // Data record:
       default: {
-        PERFETTO_CHECK(type <= kTypeDataTypeLengthMax);
-        // Type is <=28 so it represents the length of a data record.
-        if (type == 0) {
+        PERFETTO_CHECK(event_header.type_or_length <= kTypeDataTypeLengthMax);
+        // type_or_length is <=28 so it represents the length of a data record.
+        if (event_header.type_or_length == 0) {
           // TODO(hjd): Look at the next few bytes for real size.
           PERFETTO_CHECK(false);
         }
-        const uint8_t* next = ptr + 4 * type;
+        const uint8_t* next = ptr + 4 * event_header.type_or_length;
 
-        uint16_t event_type = ReadAndAdvance<uint16_t>(&ptr);
+        uint16_t event_type;
+        if (!ReadAndAdvance<uint16_t>(&ptr, end, &event_type))
+          return false;
 
         // Common headers:
         // TODO(hjd): Read this format dynamically?
-        ReadAndAdvance<uint8_t>(&ptr);  // flags
-        ReadAndAdvance<uint8_t>(&ptr);  // preempt count
-        uint32_t pid = ReadAndAdvance<uint32_t>(&ptr);
+        uint8_t flags;
+        uint8_t preempt_count;
+        uint32_t pid;
+        if (!ReadAndAdvance<uint8_t>(&ptr, end, &flags))
+          return false;
+        if (!ReadAndAdvance<uint8_t>(&ptr, end, &preempt_count))
+          return false;
+        if (!ReadAndAdvance<uint32_t>(&ptr, end, &pid))
+          return false;
+
         PERFETTO_DLOG("Event type=%d pid=%d", event_type, pid);
 
         pbzero::FtraceEvent* event = bundle->add_event();
@@ -161,7 +177,10 @@ bool FtraceCpuReader::ParsePage(size_t cpu,
 
         if (event_type == 5) {
           // Trace Marker Parser
-          ReadAndAdvance<uint64_t>(&ptr);  // ip
+          uint64_t ip;
+          if (!ReadAndAdvance<uint64_t>(&ptr, end, &ip))
+            return false;
+
           const uint8_t* word_start = ptr;
           PERFETTO_DLOG("  marker=%s", word_start);
           while (*ptr != '\0')
