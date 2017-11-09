@@ -137,7 +137,7 @@ void ClientImpl::OnDataAvailable(UnixSocket*) {
 void ClientImpl::OnFrameReceived(const Frame& frame) {
   auto queued_requests_it = queued_requests_.find(frame.request_id());
   if (queued_requests_it == queued_requests_.end()) {
-    PERFETTO_DLOG("OnFrameReceived() unknown req %" PRIu64, frame.request_id());
+    PERFETTO_DLOG("OnFrameReceived() unknown request");
     return;
   }
   QueuedRequest req = std::move(queued_requests_it->second);
@@ -155,7 +155,7 @@ void ClientImpl::OnFrameReceived(const Frame& frame) {
   PERFETTO_DLOG(
       "We requestes msg_type=%d but received msg_type=%d in reply to "
       "request_id=%" PRIu64,
-      req.type, frame.msg_case(), frame.request_id());
+      req.type, frame.msg_case(), static_cast<uint64_t>(frame.request_id()));
 }
 
 void ClientImpl::OnBindServiceReply(QueuedRequest req,
