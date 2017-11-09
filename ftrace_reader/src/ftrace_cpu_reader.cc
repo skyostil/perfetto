@@ -20,6 +20,7 @@
 
 #include "ftrace_event.pbzero.h"
 #include "ftrace_to_proto_translation_table.h"
+#include "base/logging.h"
 
 namespace perfetto {
 
@@ -34,7 +35,6 @@ const uint32_t kTypePadding = 29;
 const uint32_t kTypeTimeExtend = 30;
 const uint32_t kTypeTimeStamp = 31;
 
-// TODO(hjd): Read this at run time?
 const size_t kPageSize = 4096;
 
 template <typename T>
@@ -52,26 +52,26 @@ FtraceCpuReader::FtraceCpuReader(const FtraceToProtoTranslationTable* table,
                                  base::ScopedFile fd)
     : table_(table), cpu_(cpu), fd_(std::move(fd)) {}
 
-void FtraceCpuReader::Read(const Config& config,
-                           pbzero::FtraceEventBundle* bundle) const {
-  if (fd_.get() == -1)
-    return;
+bool FtraceCpuReader::Read(const Config& config,
+                           pbzero::FtraceEventBundle* bundle) {
+  if (!fd_)
+    return false;
 
   uint8_t* buffer = GetBuffer();
-
+  // TOOD(hjd): One read() per page may be too many.
   long bytes = PERFETTO_EINTR(read(fd_.get(), buffer, kPageSize));
   if (bytes == -1 || bytes == 0)
-    return;
+    return false;
+  PERFETTO_CHECK(bytes <= kPageSize);
 
-  PERFETTO_DCHECK(bytes == kPageSize);
-
-  ParsePage(cpu_, buffer, bundle);
+  return ParsePage(cpu_, buffer, bytes, bundle);
 }
 
 FtraceCpuReader::~FtraceCpuReader() = default;
 FtraceCpuReader::FtraceCpuReader(FtraceCpuReader&&) = default;
 
-uint8_t* FtraceCpuReader::GetBuffer() const {
+uint8_t* FtraceCpuReader::GetBuffer() {
+  // TODO(primiano): Guard against overflows, like BufferedFrameDeserializer.
   if (!buffer_)
     buffer_ = std::unique_ptr<uint8_t[]>(new uint8_t[kPageSize]);
   return buffer_.get();
@@ -85,16 +85,16 @@ uint8_t* FtraceCpuReader::GetBuffer() const {
 // Some information about the layout of the page header is available in user
 // space at: /sys/kernel/debug/tracing/events/header_event
 // This method is deliberately static so it can be tested independently.
-// static
-void FtraceCpuReader::ParsePage(size_t cpu,
+bool FtraceCpuReader::ParsePage(size_t cpu,
                                 const uint8_t* ptr,
+                                size_t ptr_size,
                                 pbzero::FtraceEventBundle* bundle) {
   bundle->set_cpu(cpu);
 
   // TODO(hjd): Read this format dynamically?
   uint64_t timestamp = ReadAndAdvance<uint64_t>(&ptr);
   uint64_t page_length = ReadAndAdvance<uint64_t>(&ptr) & 0xfffful;
-  PERFETTO_CHECK(page_length <= kPageSize - 64 * 2);
+  PERFETTO_CHECK(page_length <= kPageSize - sizeof(uint64_t) * 2);
   const uint8_t* const start = ptr;
   const uint8_t* const end = ptr + page_length;
 
@@ -110,7 +110,7 @@ void FtraceCpuReader::ParsePage(size_t cpu,
     switch (type) {
       case kTypePadding: {
         // Left over page padding or discarded event.
-        printf("Padding\n");
+        PERFETTO_DLOG("Padding");
         if (time_delta == 0) {
           // TODO(hjd): Look at the next few bytes for read size;
         }
@@ -119,7 +119,7 @@ void FtraceCpuReader::ParsePage(size_t cpu,
       }
       case kTypeTimeExtend: {
         // Extend the time delta.
-        printf("Extended Time Delta\n");
+        PERFETTO_DLOG("Extended Time Delta");
         const uint32_t time_delta_ext = ReadAndAdvance<uint32_t>(&ptr);
         (void)time_delta_ext;
         // TODO(hjd): Handle.
@@ -127,7 +127,7 @@ void FtraceCpuReader::ParsePage(size_t cpu,
       }
       case kTypeTimeStamp: {
         // Sync time stamp with external clock.
-        printf("Time Stamp\n");
+        PERFETTO_DLOG("Time Stamp");
         const uint64_t tv_nsec = ReadAndAdvance<uint64_t>(&ptr);
         const uint64_t tv_sec = ReadAndAdvance<uint64_t>(&ptr);
         // TODO(hjd): Handle.
@@ -140,7 +140,7 @@ void FtraceCpuReader::ParsePage(size_t cpu,
       // Data record:
       default: {
         PERFETTO_CHECK(type <= kTypeDataTypeLengthMax);
-        // Where type is <=28 it represents the length of a data record
+        // Type is <=28 so it represents the length of a data record.
         if (type == 0) {
           // TODO(hjd): Look at the next few bytes for real size.
           PERFETTO_CHECK(false);
@@ -154,7 +154,7 @@ void FtraceCpuReader::ParsePage(size_t cpu,
         ReadAndAdvance<uint8_t>(&ptr);  // flags
         ReadAndAdvance<uint8_t>(&ptr);  // preempt count
         uint32_t pid = ReadAndAdvance<uint32_t>(&ptr);
-        printf("Event type=%d pid=%d\n", event_type, pid);
+        PERFETTO_DLOG("Event type=%d pid=%d", event_type, pid);
 
         pbzero::FtraceEvent* event = bundle->add_event();
         event->set_pid(pid);
@@ -163,17 +163,18 @@ void FtraceCpuReader::ParsePage(size_t cpu,
           // Trace Marker Parser
           ReadAndAdvance<uint64_t>(&ptr);  // ip
           const uint8_t* word_start = ptr;
-          printf("  marker=%s", word_start);
+          PERFETTO_DLOG("  marker=%s", word_start);
           while (*ptr != '\0')
             ptr++;
         }
 
         // Jump to next event.
         ptr = next;
-        printf("%zu\n", ptr - start);
+        PERFETTO_DLOG("%zu", ptr - start);
       }
     }
   }
+  return true;
 }
 
 }  // namespace perfetto

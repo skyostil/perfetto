@@ -37,22 +37,23 @@ class FtraceCpuReader {
   ~FtraceCpuReader();
   FtraceCpuReader(FtraceCpuReader&&);
 
-  void Read(const Config&, pbzero::FtraceEventBundle*) const;
+  bool Read(const Config&, pbzero::FtraceEventBundle*);
 
   int GetFileDescriptor();
 
  private:
-  static void ParsePage(size_t cpu,
+  static bool ParsePage(size_t cpu,
                         const uint8_t* ptr,
+                        size_t ptr_size,
                         pbzero::FtraceEventBundle*);
-  uint8_t* GetBuffer() const;
+  uint8_t* GetBuffer();
   FtraceCpuReader(const FtraceCpuReader&) = delete;
   FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
 
   const FtraceToProtoTranslationTable* table_;
   const size_t cpu_;
   base::ScopedFile fd_;
-  mutable std::unique_ptr<uint8_t[]> buffer_;
+  std::unique_ptr<uint8_t[]> buffer_;
 };
 
 } // namespace perfetto
