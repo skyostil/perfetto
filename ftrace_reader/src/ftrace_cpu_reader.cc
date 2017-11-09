@@ -33,8 +33,16 @@ void FtraceCpuReader::Read(const Config&, pbzero::FtraceEventBundle*) {}
 FtraceCpuReader::~FtraceCpuReader() = default;
 FtraceCpuReader::FtraceCpuReader(FtraceCpuReader&&) = default;
 
-FtraceCpuReader::Config FtraceCpuReader::CreateConfig() {
+FtraceCpuReader::Config FtraceCpuReader::CreateConfig(
+    std::set<std::string> event_names) {
   std::vector<bool> enabled(table_->largest_id());
+  for (const std::string& name : event_names) {
+    const FtraceToProtoTranslationTable::Event* event =
+        table_->GetEventByName(name);
+    if (!event)
+      continue;
+    enabled[event->ftrace_event_id - 1] = true;
+  }
   return Config(std::move(enabled));
 }
 

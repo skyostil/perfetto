@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+#include <set>
+#include <string>
 #include <vector>
 
 #include "base/scoped_file.h"
@@ -63,7 +65,7 @@ class FtraceCpuReader {
  private:
   FtraceCpuReader(const FtraceCpuReader&) = delete;
   FtraceCpuReader& operator=(const FtraceCpuReader&) = delete;
-  Config CreateConfig();
+  Config CreateConfig(std::set<std::string> event_names);
 
   const FtraceToProtoTranslationTable* table_;
   const size_t cpu_;

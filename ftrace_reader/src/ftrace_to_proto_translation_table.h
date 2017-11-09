@@ -59,6 +59,7 @@ class FtraceToProtoTranslationTable {
       std::string path_to_event_dir);
   ~FtraceToProtoTranslationTable();
 
+  const Event* GetEventByName(std::string name) const;
   size_t largest_id() const { return largest_id_; }
 
  private:
@@ -69,6 +70,7 @@ class FtraceToProtoTranslationTable {
       const FtraceToProtoTranslationTable&) = delete;
 
   std::map<size_t, Event> events_;
+  std::map<std::string, Event*> name_to_event_;
   std::vector<Field> common_fields_;
   size_t largest_id_;
 };

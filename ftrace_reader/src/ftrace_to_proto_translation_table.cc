@@ -36,4 +36,11 @@ FtraceToProtoTranslationTable::FtraceToProtoTranslationTable(
 
 FtraceToProtoTranslationTable::~FtraceToProtoTranslationTable() = default;
 
+const FtraceToProtoTranslationTable::Event*
+FtraceToProtoTranslationTable::GetEventByName(std::string name) const {
+  if (!name_to_event_.count(name))
+    return nullptr;
+  return name_to_event_.at(name);
+}
+
 }  // namespace perfetto
