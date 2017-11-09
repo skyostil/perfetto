@@ -60,7 +60,7 @@ void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
   req->set_service_name(service_name);
   if (!SendFrame(frame)) {
     PERFETTO_DLOG("BindService(%s) failed", service_name);
-    service_proxy->OnConnect(false /* success */);
+    return service_proxy->OnConnect(false /* success */);
   }
   QueuedRequest qr;
   qr.type = Frame::kMsgBindService;
@@ -88,6 +88,7 @@ RequestID ClientImpl::BeginInvoke(ServiceID service_id,
   bool did_serialize = method_args.SerializeToString(&args_proto);
   req->set_args_proto(args_proto);
   if (!did_serialize || !SendFrame(frame)) {
+    PERFETTO_DLOG("BeginInvoke() failed while sending the frame");
     return 0;
   }
   QueuedRequest qr;
@@ -106,7 +107,9 @@ bool ClientImpl::SendFrame(const Frame& frame) {
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  return sock_->Send(buf.data(), buf.size());
+  bool res = sock_->Send(buf.data(), buf.size());
+  PERFETTO_CHECK(res);
+  return res;
 }
 
 void ClientImpl::OnConnect(UnixSocket*, bool connected) {
@@ -122,8 +125,10 @@ void ClientImpl::OnConnect(UnixSocket*, bool connected) {
 void ClientImpl::OnDisconnect(UnixSocket*) {
   for (auto it : service_bindings_) {
     base::WeakPtr<ServiceProxy>& service_proxy = it.second;
-    if (service_proxy)
-      service_proxy->OnDisconnect();
+    task_runner_->PostTask([service_proxy] {
+      if (service_proxy)
+        service_proxy->OnDisconnect();
+    });
   }
   service_bindings_.clear();
   queued_bindings_.clear();
@@ -162,6 +167,10 @@ void ClientImpl::OnFrameReceived(const Frame& frame) {
   if (req.type == Frame::kMsgInvokeMethod &&
       frame.msg_case() == Frame::kMsgInvokeMethodReply) {
     return OnInvokeMethodReply(std::move(req), frame.msg_invoke_method_reply());
+  }
+  if (frame.msg_case() == Frame::kMsgRequestError) {
+    PERFETTO_DLOG("Host error: %s", frame.msg_request_error().error());
+    return;
   }
 
   PERFETTO_DLOG(
