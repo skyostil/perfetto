@@ -35,7 +35,8 @@ FtraceCpuReader::FtraceCpuReader(FtraceCpuReader&&) = default;
 
 FtraceCpuReader::Config FtraceCpuReader::CreateConfig(
     std::set<std::string> event_names) {
-  std::vector<bool> enabled(table_->largest_id());
+  std::vector<bool> enabled;
+  enabled.resize(table_->largest_id(), false);
   for (const std::string& name : event_names) {
     const FtraceToProtoTranslationTable::Event* event =
         table_->GetEventByName(name);
