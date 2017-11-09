@@ -58,7 +58,7 @@ class ServiceDescriptor {
     InvokerFunc invoker;
   };
 
-  const char* service_name;
+  const char* service_name = nullptr;
 
   // Note that methods order is not stable. Client and Host might have different
   // method indexes, depending on their versions. The Client can't just rely

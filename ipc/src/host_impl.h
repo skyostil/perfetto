@@ -35,7 +35,7 @@ class Frame;
 
 class HostImpl : public Host, public UnixSocket::EventListener {
  public:
-  HostImpl(const char* socket_name, Host::EventListener*, base::TaskRunner*);
+  HostImpl(const char* socket_name, base::TaskRunner*);
   ~HostImpl() override;
 
   // Host implementation.
@@ -47,7 +47,10 @@ class HostImpl : public Host, public UnixSocket::EventListener {
   void OnDisconnect(UnixSocket*) override;
   void OnDataAvailable(UnixSocket*) override;
 
+  const UnixSocket* sock() const { return sock_.get(); }
+
  private:
+  // Owns the per-client receive buffer (BufferedFrameDeserializer).
   struct ClientConnection {
     ~ClientConnection();
     ClientID id;
@@ -64,29 +67,24 @@ class HostImpl : public Host, public UnixSocket::EventListener {
     std::string name;
     std::unique_ptr<Service> instance;
   };
+
   HostImpl(const HostImpl&) = delete;
   HostImpl& operator=(const HostImpl&) = delete;
 
   bool Initialize(const char* socket_name);
-  void OnNewConnection();
-  void OnDataAvailable(ClientID);
-  void OnClientDisconnect(ClientID);
   void OnReceivedFrame(ClientConnection*, const Frame&);
   void OnBindService(ClientConnection*, const Frame&);
   void OnInvokeMethod(ClientConnection*, const Frame&);
   void ReplyToMethodInvocation(ClientID, RequestID, AsyncResult<ProtoMessage>);
-
   const ExposedService* GetServiceByName(const std::string&);
-  void SendFrame(ClientConnection*, const Frame&);
+
+  static void SendFrame(ClientConnection*, const Frame&);
 
   const char* const socket_name_;
-  Host::EventListener* const event_listener_;
   base::TaskRunner* const task_runner_;
   base::WeakPtrFactory<HostImpl> weak_ptr_factory_;
   std::map<ServiceID, ExposedService> services_;
   std::unique_ptr<UnixSocket> sock_;  // The listening socket.
-
-  // TODO check that these maps are kept consistent.
   std::map<ClientID, std::unique_ptr<ClientConnection>> clients_;
   std::map<UnixSocket*, ClientConnection*> clients_by_socket_;
   ServiceID last_service_id_ = 0;

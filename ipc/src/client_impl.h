@@ -24,9 +24,9 @@
 
 #include "wire_protocol.pb.h"
 
+#include <list>
 #include <map>
 #include <memory>
-#include <vector>
 
 namespace perfetto {
 
@@ -89,6 +89,9 @@ class ClientImpl : public Client, public UnixSocket::EventListener {
   std::map<RequestID, QueuedRequest> queued_requests_;
   std::map<ServiceID, base::WeakPtr<ServiceProxy>> service_bindings_;
   base::WeakPtrFactory<Client> weak_ptr_factory_;
+
+  // Queue of calls to BindService() that happened before the socket connected.
+  std::list<base::WeakPtr<ServiceProxy>> queued_bindings_;
 };
 
 }  // namespace ipc

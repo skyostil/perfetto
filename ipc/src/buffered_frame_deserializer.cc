@@ -25,7 +25,6 @@
 
 #include "base/logging.h"
 #include "base/utils.h"
-#include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 
 #include "wire_protocol.pb.h"  // protobuf generated header.
@@ -36,11 +35,15 @@ namespace ipc {
 namespace {
 constexpr size_t kPageSize = 4096;
 constexpr size_t kGuardRegionSize = kPageSize;
+
+// The header is just the number of bytes of the Frame protobuf message.
+constexpr size_t kHeaderSize = sizeof(uint32_t);
 }  // namespace
 
 BufferedFrameDeserializer::BufferedFrameDeserializer(size_t max_capacity)
     : capacity_(max_capacity) {
   PERFETTO_CHECK(max_capacity % kPageSize == 0);
+  PERFETTO_CHECK(max_capacity > kPageSize);
 }
 
 BufferedFrameDeserializer::~BufferedFrameDeserializer() {
@@ -50,7 +53,8 @@ BufferedFrameDeserializer::~BufferedFrameDeserializer() {
   PERFETTO_DCHECK(res == 0);
 }
 
-std::pair<char*, size_t> BufferedFrameDeserializer::BeginRecv() {
+BufferedFrameDeserializer::ReceiveBuffer
+BufferedFrameDeserializer::BeginReceive() {
   // Upon the first recv initialize the buffer to the max message size but
   // release the physical memory for all but the first page. The kernel will
   // automatically give us physical pages back as soon as we page-fault on them.
@@ -74,36 +78,32 @@ std::pair<char*, size_t> BufferedFrameDeserializer::BeginRecv() {
   }
 
   PERFETTO_CHECK(capacity_ > size_);
-  return std::make_pair(buf_ + size_, capacity_ - size_);
+  return ReceiveBuffer{buf_ + size_, capacity_ - size_};
 }
 
-bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
+bool BufferedFrameDeserializer::EndReceive(size_t recv_size) {
   PERFETTO_CHECK(recv_size + size_ <= capacity_);
   size_ += recv_size;
 
   // At this point the contents buf_ can contain:
   // A) Only a fragment of the header (the size of the frame). E.g.,
-  //    00 00 00 (the header is 4 bytes, one is missing).
+  //    03 00 00 (the header is 4 bytes, one is missing).
   //
   // B) A header and a part of the frame. E.g.,
-  //     00 00 00 05         11 22 33
+  //     05 00 00 00         11 22 33
   //    [ header, size=5 ]  [ Partial frame ]
   //
   // C) One or more complete header+frame. E.g.,
-  //     00 00 00 05         11 22 33 44 55   00 00 00 03        AA BB CC
+  //     05 00 00 00         11 22 33 44 55   03 00 00 00        AA BB CC
   //    [ header, size=5 ]  [ Whole frame ]  [ header, size=3 ] [ Whole frame ]
   //
   // D) Some complete header+frame(s) and a partial header or frame (C + A/B).
   //
   // C Is the more likely case and the one we are optimizing for. A, B, D can
-  // happen because of the streaming nature of the socket. Realistically they
-  // will happen whenever a frame > kMinRecvBuffer is sent over.
+  // happen because of the streaming nature of the socket.
   // The invariant of this function is that, when it returns, buf_ is either
   // empty (we drained all the complete frames) or starts with the header of the
   // next, still incomplete, frame.
-
-  // The header is just the number of bytes of the Frame protobuf message.
-  const size_t kHeaderSize = sizeof(uint32_t);
 
   size_t consumed_size = 0;
   for (;;) {
@@ -127,7 +127,7 @@ bool BufferedFrameDeserializer::EndRecv(size_t recv_size) {
       if (next_frame_size > capacity_) {
         // The caller is expected to shut down the socket and give up at this
         // point. If it doesn't do that and insists going on at some point it
-        // will hit the capacity check in BeginRecv().
+        // will hit the capacity check in BeginReceive().
         PERFETTO_DLOG("Frame too large (size %zu)", next_frame_size);
         return false;
       }
@@ -190,18 +190,17 @@ void BufferedFrameDeserializer::DecodeFrame(const char* data, size_t size) {
 }
 
 // static
-std::pair<std::unique_ptr<char[]>, size_t> BufferedFrameDeserializer::Serialize(
-    const Frame& frame) {
-  uint32_t payload_size = static_cast<uint32_t>(frame.ByteSize());
-  static constexpr size_t kHeaderSize = sizeof(uint32_t);
-  const size_t frame_size = kHeaderSize + payload_size;
-  std::unique_ptr<char[]> buf(new char[frame_size]);
-  google::protobuf::io::ArrayOutputStream ostream(buf.get() + kHeaderSize,
-                                                  payload_size);
-  google::protobuf::io::CodedOutputStream cstream(&ostream);
-  frame.SerializeWithCachedSizes(&cstream);
-  memcpy(buf.get(), base::AssumeLittleEndian(&payload_size), kHeaderSize);
-  return std::make_pair(std::move(buf), frame_size);
+std::string BufferedFrameDeserializer::Serialize(const Frame& frame) {
+  std::string buf;
+  buf.reserve(1024);  // Just an educated guess to avoid trivial expansions.
+  buf.insert(0, kHeaderSize, 0);  // Reserve the space for the header.
+  frame.AppendToString(&buf);
+  const uint32_t payload_size = static_cast<uint32_t>(buf.size() - kHeaderSize);
+  PERFETTO_DCHECK(payload_size == frame.GetCachedSize());
+  char header[kHeaderSize];
+  memcpy(header, base::AssumeLittleEndian(&payload_size), kHeaderSize);
+  buf.replace(0, kHeaderSize, header, kHeaderSize);
+  return buf;
 }
 
 }  // namespace ipc

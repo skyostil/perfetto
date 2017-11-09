@@ -93,5 +93,9 @@ void ServiceProxy::OnDisconnect() {
   event_listener_->OnDisconnect();
 }
 
+base::WeakPtr<ServiceProxy> ServiceProxy::GetWeakPtr() const {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 }  // namespace ipc
 }  // namespace perfetto

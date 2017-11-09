@@ -29,27 +29,23 @@
 #include "wire_protocol.pb.h"
 
 // TODO(primiano): Add ThreadChecker everywhere.
-
-// TODO: protection against connection bombing.
-// TODO: protection against request bombing.
+// TODO(primiano): put a limit on #connections per peer uid (NOT pid).
+// TODO(primiano): put a limit on unreplied requests per client.
 
 namespace perfetto {
 namespace ipc {
 
 // static
 std::unique_ptr<Host> Host::CreateInstance(const char* socket_name,
-                                           Host::EventListener* event_listener,
                                            base::TaskRunner* task_runner) {
-  std::unique_ptr<HostImpl> host(
-      new HostImpl(socket_name, event_listener, task_runner));
+  std::unique_ptr<HostImpl> host(new HostImpl(socket_name, task_runner));
+  if (!host->sock()->is_listening())
+    return nullptr;
   return std::move(host);
 }
 
-HostImpl::HostImpl(const char* socket_name,
-                   Host::EventListener* event_listener,
-                   base::TaskRunner* task_runner)
+HostImpl::HostImpl(const char* socket_name, base::TaskRunner* task_runner)
     : socket_name_(socket_name),
-      event_listener_(event_listener),
       task_runner_(task_runner),
       weak_ptr_factory_(this) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -90,9 +86,9 @@ void HostImpl::OnDataAvailable(UnixSocket* sock) {
 
   size_t rsize;
   do {
-    std::pair<char*, size_t> buf = frame_deserializer.BeginRecv();
-    rsize = client->sock->Receive(buf.first, buf.second);
-    if (!frame_deserializer.EndRecv(rsize))
+    auto buf = frame_deserializer.BeginReceive();
+    rsize = client->sock->Receive(buf.data, buf.size);
+    if (!frame_deserializer.EndReceive(rsize))
       return OnDisconnect(client->sock.get());
   } while (rsize > 0);
 
@@ -198,13 +194,14 @@ void HostImpl::ReplyToMethodInvocation(ClientID client_id,
   SendFrame(client, reply_frame);
 }
 
+// static
 void HostImpl::SendFrame(ClientConnection* client, const Frame& frame) {
-  auto buf_and_size = BufferedFrameDeserializer::Serialize(frame);
+  std::string buf = BufferedFrameDeserializer::Serialize(frame);
 
   // TODO(primiano): remember that this is doing non-blocking I/O. What if the
   // socket buffer is full? Maybe we just want to drop this on the floor? Or
   // maybe throttle the send and PostTask the reply later?
-  client->sock->Send(buf_and_size.first.get(), buf_and_size.second);
+  client->sock->Send(buf.data(), buf.size());
 }
 
 void HostImpl::OnDisconnect(UnixSocket* sock) {
@@ -240,10 +237,6 @@ HostImpl::ExposedService& HostImpl::ExposedService::operator=(
 HostImpl::ExposedService::~ExposedService() = default;
 
 HostImpl::ClientConnection::~ClientConnection() = default;
-
-Host::EventListener::~EventListener() = default;
-void Host::EventListener::OnStarted() {}
-void Host::EventListener::OnNetworkError() {}
 
 }  // namespace ipc
 }  // namespace perfetto

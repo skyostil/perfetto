@@ -33,16 +33,9 @@ class Service;
 
 class Host {
  public:
-  class EventListener {
-   public:
-    virtual ~EventListener();
-    virtual void OnStarted();
-    virtual void OnNetworkError();  // TODO is this used?
-  };
-
   // Creates an instance and starts listening on the given |socket_name|.
+  // Returns nullptr if listening on the socket fails.
   static std::unique_ptr<Host> CreateInstance(const char* socket_name,
-                                              EventListener*,
                                               base::TaskRunner*);
   virtual ~Host() = default;
 
