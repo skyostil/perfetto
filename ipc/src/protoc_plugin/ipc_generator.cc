@@ -266,7 +266,7 @@ bool IPCGenerator::Generate(const FileDescriptor* file,
     GenerateServiceCpp(*file, *svc, &cc_printer);
   }
 
-  h_printer.Print("#endif  // $guard$", "guard", guard);
+  h_printer.Print("#endif  // $guard$\n", "guard", guard);
 
   return true;
 }

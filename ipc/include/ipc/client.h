@@ -22,6 +22,7 @@
 
 #include "base/weak_ptr.h"
 #include "ipc/basic_types.h"
+#include "ipc/service_proxy.h"
 
 namespace perfetto {
 
