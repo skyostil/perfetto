@@ -36,10 +36,13 @@ std::string ReadFileIntoString(std::string path) {
   if (!fin) {
     return "";
   }
-  std::ostringstream stream;
-  stream << fin.rdbuf();
-  fin.close();
-  return stream.str();
+  std::string str;
+  fin.seekg(0, std::ios::end);
+  str.reserve(fin.tellg());
+  fin.seekg(0, std::ios::beg);
+  str.assign(std::istreambuf_iterator<char>(fin),
+             std::istreambuf_iterator<char>());
+  return str;
 }
 
 }  // namespace
@@ -47,14 +50,20 @@ std::string ReadFileIntoString(std::string path) {
 // static
 std::unique_ptr<FtraceToProtoTranslationTable>
 FtraceToProtoTranslationTable::Create(std::string path_to_root) {
-  PERFETTO_CHECK(path_to_root[path_to_root.length() - 1] == '/');
+  if (path_to_root.length() == 0 || path_to_root.back() != '/') {
+    PERFETTO_DLOG("Path '%s' must end with /.", path_to_root.c_str());
+    return nullptr;
+  }
   std::map<size_t, Event> id_to_events;
   std::vector<Field> common_fields;
 
   std::vector<Event> events;
   std::string available_path = path_to_root + "/available_events";
   std::string available_contents = ReadFileIntoString(available_path);
-  PERFETTO_CHECK(available_contents != "");
+  if (available_contents == "") {
+    PERFETTO_DLOG("Could not read '%s'", available_path.c_str());
+    return nullptr;
+  }
   {
     std::unique_ptr<char[], base::FreeDeleter> copy(
         strdup(available_contents.c_str()));
@@ -73,21 +82,22 @@ FtraceToProtoTranslationTable::Create(std::string path_to_root) {
     }
   }
 
-  for (Event e : events) {
+  for (Event event : events) {
     std::string path =
-        path_to_root + "/events/" + e.group + "/" + e.name + "/format";
+        path_to_root + "/events/" + event.group + "/" + event.name + "/format";
     std::string contents = ReadFileIntoString(path);
-    PERFETTO_CHECK(contents != "");
-    FtraceEvent fe;
-    if (!ParseFtraceEvent(contents, &fe))
+    FtraceEvent ftrace_event;
+    if (contents == "" || !ParseFtraceEvent(contents, &ftrace_event)) {
+      PERFETTO_DLOG("Could not read '%s'", path.c_str());
       continue;
-    e.ftrace_event_id = fe.id;
-    e.fields.reserve(fe.fields.size());
-    for (FtraceEvent::Field fe_field : fe.fields) {
-      e.fields.push_back(Field{fe_field.offset, fe_field.size});
+    }
+    event.ftrace_event_id = ftrace_event.id;
+    event.fields.reserve(ftrace_event.fields.size());
+    for (FtraceEvent::Field ftrace_field : ftrace_event.fields) {
+      event.fields.push_back(Field{ftrace_field.offset, ftrace_field.size});
     }
 
-    id_to_events[e.ftrace_event_id] = e;
+    id_to_events[event.ftrace_event_id] = event;
   }
 
   auto table = std::unique_ptr<FtraceToProtoTranslationTable>(

@@ -35,14 +35,14 @@ class AllTranslationTableTest : public TestWithParam<const char*> {
   std::unique_ptr<FtraceToProtoTranslationTable> table_;
 };
 
-const char* devices[] = {"android_seed_N2F62_3.10.49",
-                         "android_hammerhead_MRA59G_3.4.0"};
+const char* kDevices[] = {"android_seed_N2F62_3.10.49",
+                          "android_hammerhead_MRA59G_3.4.0"};
 
 TEST_P(AllTranslationTableTest, Create) {
   EXPECT_TRUE(table_);
 }
 
-INSTANTIATE_TEST_CASE_P(ByDevice, AllTranslationTableTest, ValuesIn(devices));
+INSTANTIATE_TEST_CASE_P(ByDevice, AllTranslationTableTest, ValuesIn(kDevices));
 
 TEST(TranslationTable, Seed) {
   std::string path = "ftrace_reader/test/data/android_seed_N2F62_3.10.49/";
