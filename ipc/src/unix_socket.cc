@@ -264,7 +264,7 @@ bool UnixSocket::Send(const std::string& msg) {
 
 bool UnixSocket::Send(const void* msg, size_t len, int send_fd) {
   if (state_ != State::kConnected) {
-    last_error_ = ENOTCONN;
+    errno = last_error_ = ENOTCONN;
     return false;
   }
 
@@ -281,8 +281,7 @@ bool UnixSocket::Send(const void* msg, size_t len, int send_fd) {
     memset(control_buf, 0, sizeof(control_buf));
     msg_hdr.msg_control = control_buf;
     msg_hdr.msg_controllen = control_buf_len;
-    struct cmsghdr* cmsg =
-        reinterpret_cast<struct cmsghdr*>(CMSG_FIRSTHDR(&msg_hdr));
+    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg_hdr);
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type = SCM_RIGHTS;
     cmsg->cmsg_len = CMSG_LEN(sizeof(int));
@@ -369,9 +368,8 @@ size_t UnixSocket::Receive(void* msg, size_t len, base::ScopedFile* recv_fd) {
   uint32_t fds_len = 0;
 
   if (msg_hdr.msg_controllen > 0) {
-    for (cmsghdr* cmsg =
-             reinterpret_cast<struct cmsghdr*>(CMSG_FIRSTHDR(&msg_hdr));
-         cmsg; cmsg = CMSG_NXTHDR(&msg_hdr, cmsg)) {
+    for (cmsghdr* cmsg = CMSG_FIRSTHDR(&msg_hdr); cmsg;
+         cmsg = CMSG_NXTHDR(&msg_hdr, cmsg)) {
       const size_t payload_len = cmsg->cmsg_len - CMSG_LEN(0);
       if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
         PERFETTO_DCHECK(payload_len % sizeof(int) == 0u);
