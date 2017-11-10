@@ -29,7 +29,10 @@ template <typename T>
   return nullptr;
 }
 
-// Templated method dispatcher.
+// Templated method dispatcher. Used to obtain a function pointer to a given
+// IPC method (Method) of a given service (TSvc) that can be invoked by the
+// host-side machinery starting from a generic Service pointer and a generic
+// ProtoMessage request argument.
 template <typename TSvc,    // Type of the actual Service subclass.
           typename TReq,    // Type of the request argument.
           typename TReply,  // Type of the reply argument.
