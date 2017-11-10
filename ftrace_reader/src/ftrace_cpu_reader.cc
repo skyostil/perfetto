@@ -34,9 +34,9 @@ FtraceCpuReader::~FtraceCpuReader() = default;
 FtraceCpuReader::FtraceCpuReader(FtraceCpuReader&&) = default;
 
 FtraceCpuReader::Config FtraceCpuReader::CreateConfig(
-    std::set<std::string> event_names) {
+    const std::set<std::string>& event_names) {
   std::vector<bool> enabled;
-  enabled.resize(table_->largest_id(), false);
+  enabled.resize(table_->LargestId(), false);
   for (const std::string& name : event_names) {
     const FtraceToProtoTranslationTable::Event* event =
         table_->GetEventByName(name);
@@ -52,10 +52,12 @@ FtraceCpuReader::Config::Config(Config&&) = default;
 
 FtraceCpuReader::Config::Config(std::vector<bool> enabled)
     : enabled_(enabled){};
+
 bool FtraceCpuReader::Config::IsEnabled(size_t ftrace_event_id) const {
-  PERFETTO_DCHECK(ftrace_event_id < enabled_.size());
   // FtraceEventIds are 1-indexed.
-  return enabled_[ftrace_event_id - 1];
+  size_t n = ftrace_event_id - 1;
+  PERFETTO_DCHECK(n < enabled_.size());
+  return enabled_[n];
 }
 
 }  // namespace perfetto

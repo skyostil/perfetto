@@ -59,12 +59,18 @@ class FtraceToProtoTranslationTable {
       std::string path_to_event_dir);
   ~FtraceToProtoTranslationTable();
 
+  // A map from the ftrace event id to the matching event.
+  const std::map<size_t, Event>& events() const { return events_; }
+  const std::vector<Field>& common_fields() const { return common_fields_; }
+
+  size_t LargestId() const;
+
   const Event* GetEventByName(std::string name) const;
-  size_t largest_id() const { return largest_id_; }
+
+  FtraceToProtoTranslationTable(const std::vector<Event>& events,
+                                std::vector<Field> common_fields);
 
  private:
-  FtraceToProtoTranslationTable(std::map<size_t, Event> events,
-                                std::vector<Field> common_fields);
   FtraceToProtoTranslationTable(const FtraceToProtoTranslationTable&) = delete;
   FtraceToProtoTranslationTable& operator=(
       const FtraceToProtoTranslationTable&) = delete;
@@ -72,7 +78,6 @@ class FtraceToProtoTranslationTable {
   std::map<size_t, Event> events_;
   std::map<std::string, Event*> name_to_event_;
   std::vector<Field> common_fields_;
-  size_t largest_id_;
 };
 
 }  // namespace perfetto
