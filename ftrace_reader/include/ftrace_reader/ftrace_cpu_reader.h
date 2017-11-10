@@ -41,7 +41,6 @@ class FtraceCpuReader {
 
   int GetFileDescriptor();
 
-  // TODO(hjd): Move to private once gtest-prod works.
   template <typename T>
   static bool ReadAndAdvance(const uint8_t** ptr, const uint8_t* end, T* out) {
     if (*ptr + sizeof(T) > end)

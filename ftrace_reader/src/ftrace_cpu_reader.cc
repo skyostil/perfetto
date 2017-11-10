@@ -106,7 +106,8 @@ bool FtraceCpuReader::ParsePage(size_t cpu,
   PageHeader page_header;
   if (!ReadAndAdvance(&ptr, end, &page_header))
     return false;
-  PERFETTO_CHECK(ptr + page_header.size <= end);
+  if (ptr + page_header.size > end)
+    return false;
 
   // TODO(hjd): Remove.
   (void)start;
