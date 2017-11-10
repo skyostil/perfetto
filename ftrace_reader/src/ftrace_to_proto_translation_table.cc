@@ -82,6 +82,9 @@ FtraceToProtoTranslationTable::Create(std::string path_to_root) {
     }
   }
 
+  if (events.size() == 0)
+    return nullptr;
+
   for (Event event : events) {
     std::string path =
         path_to_root + "/events/" + event.group + "/" + event.name + "/format";
@@ -96,7 +99,11 @@ FtraceToProtoTranslationTable::Create(std::string path_to_root) {
     for (FtraceEvent::Field ftrace_field : ftrace_event.fields) {
       event.fields.push_back(Field{ftrace_field.offset, ftrace_field.size});
     }
-
+    if (common_fields.size() == 0) {
+      for (FtraceEvent::Field ftrace_field : ftrace_event.common_fields) {
+        common_fields.push_back(Field{ftrace_field.offset, ftrace_field.size});
+      }
+    }
     id_to_events[event.ftrace_event_id] = event;
   }
 

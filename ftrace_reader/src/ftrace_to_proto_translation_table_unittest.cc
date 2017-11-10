@@ -47,10 +47,17 @@ INSTANTIATE_TEST_CASE_P(ByDevice, AllTranslationTableTest, ValuesIn(kDevices));
 TEST(TranslationTable, Seed) {
   std::string path = "ftrace_reader/test/data/android_seed_N2F62_3.10.49/";
   auto table = FtraceToProtoTranslationTable::Create(path);
+
+  // field:unsigned short common_type; offset:0; size:2; signed:0;
+  EXPECT_EQ(table->common_fields().at(0).ftrace_offset, 0u);
+  EXPECT_EQ(table->common_fields().at(0).ftrace_size, 2u);
+
   auto sched_switch_event = table->events().at(68);
   EXPECT_EQ(sched_switch_event.name, "sched_switch");
   EXPECT_EQ(sched_switch_event.group, "sched");
   EXPECT_EQ(sched_switch_event.ftrace_event_id, 68);
+
+  // field:char prev_comm[16]; offset:8; size:16;  signed:0;
   EXPECT_EQ(sched_switch_event.fields.at(0).ftrace_offset, 8u);
   EXPECT_EQ(sched_switch_event.fields.at(0).ftrace_size, 16u);
 }
