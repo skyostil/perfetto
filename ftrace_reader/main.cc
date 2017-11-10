@@ -72,7 +72,7 @@ ScatteredBuffer::~ScatteredBuffer() {}
 protozero::ContiguousMemoryRange ScatteredBuffer::GetNewBuffer() {
   std::unique_ptr<uint8_t[]> chunk(new uint8_t[chunk_size_]);
   uint8_t* begin = chunk.get();
-  memset(begin, 0, chunk_size_);
+  memset(begin, 0xff, chunk_size_);
   chunks_.push_back(std::move(chunk));
   return {begin, begin + chunk_size_};
 }
