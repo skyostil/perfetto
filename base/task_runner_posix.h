@@ -19,6 +19,7 @@
 
 #include "base/scoped_file.h"
 #include "base/task_runner.h"
+#include "base/thread_checker.h"
 
 #include <poll.h>
 #include <chrono>
@@ -49,6 +50,8 @@ class TaskRunnerPosix : public TaskRunner {
   using TimeDuration = std::chrono::milliseconds;
   TimePoint GetTime() const;
 
+  void UpdatePollTasksLocked();
+
   void WakeUp();
 
   TimeDuration GetDelayToNextTaskLocked() const;
@@ -56,22 +59,31 @@ class TaskRunnerPosix : public TaskRunner {
   void RunDelayedTask();
   void RunFileDescriptorWatches();
 
+  ThreadChecker thread_checker_;
+
   ScopedFile control_read_;
   ScopedFile control_write_;
 
+  // Active set of fds we are watching, split as structure-of-arrays. Changes
+  // to this set are buffered in |pending_poll_tasks_| as we can't change the
+  // data from under poll(2).
+  std::vector<struct pollfd> poll_fds_;
+  std::vector<std::function<void()>> poll_tasks_;
+
   // --- Begin lock-protected members.
+
   std::mutex lock_;
 
   std::deque<std::function<void()>> immediate_tasks_;
   std::multimap<TimePoint, std::function<void()>> delayed_tasks_;
   bool done_ = false;
-  // --- End lock-protected members.
 
-  // Since poll(2) is already O(N), there's not much point making these data
-  // structures any fancier.
-  // TODO: These need to be made double-buffered for thread safety.
-  std::vector<std::function<void()>> poll_tasks_;
-  std::vector<struct pollfd> poll_fds_;
+  // A non-null function indicates a newly added watch, a null function a
+  // removed watch.
+  std::map<int, std::function<void()>> pending_poll_tasks_;
+  bool poll_tasks_changed_ = true;
+
+  // --- End lock-protected members.
 };
 
 }  // namespace base

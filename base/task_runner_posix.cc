@@ -30,8 +30,7 @@ TaskRunnerPosix::TaskRunnerPosix() {
   }
   control_read_.reset(pipe_fds[0]);
   control_write_.reset(pipe_fds[1]);
-  // TODO: Why doesn't emplace_back work?
-  poll_fds_.push_back({control_read_.get(), POLLIN, 0});
+  pending_poll_tasks_[control_read_.get()] = [] {};
 }
 
 TaskRunnerPosix::~TaskRunnerPosix() = default;
@@ -41,25 +40,30 @@ TaskRunnerPosix::TimePoint TaskRunnerPosix::GetTime() const {
 }
 
 void TaskRunnerPosix::WakeUp() {
-  // TODO: Only do this if we're not on the main thread.
+  // If we're running on the main thread there's no need to schedule a wake-up.
+  if (thread_checker_.CalledOnValidThread())
+    return;
   if (write(control_write_.get(), nullptr, 0) < 0)
     PERFETTO_DPLOG("write()");
 }
 
 void TaskRunnerPosix::Run() {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
   while (true) {
-    int delay_ms;
+    int next_task_delay_ms;
     {
       std::lock_guard<std::mutex> lock(lock_);
       if (done_)
         break;
-      delay_ms = static_cast<int>(GetDelayToNextTaskLocked().count());
+      next_task_delay_ms = static_cast<int>(GetDelayToNextTaskLocked().count());
+      UpdatePollTasksLocked();
     }
     int ret = 0;
     // Don't start polling until we run out of runnable tasks.
-    if (delay_ms)
-      ret =
-          poll(&poll_fds_[0], static_cast<nfds_t>(poll_fds_.size()), delay_ms);
+    if (next_task_delay_ms) {
+      ret = poll(&poll_fds_[0], static_cast<nfds_t>(poll_fds_.size()),
+                 next_task_delay_ms);
+    }
     if (ret == -1) {
       PERFETTO_DPLOG("poll()");
       return;
@@ -83,6 +87,41 @@ void TaskRunnerPosix::Quit() {
   WakeUp();
 }
 
+void TaskRunnerPosix::UpdatePollTasksLocked() {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  if (!poll_tasks_changed_)
+    return;
+  poll_tasks_changed_ = false;
+
+  // Note that we need to maintain the state of unmodified fds in |poll_fds_|
+  // to avoid missing events.
+
+  // Remove unregistered fds or update changed fds.
+  for (size_t i = 0; i < poll_fds_.size(); i++) {
+    auto it = pending_poll_tasks_.find(poll_fds_[i].fd);
+    if (it == pending_poll_tasks_.end())
+      continue;
+    if (!it->second) {
+      // Unregistered fd.
+      poll_fds_.erase(poll_fds_.begin() + static_cast<ssize_t>(i));
+      poll_tasks_.erase(poll_tasks_.begin() + static_cast<ssize_t>(i));
+      i--;
+      continue;
+    } else {
+      // Changed fd.
+      poll_tasks_[i] = std::move(it->second);
+    }
+  }
+
+  // Add registered fds.
+  for (const auto& it : pending_poll_tasks_) {
+    if (!it.second)
+      continue;
+    poll_fds_.push_back({it.first, POLLIN, 0});
+    poll_tasks_.push_back(std::move(it.second));
+  }
+}
+
 void TaskRunnerPosix::RunImmediateTask() {
   if (immediate_tasks_.empty())
     return;
@@ -103,24 +142,30 @@ void TaskRunnerPosix::RunDelayedTask() {
 }
 
 void TaskRunnerPosix::RunFileDescriptorWatches() {
-  for (size_t i = 1; i < poll_fds_.size(); i++) {
-    // Note: The control fd has no associated task.
-    const auto& task = poll_tasks_[i - 1];
-    if (!task) {
-      poll_fds_.erase(poll_fds_.begin() + static_cast<ssize_t>(i));
-      poll_tasks_.erase(poll_tasks_.begin() + static_cast<ssize_t>(i - 1));
-      i--;
-      continue;
+  PERFETTO_DCHECK_THREAD(thread_checker_);
+  bool should_update = true;
+  for (size_t i = 0; i < poll_fds_.size(); i++) {
+    // Any task may change the set of fds we're interested in, so update the
+    // set every time we run a task.
+    if (should_update) {
+      std::lock_guard<std::mutex> lock(lock_);
+      UpdatePollTasksLocked();
+      should_update = false;
     }
+    if (i >= poll_fds_.size())
+      break;
     if (!(poll_fds_[i].revents & POLLIN))
       continue;
     poll_fds_[i].revents = 0;
+    should_update = true;
+    const auto& task = poll_tasks_[i];
     task();
   }
 }
 
 TaskRunnerPosix::TimeDuration TaskRunnerPosix::GetDelayToNextTaskLocked()
     const {
+  PERFETTO_DCHECK_THREAD(thread_checker_);
   if (!immediate_tasks_.empty())
     return TimeDuration(0);
   if (!delayed_tasks_.empty()) {
@@ -155,24 +200,21 @@ void TaskRunnerPosix::PostDelayedTask(std::function<void()> task,
 
 void TaskRunnerPosix::AddFileDescriptorWatch(int fd,
                                              std::function<void()> task) {
-  for (const auto& poll_fd : poll_fds_)
-    PERFETTO_DCHECK(poll_fd.fd != fd);
-
-  // TODO: Why doesn't emplace_back work?
-  poll_fds_.push_back({fd, POLLIN, 0});
-  poll_tasks_.emplace_back(std::move(task));
+  {
+    std::lock_guard<std::mutex> lock(lock_);
+    pending_poll_tasks_.insert(std::make_pair(fd, std::move(task)));
+    poll_tasks_changed_ = true;
+  }
   WakeUp();
 }
 
 void TaskRunnerPosix::RemoveFileDescriptorWatch(int fd) {
-  for (size_t i = 0; i < poll_fds_.size(); i++) {
-    if (poll_fds_[i].fd == fd) {
-      // Entry will be remobed at nxet event loop cycle.
-      poll_tasks_[i] = nullptr;
-      return;
-    }
+  {
+    std::lock_guard<std::mutex> lock(lock_);
+    pending_poll_tasks_.insert(std::make_pair(fd, nullptr));
+    poll_tasks_changed_ = true;
   }
-  PERFETTO_DCHECK(false);
+  // No need to schedule a wake-up for this.
 }
 
 }  // namespace base
