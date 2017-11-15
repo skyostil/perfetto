@@ -25,6 +25,14 @@ source_set("base") {
     "utils.h",
     "weak_ptr.h",
   ]
+
+  if (target_os == "android") {
+    sources += [
+      "task_runner_android.h",
+      "task_runner_android.cc",
+    ]
+    libs = [ "android" ]
+  }
 }
 
 source_set("test_support") {

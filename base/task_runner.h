@@ -49,7 +49,9 @@ class TaskRunner {
   // be monitored by one function.
   virtual void AddFileDescriptorWatch(int fd, std::function<void()>) = 0;
 
-  // Remove a previously scheduled watch for |fd|.
+  // Remove a previously scheduled watch for |fd|. If this is run on the target
+  // thread of this TaskRunner, guarantees that the task registered to this fd
+  // will not be executed after this function call.
   virtual void RemoveFileDescriptorWatch(int fd) = 0;
 };
 
