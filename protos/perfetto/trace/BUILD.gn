@@ -56,7 +56,6 @@ group("zero") {
 group("lite") {
   public_deps = [
     ":minimal_lite",
-    ":non_minimal_lite",
   ]
 }
 
@@ -91,6 +90,7 @@ perfetto_proto_library("non_minimal_@TYPE@") {
     "sys_stats:@TYPE@",
     "system_info:@TYPE@",
     "track_event:@TYPE@",
+    "waybefore:@TYPE@",
   ]
   sources = proto_sources_non_minimal
 }
