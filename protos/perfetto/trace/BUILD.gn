@@ -60,6 +60,7 @@ group("zero") {
 group("lite") {
   public_deps = [
     ":minimal_lite",
+    ":non_minimal_lite",
   ]
 }
 
