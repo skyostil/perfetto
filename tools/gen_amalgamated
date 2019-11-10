@@ -51,6 +51,7 @@ gn_args = ' '.join([
     'is_perfetto_embedder=true',
     'use_custom_libcxx=false',
     'enable_perfetto_ipc=true',
+    'enable_perfetto_watchdog=false',
 ])
 
 # By default, the amalgamated .h only recurses in #includes but not in the
