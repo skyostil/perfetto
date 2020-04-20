@@ -157,8 +157,8 @@ void __attribute__((noreturn)) ChildProcess(ChildProcessArgs* args) {
   set_fd_close_on_exec(STDERR_FILENO, false);
 
   // If the caller specified a std::function entrypoint, run that first.
-  if (args->create_args->posix_entrypoint_for_testing)
-    args->create_args->posix_entrypoint_for_testing();
+  //if (args->create_args->posix_entrypoint_for_testing)
+  //  args->create_args->posix_entrypoint_for_testing();
 
   // If the caller specified only an entrypoint, without any args, exit now.
   // Otherwise proceed with the exec() below.

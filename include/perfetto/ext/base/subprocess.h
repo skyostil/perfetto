@@ -132,7 +132,7 @@ class Subprocess {
     // |posix_entrypoint_for_testing|. In this case the latter will be invoked
     // just before the exec() call, but after having closed all fds % stdin/o/e.
     // This is for synchronization barriers in tests.
-    std::function<void()> posix_entrypoint_for_testing;
+    //std::function<void()> posix_entrypoint_for_testing;
 #endif
 
     // If non-empty, replaces the environment passed to exec().
